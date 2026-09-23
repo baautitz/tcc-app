@@ -1,27 +1,34 @@
 import { useEffect, useState } from "react";
-import { api } from "./api";
-import { AdminPage } from "./admin";
-import { DashboardPage } from "./dashboard";
-import type { CurrentUser, DashboardSummary } from "./types";
+import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { BarChart3, LayoutDashboard, LogOut, PanelTop, Settings, UserRound } from "lucide-react";
+import { api } from "@/api";
+import { AdminPage } from "@/admin";
+import { DashboardListPage, DashboardPage } from "@/dashboard";
+import { AuthProvider, useAuth } from "@/context/AuthContext";
+import { ImperativeUIProvider } from "@/context/ImperativeUIContext";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { FieldGroup } from "@/components/ui/field";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
+import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Toaster, toast } from "@/components/ui/toast";
+import type { DashboardSummary } from "@/types";
 
-type View = { page: "dashboards" } | { page: "dashboard"; id: string } | { page: "admin" };
-
-export default function App() {
-  const [user, setUser] = useState<CurrentUser>();
-  const [view, setView] = useState<View>({ page: "dashboards" });
-  const [dashboards, setDashboards] = useState<DashboardSummary[]>([]);
-  const [email, setEmail] = useState("admin@tcc.local");
-  const [password, setPassword] = useState("Admin@123");
-  const [error, setError] = useState<string>();
-
-  async function refreshDashboards(): Promise<void> {
-    try { setDashboards(await api.dashboards()); } catch (reason) { setError(reason instanceof Error ? reason.message : "Não foi possível carregar os dashboards."); }
-  }
-
-  useEffect(() => { void api.me().then((result) => { setUser(result.user); return refreshDashboards(); }).catch(() => undefined); }, []);
-
-  if (!user) return <main className="login-page"><form className="login-card" onSubmit={(event) => { event.preventDefault(); setError(undefined); void api.login(email, password).then(async (result) => { setUser(result.user); await refreshDashboards(); }).catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "Não foi possível entrar.")); }}><p className="eyebrow">TCC · DASHBOARDS</p><h1>Entrar na plataforma</h1><p>Use o administrador de desenvolvimento no primeiro acesso.</p><label>E-mail<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required /></label><label>Senha<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required /></label>{error && <p className="error-text">{error}</p>}<button type="submit">Entrar</button></form></main>;
-
-  const canAdmin = user.permissions.some((permission) => permission.endsWith(":read") || permission.endsWith(":create"));
-  return <div className="application"><header className="topbar"><button className="brand" onClick={() => setView({ page: "dashboards" })}>TCC Dashboards</button><nav><button onClick={() => setView({ page: "dashboards" })}>Dashboards</button>{canAdmin && <button onClick={() => setView({ page: "admin" })}>Administração</button>}<span>{user.name}</span><button onClick={() => { void api.logout().finally(() => { setUser(undefined); setView({ page: "dashboards" }); }); }}>Sair</button></nav></header>{view.page === "dashboards" && <main className="page"><header className="page-heading"><div><h1>Dashboards disponíveis</h1><p>Componentes hidratados de forma assíncrona por UUID.</p></div></header><div className="dashboard-list">{dashboards.map((dashboard) => <button className="dashboard-link" key={dashboard.id} onClick={() => setView({ page: "dashboard", id: dashboard.id })}><strong>{dashboard.name}</strong><span>{dashboard.description ?? "Sem descrição"}</span></button>)}{dashboards.length === 0 && <p className="empty">Nenhum dashboard foi liberado para este usuário.</p>}</div></main>}{view.page === "dashboard" && <DashboardPage dashboardId={view.id} onBack={() => setView({ page: "dashboards" })} />}{view.page === "admin" && <AdminPage />}</div>;
-}
+const loginSchema = z.object({ email: z.string().email("Informe um e-mail válido."), password: z.string().min(1, "Informe a senha.") });
+type LoginForm = z.infer<typeof loginSchema>;
+function LoginPage() { const { login } = useAuth(); const form = useForm<LoginForm>({ resolver: zodResolver(loginSchema), defaultValues: { email: "admin@tcc.local", password: "Admin@123" } }); const submit = async (values: LoginForm) => { try { await login(values.email, values.password); toast.success("Login realizado com sucesso."); } catch (reason) { toast.error((reason as Error).message || "Não foi possível entrar."); } }; return <main className="flex min-h-svh items-center justify-center bg-muted p-4"><Card className="w-full max-w-md"><CardHeader><div className="mb-2 flex size-8 items-center justify-center bg-primary text-primary-foreground"><PanelTop /></div><CardTitle>Entrar na plataforma</CardTitle><CardDescription>TCC Dashboards · Acesse informações liberadas pelas suas permissões.</CardDescription></CardHeader><CardContent><Form {...form}><form onSubmit={form.handleSubmit(submit)}><FieldGroup><FormField control={form.control} name="email" render={({ field }) => <FormItem><FormLabel>E-mail</FormLabel><FormControl><Input {...field} type="email" autoComplete="email" /></FormControl><FormMessage /></FormItem>} /><FormField control={form.control} name="password" render={({ field }) => <FormItem><FormLabel>Senha</FormLabel><FormControl><Input {...field} type="password" autoComplete="current-password" /></FormControl><FormMessage /></FormItem>} /><Button type="submit">Entrar</Button></FieldGroup></form></Form></CardContent></Card></main>; }
+function Layout() { const { user, logout } = useAuth(); const navigate = useNavigate(); const location = useLocation(); const [dashboards, setDashboards] = useState<DashboardSummary[]>([]); const [loading, setLoading] = useState(true); const canAdmin = Boolean(user?.permissions.some((permission) => permission === "*" || permission.endsWith(":read") || permission.endsWith(":create")));
+  useEffect(() => { api.dashboards().then(setDashboards).catch((reason: Error) => toast.error(reason.message)).finally(() => setLoading(false)); }, [location.pathname]);
+  const title = location.pathname.startsWith("/admin") ? "Administração" : location.pathname.startsWith("/dashboards/") ? "Dashboard" : "Dashboards";
+  return <SidebarProvider><Sidebar><SidebarHeader><SidebarMenu><SidebarMenuItem><SidebarMenuButton onClick={() => navigate("/")}><PanelTop /><span className="font-semibold">TCC Dashboards</span></SidebarMenuButton></SidebarMenuItem></SidebarMenu></SidebarHeader><SidebarContent><SidebarGroup><SidebarGroupLabel>Dashboards</SidebarGroupLabel><SidebarMenu><SidebarMenuItem><SidebarMenuButton isActive={location.pathname === "/"} onClick={() => navigate("/")}><LayoutDashboard />Todos os dashboards</SidebarMenuButton></SidebarMenuItem>{loading ? <SidebarMenuItem><Skeleton className="h-8 w-full" /></SidebarMenuItem> : dashboards.map((dashboard) => <SidebarMenuItem key={dashboard.id}><SidebarMenuButton isActive={location.pathname === `/dashboards/${dashboard.id}`} onClick={() => navigate(`/dashboards/${dashboard.id}`)}><BarChart3 />{dashboard.name}</SidebarMenuButton></SidebarMenuItem>)}</SidebarMenu></SidebarGroup>{canAdmin && <SidebarGroup><SidebarGroupLabel>Administração</SidebarGroupLabel><SidebarMenu><SidebarMenuItem><SidebarMenuButton isActive={location.pathname.startsWith("/admin")} onClick={() => navigate("/admin")}><Settings />Configurações</SidebarMenuButton></SidebarMenuItem></SidebarMenu></SidebarGroup>}</SidebarContent><SidebarFooter><SidebarMenu><SidebarMenuItem><SidebarMenuButton><UserRound /><span className="min-w-0 truncate">{user?.name}</span></SidebarMenuButton></SidebarMenuItem><SidebarMenuItem><SidebarMenuButton onClick={() => void logout().then(() => navigate("/login"))}><LogOut />Sair</SidebarMenuButton></SidebarMenuItem></SidebarMenu></SidebarFooter></Sidebar><SidebarInset><header className="sticky top-0 z-40 flex h-14 items-center gap-2 border-b bg-background/95 px-3 backdrop-blur md:px-6"><SidebarTrigger /><Separator orientation="vertical" className="h-4" /><p className="text-sm font-medium">{title}</p></header><div className="flex flex-1 flex-col p-4 md:p-6 lg:p-8"><Outlet /></div></SidebarInset></SidebarProvider>; }
+function HomeRoute() { const navigate = useNavigate(); const [dashboards, setDashboards] = useState<DashboardSummary[]>([]); const [loading, setLoading] = useState(true); useEffect(() => { api.dashboards().then(setDashboards).catch((reason: Error) => toast.error(reason.message)).finally(() => setLoading(false)); }, []); return <DashboardListPage dashboards={dashboards} loading={loading} onOpen={(id) => navigate(`/dashboards/${id}`)} />; }
+function DashboardRoute() { const { id } = useParams(); const navigate = useNavigate(); return id ? <DashboardPage dashboardId={id} onBack={() => navigate("/")} /> : <Navigate to="/" replace />; }
+function ProtectedApp() { const { ready, user } = useAuth(); if (!ready) return <main className="flex min-h-svh items-center justify-center"><Skeleton className="h-8 w-48" /></main>; if (!user) return <LoginPage />; return <Routes><Route element={<Layout />}><Route path="/" element={<HomeRoute />} /><Route path="/dashboards/:id" element={<DashboardRoute />} /><Route path="/admin" element={<AdminPage />} /></Route><Route path="*" element={<Navigate to="/" replace />} /></Routes>; }
+function App() { return <BrowserRouter><Toaster><AuthProvider><ImperativeUIProvider><ProtectedApp /></ImperativeUIProvider></AuthProvider></Toaster></BrowserRouter>; }
+export default App;
