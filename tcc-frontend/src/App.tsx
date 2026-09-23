@@ -1,34 +1,223 @@
 import { useEffect, useState } from "react";
-import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useNavigate, useParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { BarChart3, LayoutDashboard, LogOut, PanelTop, Settings, UserRound } from "lucide-react";
+import { PanelTop } from "lucide-react";
 import { api } from "@/api";
-import { AdminPage } from "@/admin";
+import { AdminSectionPage } from "@/admin";
 import { DashboardListPage, DashboardPage } from "@/dashboard";
+import { AppLayout } from "@/components/layout/AppLayout";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { ImperativeUIProvider } from "@/context/ImperativeUIContext";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { FieldGroup } from "@/components/ui/field";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
-import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Toaster, toast } from "@/components/ui/toast";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import type { DashboardSummary } from "@/types";
 
-const loginSchema = z.object({ email: z.string().email("Informe um e-mail válido."), password: z.string().min(1, "Informe a senha.") });
+const loginSchema = z.object({
+  email: z.string().email("Informe um e-mail válido."),
+  password: z.string().min(1, "Informe a senha."),
+});
+
 type LoginForm = z.infer<typeof loginSchema>;
-function LoginPage() { const { login } = useAuth(); const form = useForm<LoginForm>({ resolver: zodResolver(loginSchema), defaultValues: { email: "admin@tcc.local", password: "Admin@123" } }); const submit = async (values: LoginForm) => { try { await login(values.email, values.password); toast.success("Login realizado com sucesso."); } catch (reason) { toast.error((reason as Error).message || "Não foi possível entrar."); } }; return <main className="flex min-h-svh items-center justify-center bg-muted p-4"><Card className="w-full max-w-md"><CardHeader><div className="mb-2 flex size-8 items-center justify-center bg-primary text-primary-foreground"><PanelTop /></div><CardTitle>Entrar na plataforma</CardTitle><CardDescription>TCC Dashboards · Acesse informações liberadas pelas suas permissões.</CardDescription></CardHeader><CardContent><Form {...form}><form onSubmit={form.handleSubmit(submit)}><FieldGroup><FormField control={form.control} name="email" render={({ field }) => <FormItem><FormLabel>E-mail</FormLabel><FormControl><Input {...field} type="email" autoComplete="email" /></FormControl><FormMessage /></FormItem>} /><FormField control={form.control} name="password" render={({ field }) => <FormItem><FormLabel>Senha</FormLabel><FormControl><Input {...field} type="password" autoComplete="current-password" /></FormControl><FormMessage /></FormItem>} /><Button type="submit">Entrar</Button></FieldGroup></form></Form></CardContent></Card></main>; }
-function Layout() { const { user, logout } = useAuth(); const navigate = useNavigate(); const location = useLocation(); const [dashboards, setDashboards] = useState<DashboardSummary[]>([]); const [loading, setLoading] = useState(true); const canAdmin = Boolean(user?.permissions.some((permission) => permission === "*" || permission.endsWith(":read") || permission.endsWith(":create")));
-  useEffect(() => { api.dashboards().then(setDashboards).catch((reason: Error) => toast.error(reason.message)).finally(() => setLoading(false)); }, [location.pathname]);
-  const title = location.pathname.startsWith("/admin") ? "Administração" : location.pathname.startsWith("/dashboards/") ? "Dashboard" : "Dashboards";
-  return <SidebarProvider><Sidebar><SidebarHeader><SidebarMenu><SidebarMenuItem><SidebarMenuButton onClick={() => navigate("/")}><PanelTop /><span className="font-semibold">TCC Dashboards</span></SidebarMenuButton></SidebarMenuItem></SidebarMenu></SidebarHeader><SidebarContent><SidebarGroup><SidebarGroupLabel>Dashboards</SidebarGroupLabel><SidebarMenu><SidebarMenuItem><SidebarMenuButton isActive={location.pathname === "/"} onClick={() => navigate("/")}><LayoutDashboard />Todos os dashboards</SidebarMenuButton></SidebarMenuItem>{loading ? <SidebarMenuItem><Skeleton className="h-8 w-full" /></SidebarMenuItem> : dashboards.map((dashboard) => <SidebarMenuItem key={dashboard.id}><SidebarMenuButton isActive={location.pathname === `/dashboards/${dashboard.id}`} onClick={() => navigate(`/dashboards/${dashboard.id}`)}><BarChart3 />{dashboard.name}</SidebarMenuButton></SidebarMenuItem>)}</SidebarMenu></SidebarGroup>{canAdmin && <SidebarGroup><SidebarGroupLabel>Administração</SidebarGroupLabel><SidebarMenu><SidebarMenuItem><SidebarMenuButton isActive={location.pathname.startsWith("/admin")} onClick={() => navigate("/admin")}><Settings />Configurações</SidebarMenuButton></SidebarMenuItem></SidebarMenu></SidebarGroup>}</SidebarContent><SidebarFooter><SidebarMenu><SidebarMenuItem><SidebarMenuButton><UserRound /><span className="min-w-0 truncate">{user?.name}</span></SidebarMenuButton></SidebarMenuItem><SidebarMenuItem><SidebarMenuButton onClick={() => void logout().then(() => navigate("/login"))}><LogOut />Sair</SidebarMenuButton></SidebarMenuItem></SidebarMenu></SidebarFooter></Sidebar><SidebarInset><header className="sticky top-0 z-40 flex h-14 items-center gap-2 border-b bg-background/95 px-3 backdrop-blur md:px-6"><SidebarTrigger /><Separator orientation="vertical" className="h-4" /><p className="text-sm font-medium">{title}</p></header><div className="flex flex-1 flex-col p-4 md:p-6 lg:p-8"><Outlet /></div></SidebarInset></SidebarProvider>; }
-function HomeRoute() { const navigate = useNavigate(); const [dashboards, setDashboards] = useState<DashboardSummary[]>([]); const [loading, setLoading] = useState(true); useEffect(() => { api.dashboards().then(setDashboards).catch((reason: Error) => toast.error(reason.message)).finally(() => setLoading(false)); }, []); return <DashboardListPage dashboards={dashboards} loading={loading} onOpen={(id) => navigate(`/dashboards/${id}`)} />; }
-function DashboardRoute() { const { id } = useParams(); const navigate = useNavigate(); return id ? <DashboardPage dashboardId={id} onBack={() => navigate("/")} /> : <Navigate to="/" replace />; }
-function ProtectedApp() { const { ready, user } = useAuth(); if (!ready) return <main className="flex min-h-svh items-center justify-center"><Skeleton className="h-8 w-48" /></main>; if (!user) return <LoginPage />; return <Routes><Route element={<Layout />}><Route path="/" element={<HomeRoute />} /><Route path="/dashboards/:id" element={<DashboardRoute />} /><Route path="/admin" element={<AdminPage />} /></Route><Route path="*" element={<Navigate to="/" replace />} /></Routes>; }
-function App() { return <BrowserRouter><Toaster><AuthProvider><ImperativeUIProvider><ProtectedApp /></ImperativeUIProvider></AuthProvider></Toaster></BrowserRouter>; }
+
+function LoginPage() {
+  const { login } = useAuth();
+  const form = useForm<LoginForm>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: "admin@tcc.local",
+      password: "Admin@123",
+    },
+  });
+
+  const submit = async (values: LoginForm) => {
+    try {
+      await login(values.email, values.password);
+      toast.success("Login realizado com sucesso.");
+    } catch (reason) {
+      toast.error(reason instanceof Error ? reason.message : "Não foi possível entrar.");
+    }
+  };
+
+  return (
+    <main className="flex min-h-svh items-center justify-center bg-muted/20 p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="flex flex-col items-center justify-center pb-4 text-center">
+          <div className="mb-2 flex size-8 items-center justify-center rounded-none bg-primary text-primary-foreground">
+            <PanelTop className="size-4" />
+          </div>
+          <CardTitle className="text-xl font-bold">TCC Dashboards</CardTitle>
+          <CardDescription>
+            Acesse os dados liberados pelas suas permissões.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(submit)}>
+              <FieldGroup>
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>E-mail</FormLabel>
+                      <FormControl>
+                        <Input {...field} type="email" autoComplete="email" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Senha</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          type="password"
+                          autoComplete="current-password"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button
+                  type="submit"
+                  className="mt-2 w-full"
+                  disabled={form.formState.isSubmitting}
+                >
+                  {form.formState.isSubmitting ? "Autenticando..." : "Entrar"}
+                </Button>
+              </FieldGroup>
+            </form>
+          </Form>
+        </CardContent>
+      </Card>
+    </main>
+  );
+}
+
+function HomeRoute() {
+  const navigate = useNavigate();
+  const [dashboards, setDashboards] = useState<DashboardSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+
+    api
+      .dashboards()
+      .then((items) => {
+        if (active) {
+          setDashboards(items);
+        }
+      })
+      .catch((reason: Error) => {
+        if (active) {
+          toast.error(reason.message || "Não foi possível carregar os dashboards.");
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  return (
+    <DashboardListPage
+      dashboards={dashboards}
+      loading={loading}
+      onOpen={(id) => navigate(`/dashboards/${id}`)}
+    />
+  );
+}
+
+function DashboardRoute() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+
+  return id ? (
+    <DashboardPage dashboardId={id} onBack={() => navigate("/")} />
+  ) : (
+    <Navigate to="/" replace />
+  );
+}
+
+function ProtectedApp() {
+  const { ready, user } = useAuth();
+
+  if (!ready) {
+    return (
+      <main className="flex min-h-svh items-center justify-center">
+        <Skeleton className="h-8 w-48" />
+      </main>
+    );
+  }
+
+  if (!user) {
+    return <LoginPage />;
+  }
+
+  return (
+    <Routes>
+      <Route element={<AppLayout />}>
+        <Route path="/" element={<HomeRoute />} />
+        <Route path="/dashboards/:id" element={<DashboardRoute />} />
+        <Route path="/admin" element={<Navigate to="/admin/users" replace />} />
+        <Route path="/admin/users" element={<AdminSectionPage section="users" />} />
+        <Route path="/admin/permissions" element={<AdminSectionPage section="permissions" />} />
+        <Route path="/admin/sources" element={<AdminSectionPage section="sources" />} />
+        <Route path="/admin/dashboards" element={<AdminSectionPage section="dashboards" />} />
+        <Route path="/admin/queries" element={<AdminSectionPage section="queries" />} />
+      </Route>
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <TooltipProvider>
+        <Toaster>
+          <AuthProvider>
+            <ImperativeUIProvider>
+              <ProtectedApp />
+            </ImperativeUIProvider>
+          </AuthProvider>
+        </Toaster>
+      </TooltipProvider>
+    </BrowserRouter>
+  );
+}
+
 export default App;

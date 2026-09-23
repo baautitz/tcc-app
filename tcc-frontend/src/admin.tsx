@@ -76,4 +76,147 @@ function PermissionsRecords({ permissions, loading, isMobile, onEdit, onDelete }
 function SourcesRecords({ sources, loading, isMobile, onEdit, onDelete }: { sources: DataSource[]; loading: boolean; isMobile: boolean; onEdit: (source: DataSource) => void; onDelete: (source: DataSource) => void }) { return <Card><CardHeader><CardTitle className="flex items-center gap-2"><Database /> Servidores cadastrados</CardTitle></CardHeader><CardContent>{isMobile ? <div className="flex flex-col gap-3">{loading ? <Skeleton className="h-36" /> : sources.map((source) => <MobileCard key={source.id} primary={source.name} secondary={`${source.username}@${source.host}`} fields={[{ label: "Banco", value: source.databaseName }, { label: "Porta", value: String(source.port) }]} actions={<Actions onEdit={() => onEdit(source)} onDelete={() => onDelete(source)} />} />)}</div> : <Table><TableHeader><TableRow><TableHead>Nome</TableHead><TableHead>Conexão</TableHead><TableHead>Banco</TableHead><TableHead className="text-right">Ações</TableHead></TableRow></TableHeader><TableBody>{loading ? <LoadingRows columns={4} /> : sources.map((source) => <TableRow key={source.id}><TableCell className="font-medium">{source.name}</TableCell><TableCell className="font-mono">{source.username}@{source.host}:{source.port}</TableCell><TableCell>{source.databaseName}</TableCell><TableCell><Actions onEdit={() => onEdit(source)} onDelete={() => onDelete(source)} /></TableCell></TableRow>)}</TableBody></Table>}</CardContent></Card>; }
 function DashboardsRecords({ dashboards, loading, isMobile, onEdit, onDelete }: { dashboards: Array<DashboardSummary & { definition: DashboardDefinition }>; loading: boolean; isMobile: boolean; onEdit: (dashboard: DashboardSummary & { definition: DashboardDefinition }) => void; onDelete: (dashboard: DashboardSummary & { definition: DashboardDefinition }) => void }) { return <Card><CardHeader><CardTitle>Dashboards cadastrados</CardTitle></CardHeader><CardContent>{isMobile ? <div className="flex flex-col gap-3">{loading ? <Skeleton className="h-36" /> : dashboards.map((dashboard) => <MobileCard key={dashboard.id} primary={dashboard.name} secondary={dashboard.id} fields={[{ label: "Componentes", value: String(dashboard.definition.components.length) }]} actions={<Actions onEdit={() => onEdit(dashboard)} onDelete={() => onDelete(dashboard)} />} />)}</div> : <Table><TableHeader><TableRow><TableHead>Nome</TableHead><TableHead>Descrição</TableHead><TableHead>Componentes</TableHead><TableHead className="text-right">Ações</TableHead></TableRow></TableHeader><TableBody>{loading ? <LoadingRows columns={4} /> : dashboards.map((dashboard) => <TableRow key={dashboard.id}><TableCell className="font-medium">{dashboard.name}</TableCell><TableCell>{dashboard.description ?? "—"}</TableCell><TableCell>{dashboard.definition.components.length}</TableCell><TableCell><Actions onEdit={() => onEdit(dashboard)} onDelete={() => onDelete(dashboard)} /></TableCell></TableRow>)}</TableBody></Table>}</CardContent></Card>; }
 function QueriesRecords({ queries, loading, isMobile, onEdit, onDelete }: { queries: QuerySummary[]; loading: boolean; isMobile: boolean; onEdit: (id: string) => void; onDelete: (query: QuerySummary) => void }) { return <Card><CardHeader><CardTitle>Queries salvas</CardTitle></CardHeader><CardContent>{isMobile ? <div className="flex flex-col gap-3">{loading ? <Skeleton className="h-36" /> : queries.map((query) => <MobileCard key={query.id} primary={query.name} secondary={query.id} fields={[{ label: "Parâmetros", value: String(query.parameters.length) }, { label: "Permissões", value: String(query.requiredPermissionKeys.length) }]} actions={<Actions onEdit={() => onEdit(query.id)} onDelete={() => onDelete(query)} />} />)}</div> : <Table><TableHeader><TableRow><TableHead>Nome</TableHead><TableHead>UUID</TableHead><TableHead>Parâmetros</TableHead><TableHead>Permissões</TableHead><TableHead className="text-right">Ações</TableHead></TableRow></TableHeader><TableBody>{loading ? <LoadingRows columns={5} /> : queries.map((query) => <TableRow key={query.id}><TableCell className="font-medium">{query.name}</TableCell><TableCell className="font-mono">{query.id}</TableCell><TableCell>{query.parameters.length}</TableCell><TableCell>{query.requiredPermissionKeys.length}</TableCell><TableCell><Actions onEdit={() => onEdit(query.id)} onDelete={() => onDelete(query)} /></TableCell></TableRow>)}</TableBody></Table>}</CardContent></Card>; }
-export { AdminPage };
+
+function AdminSectionPage({ section }: { section: Section }) {
+  const isMobile = useIsMobile();
+  const { confirm } = useImperativeUI();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string>();
+  const [users, setUsers] = useState<User[]>([]);
+  const [permissions, setPermissions] = useState<Permission[]>([]);
+  const [sources, setSources] = useState<DataSource[]>([]);
+  const [dashboards, setDashboards] = useState<Array<DashboardSummary & { definition: DashboardDefinition }>>([]);
+  const [queries, setQueries] = useState<QuerySummary[]>([]);
+  const [userSheet, setUserSheet] = useState<{ open: boolean; value?: User }>({ open: false });
+  const [permissionSheet, setPermissionSheet] = useState<{ open: boolean; value?: Permission }>({ open: false });
+  const [sourceSheet, setSourceSheet] = useState<{ open: boolean; value?: DataSource }>({ open: false });
+  const [dashboardSheet, setDashboardSheet] = useState<{ open: boolean; value?: DashboardSummary & { definition: DashboardDefinition } }>({ open: false });
+  const [querySheet, setQuerySheet] = useState<{ open: boolean; value?: SavedQuery }>({ open: false });
+
+  const load = async () => {
+    try {
+      setLoading(true);
+      setError(undefined);
+      const [nextUsers, nextPermissions, nextSources, nextDashboards, nextQueries] = await Promise.all([
+        api.users(),
+        api.permissions(),
+        api.dataSources(),
+        api.adminDashboards(),
+        api.queries(),
+      ]);
+      setUsers(nextUsers);
+      setPermissions(nextPermissions);
+      setSources(nextSources);
+      setDashboards(nextDashboards);
+      setQueries(nextQueries);
+    } catch (reason) {
+      setError(message(reason as Error));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const remove = async (label: string, action: () => Promise<void>) => {
+    if (!(await confirm({
+      title: `Excluir ${label}?`,
+      description: "Esta operação não pode ser desfeita.",
+      confirmLabel: "Excluir",
+      destructive: true,
+    }))) {
+      return;
+    }
+
+    try {
+      await action();
+      toast.success("Registro excluído.");
+      await load();
+    } catch (reason) {
+      toast.error(message(reason as Error));
+    }
+  };
+
+  const editQuery = async (id: string) => {
+    try {
+      setQuerySheet({ open: true });
+      const result = await api.savedQuery(id);
+      setQuerySheet({ open: true, value: result });
+    } catch (reason) {
+      toast.error(message(reason as Error));
+      setQuerySheet({ open: false });
+    }
+  };
+
+  const create = () => {
+    if (section === "users") setUserSheet({ open: true });
+    if (section === "permissions") setPermissionSheet({ open: true });
+    if (section === "sources") setSourceSheet({ open: true });
+    if (section === "dashboards") setDashboardSheet({ open: true });
+    if (section === "queries") setQuerySheet({ open: true });
+  };
+
+  return (
+    <div className="flex flex-col gap-6">
+      <SectionHeading section={section} onCreate={create} onRefresh={() => void load()} loading={loading} />
+
+      {error && (
+        <Alert variant="destructive">
+          <AlertTitle>Falha ao carregar administração</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {section === "users" && (
+        <UsersRecords users={users} loading={loading} isMobile={isMobile}
+          onEdit={(value) => setUserSheet({ open: true, value })}
+          onDelete={(value) => void remove(value.name, () => api.deleteUser(value.id))}
+        />
+      )}
+      {section === "permissions" && (
+        <PermissionsRecords permissions={permissions} loading={loading} isMobile={isMobile}
+          onEdit={(value) => setPermissionSheet({ open: true, value })}
+          onDelete={(value) => void remove(value.key, () => api.deletePermission(value.id))}
+        />
+      )}
+      {section === "sources" && (
+        <SourcesRecords sources={sources} loading={loading} isMobile={isMobile}
+          onEdit={(value) => setSourceSheet({ open: true, value })}
+          onDelete={(value) => void remove(value.name, () => api.deleteDataSource(value.id))}
+        />
+      )}
+      {section === "dashboards" && (
+        <DashboardsRecords dashboards={dashboards} loading={loading} isMobile={isMobile}
+          onEdit={(value) => setDashboardSheet({ open: true, value })}
+          onDelete={(value) => void remove(value.name, () => api.deleteDashboard(value.id))}
+        />
+      )}
+      {section === "queries" && (
+        <QueriesRecords queries={queries} loading={loading} isMobile={isMobile}
+          onEdit={(id) => void editQuery(id)}
+          onDelete={(value) => void remove(value.name, () => api.deleteQuery(value.id))}
+        />
+      )}
+
+      <UserSheet user={userSheet.value} permissions={permissions} open={userSheet.open}
+        onOpenChange={(open) => setUserSheet((current) => ({ ...current, open }))} onSaved={load}
+      />
+      <PermissionSheet permission={permissionSheet.value} open={permissionSheet.open}
+        onOpenChange={(open) => setPermissionSheet((current) => ({ ...current, open }))} onSaved={load}
+      />
+      <SourceSheet source={sourceSheet.value} open={sourceSheet.open}
+        onOpenChange={(open) => setSourceSheet((current) => ({ ...current, open }))} onSaved={load}
+      />
+      <DashboardSheet dashboard={dashboardSheet.value} open={dashboardSheet.open}
+        onOpenChange={(open) => setDashboardSheet((current) => ({ ...current, open }))} onSaved={load}
+      />
+      <QuerySheet query={querySheet.value} dashboards={dashboards} sources={sources} open={querySheet.open}
+        onOpenChange={(open) => setQuerySheet((current) => ({ ...current, open }))} onSaved={load}
+      />
+    </div>
+  );
+}
+
+export { AdminPage, AdminSectionPage };

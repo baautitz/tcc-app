@@ -1,0 +1,362 @@
+import { useEffect, useState } from "react";
+import { useLocation, useNavigate, Outlet } from "react-router-dom";
+import {
+  BarChart3,
+  Database,
+  FileCode2,
+  KeyRound,
+  LayoutDashboard,
+  LogOut,
+  PanelTop,
+  UserRound,
+  Users,
+} from "lucide-react";
+import { api } from "@/api";
+import { useAuth } from "@/context/AuthContext";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarMenuSkeleton,
+  SidebarProvider,
+  SidebarTrigger,
+  useSidebar,
+} from "@/components/ui/sidebar";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Separator } from "@/components/ui/separator";
+import { toast } from "@/components/ui/toast";
+import type { DashboardSummary } from "@/types";
+
+function SidebarAutoClose() {
+  const { setOpenMobile } = useSidebar();
+  const location = useLocation();
+
+  useEffect(() => {
+    setOpenMobile(false);
+  }, [location.pathname, setOpenMobile]);
+
+  return null;
+}
+
+function getInitials(name?: string) {
+  if (!name) {
+    return "US";
+  }
+
+  return name
+    .split(" ")
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+}
+
+function getPageTitle(pathname: string) {
+  if (pathname === "/") {
+    return "Dashboards";
+  }
+
+  if (pathname.startsWith("/dashboards/")) {
+    return "Dashboard";
+  }
+
+  const administrationTitles: Record<string, string> = {
+    "/admin/users": "Usuários",
+    "/admin/permissions": "Permissões",
+    "/admin/sources": "Servidores PostgreSQL",
+    "/admin/dashboards": "Dashboards",
+    "/admin/queries": "Queries",
+  };
+
+  if (administrationTitles[pathname]) return administrationTitles[pathname];
+
+  if (pathname.startsWith("/admin")) return "Administração";
+
+  return "Painel de Controle";
+}
+
+function hasAdministrationAccess(permissions: string[]) {
+  return permissions.includes("*") || permissions.some((permission) =>
+    ["users:", "permissions:", "data_sources:", "dashboards:", "queries:"].some((prefix) =>
+      permission.startsWith(prefix),
+    ),
+  );
+}
+
+export function AppLayout() {
+  const { user, logout } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [dashboards, setDashboards] = useState<DashboardSummary[]>([]);
+  const [loadingDashboards, setLoadingDashboards] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+
+    setLoadingDashboards(true);
+    api
+      .dashboards()
+      .then((items) => {
+        if (active) {
+          setDashboards(items);
+        }
+      })
+      .catch((reason: Error) => {
+        if (active) {
+          setDashboards([]);
+          toast.error(reason.message || "Não foi possível carregar os dashboards.");
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setLoadingDashboards(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate("/login");
+    } catch (reason) {
+      toast.error(reason instanceof Error ? reason.message : "Não foi possível encerrar a sessão.");
+    }
+  };
+
+  const canAdmin = Boolean(user && hasAdministrationAccess(user.permissions));
+
+  return (
+    <SidebarProvider>
+      <SidebarAutoClose />
+
+      <Sidebar variant="inset" collapsible="icon">
+        <SidebarHeader>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                size="lg"
+                tooltip="TCC Dashboards"
+                onClick={() => navigate("/")}
+              >
+                <div className="flex aspect-square size-8 items-center justify-center rounded-none bg-primary text-primary-foreground">
+                  <PanelTop className="size-4" />
+                </div>
+                <div className="grid flex-1 text-left text-sm leading-tight">
+                  <span className="truncate font-semibold">TCC Dashboards</span>
+                </div>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarHeader>
+
+        <SidebarContent>
+          <SidebarGroup>
+            <SidebarGroupLabel>Navegação</SidebarGroupLabel>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={location.pathname === "/"}
+                  tooltip="Todos os dashboards"
+                  onClick={() => navigate("/")}
+                >
+                  <LayoutDashboard className="size-4" />
+                  <span>Todos os dashboards</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              {loadingDashboards ? (
+                Array.from({ length: 3 }, (_, index) => (
+                  <SidebarMenuItem key={index}>
+                    <SidebarMenuSkeleton showIcon />
+                  </SidebarMenuItem>
+                ))
+              ) : dashboards.map((dashboard) => (
+                <SidebarMenuItem key={dashboard.id}>
+                  <SidebarMenuButton
+                    isActive={location.pathname === `/dashboards/${dashboard.id}`}
+                    tooltip={dashboard.name}
+                    onClick={() => navigate(`/dashboards/${dashboard.id}`)}
+                  >
+                    <BarChart3 className="size-4" />
+                    <span>{dashboard.name}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroup>
+
+          {canAdmin && (
+            <SidebarGroup>
+              <SidebarGroupLabel>Administração</SidebarGroupLabel>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    isActive={location.pathname === "/admin/users"}
+                    tooltip="Usuários"
+                    onClick={() => navigate("/admin/users")}
+                  >
+                    <Users className="size-4" />
+                    <span>Usuários</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    isActive={location.pathname === "/admin/permissions"}
+                    tooltip="Permissões"
+                    onClick={() => navigate("/admin/permissions")}
+                  >
+                    <KeyRound className="size-4" />
+                    <span>Permissões</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    isActive={location.pathname === "/admin/sources"}
+                    tooltip="Servidores PostgreSQL"
+                    onClick={() => navigate("/admin/sources")}
+                  >
+                    <Database className="size-4" />
+                    <span>Servidores</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    isActive={location.pathname === "/admin/dashboards"}
+                    tooltip="Dashboards"
+                    onClick={() => navigate("/admin/dashboards")}
+                  >
+                    <LayoutDashboard className="size-4" />
+                    <span>Dashboards</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    isActive={location.pathname === "/admin/queries"}
+                    tooltip="Queries"
+                    onClick={() => navigate("/admin/queries")}
+                  >
+                    <FileCode2 className="size-4" />
+                    <span>Queries</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroup>
+          )}
+        </SidebarContent>
+
+        <SidebarFooter>
+          {user && (
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={
+                      <SidebarMenuButton size="lg">
+                        <Avatar className="size-8">
+                          <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
+                        </Avatar>
+                        <div className="grid flex-1 text-left text-sm leading-tight">
+                          <span className="truncate font-semibold">{user.name}</span>
+                          <span className="truncate text-xs text-muted-foreground">{user.email}</span>
+                        </div>
+                        <UserRound className="ml-auto size-4" />
+                      </SidebarMenuButton>
+                    }
+                  />
+                  <DropdownMenuContent
+                    className="min-w-56"
+                    side="bottom"
+                    align="end"
+                    sideOffset={4}
+                  >
+                    <DropdownMenuGroup>
+                      <DropdownMenuLabel className="p-0 font-normal">
+                        <div className="flex items-center gap-2 px-2 py-2 text-left text-sm">
+                          <Avatar className="size-8">
+                            <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
+                          </Avatar>
+                          <div className="grid flex-1 text-left text-sm leading-tight">
+                            <span className="truncate font-semibold">{user.name}</span>
+                            <span className="truncate text-xs text-muted-foreground">{user.email}</span>
+                          </div>
+                        </div>
+                      </DropdownMenuLabel>
+                    </DropdownMenuGroup>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      variant="destructive"
+                      className="cursor-pointer"
+                      onClick={() => void handleLogout()}
+                    >
+                      <LogOut className="size-4" />
+                      Sair da plataforma
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          )}
+        </SidebarFooter>
+      </Sidebar>
+
+      <SidebarInset>
+        <header className="sticky top-0 z-50 flex h-14 shrink-0 items-center border-b border-border/50 bg-background/95 px-3 backdrop-blur supports-backdrop-filter:bg-background/60 md:px-6">
+          <div className="flex min-w-0 shrink-0 items-center gap-2">
+            <SidebarTrigger className="-ml-1 size-8 shrink-0" />
+            <Separator orientation="vertical" className="my-auto hidden h-4 sm:block" />
+            <Breadcrumb className="min-w-0">
+              <BreadcrumbList className="items-center">
+                <BreadcrumbItem className="hidden md:block">
+                  <BreadcrumbLink
+                    className="cursor-pointer text-sm"
+                    onClick={() => navigate("/")}
+                  >
+                    Início
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator className="my-auto hidden self-center md:block" />
+                <BreadcrumbItem>
+                  <BreadcrumbPage className="truncate text-sm font-medium">
+                    {getPageTitle(location.pathname)}
+                  </BreadcrumbPage>
+                </BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
+          </div>
+        </header>
+
+        <main className="flex flex-1 flex-col gap-6 p-4 md:p-6 lg:p-8">
+          <Outlet />
+        </main>
+      </SidebarInset>
+    </SidebarProvider>
+  );
+}
