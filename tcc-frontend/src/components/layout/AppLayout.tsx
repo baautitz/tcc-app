@@ -101,7 +101,7 @@ function getPageTitle(pathname: string) {
 
 function hasAdministrationAccess(permissions: string[]) {
   return permissions.includes("*") || permissions.some((permission) =>
-    ["users:", "permissions:", "data_sources:", "dashboards:", "queries:"].some((prefix) =>
+    ["users:", "permissions:", "data-sources:", "dashboards:", "queries:"].some((prefix) =>
       permission.startsWith(prefix),
     ),
   );
@@ -151,7 +151,7 @@ export function AppLayout() {
     }
   };
 
-  const canAdmin = Boolean(user && hasAdministrationAccess(user.permissions));
+  const canAdmin = Boolean(user && (user.isAdmin || hasAdministrationAccess(user.permissions)));
 
   return (
     <SidebarProvider>

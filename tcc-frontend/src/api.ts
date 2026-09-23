@@ -37,6 +37,7 @@ export const api = {
   updateUser: (id: string, body: unknown) => request<{ id: string }>(`/api/users/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   deleteUser: (id: string) => request<void>(`/api/users/${id}`, { method: "DELETE" }),
   permissions: () => request<Permission[]>("/api/permissions"),
+  syncRecipes: () => request<{ recipeIds: string[]; synchronized: number; dashboards: { dashboards: number; queries: number } }>("/api/recipes/sync", { method: "POST" }),
   createPermission: (body: unknown) => request<Permission>("/api/permissions", { method: "POST", body: JSON.stringify(body) }),
   updatePermission: (id: string, body: unknown) => request<Permission>(`/api/permissions/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   deletePermission: (id: string) => request<void>(`/api/permissions/${id}`, { method: "DELETE" }),

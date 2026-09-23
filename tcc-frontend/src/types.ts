@@ -10,6 +10,7 @@ export type CurrentUser = {
   id: string;
   name: string;
   email: string;
+  isAdmin: boolean;
   permissions: string[];
 };
 
@@ -17,6 +18,7 @@ export type DashboardSummary = {
   id: string;
   name: string;
   description: string | null;
+  recipeId?: string | null;
 };
 
 export type DashboardComponent = {
