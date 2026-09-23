@@ -23,7 +23,9 @@ import { decryptCredential, encryptCredential } from "./lib/credentials.js";
 import { hashPassword, verifyPassword } from "./lib/passwords.js";
 import { inspectReadOnlyPostgres, runReadOnlyQuery, type ExternalPostgresConfig } from "./services/external-postgres.js";
 import { createSession, findAuthenticatedUser, hasPermission, revokeSession, SESSION_COOKIE, type AuthenticatedUser } from "./services/auth.js";
-import { assignPermissionKeys, createResourcePermission, grantPermissionKeys } from "./services/permissions.js";
+import { assignPermissionKeys, createResourcePermission, ensureSystemPermissions, grantPermissionKeys } from "./services/permissions.js";
+import { syncRecipeDirectory } from "./services/recipes.js";
+import { syncRecipeDashboards } from "./services/recipe-sync.js";
 import { assertParameterDefinitions, assertReadOnlySql, bindQueryParameters } from "./services/query-security.js";
 
 type AppVariables = { currentUser: AuthenticatedUser };
@@ -78,6 +80,11 @@ function permissionRequired(permission: string) {
     }
     await next();
   };
+}
+
+async function adminRequired(context: AppContext, next: Next): Promise<Response | void> {
+  if (!context.get("currentUser").isAdmin) return context.json({ error: "Acesso restrito ao administrador." }, 403);
+  await next();
 }
 
 function resourcePermission(kind: "dashboard" | "query", id: string, action: "view" | "execute"): string {
@@ -189,6 +196,7 @@ app.get("/api/users", authentication, permissionRequired("users:read"), async (c
     id: user.id,
     name: user.name,
     email: user.email,
+    isAdmin: user.isAdmin,
     active: user.active,
     createdAt: user.createdAt,
     permissions: assignments.filter((assignment) => assignment.userId === user.id).map((assignment) => assignment.key),
@@ -246,40 +254,15 @@ app.delete("/api/users/:id", authentication, permissionRequired("users:delete"),
   return context.body(null, 204);
 });
 
-const permissionInputSchema = z.object({
-  key: permissionKeySchema,
-  name: z.string().trim().min(2).max(160),
-  description: z.string().trim().max(20000).nullable().optional(),
-});
-
 app.get("/api/permissions", authentication, permissionRequired("permissions:read"), async (context) => {
-  return context.json(await db.select().from(permissions).orderBy(asc(permissions.key)));
+  return context.json(await db.select().from(permissions).where(eq(permissions.system, true)).orderBy(asc(permissions.key)));
 });
 
-app.post("/api/permissions", authentication, permissionRequired("permissions:create"), async (context) => {
-  const input = await jsonBody(context, permissionInputSchema);
-  const permission = (await db.insert(permissions).values({ ...input, system: false }).returning())[0];
-  if (!permission) throw new ApiError(500, "Não foi possível criar a permissão.");
-  return context.json(permission, 201);
-});
-
-app.patch("/api/permissions/:id", authentication, permissionRequired("permissions:update"), async (context) => {
-  const permissionId = z.string().uuid().parse(context.req.param("id"));
-  const input = await jsonBody(context, permissionInputSchema.omit({ key: true }).partial());
-  const existing = (await db.select().from(permissions).where(eq(permissions.id, permissionId)).limit(1))[0];
-  if (!existing) throw new ApiError(404, "Permissão não encontrada.");
-  if (existing.system) throw new ApiError(400, "Permissões do sistema e de recursos não podem ser alteradas.");
-  const permission = (await db.update(permissions).set(input).where(eq(permissions.id, permissionId)).returning())[0];
-  return context.json(permission);
-});
-
-app.delete("/api/permissions/:id", authentication, permissionRequired("permissions:delete"), async (context) => {
-  const permissionId = z.string().uuid().parse(context.req.param("id"));
-  const existing = (await db.select().from(permissions).where(eq(permissions.id, permissionId)).limit(1))[0];
-  if (!existing) throw new ApiError(404, "Permissão não encontrada.");
-  if (existing.system) throw new ApiError(400, "Permissões do sistema e de recursos não podem ser excluídas.");
-  await db.delete(permissions).where(eq(permissions.id, permissionId));
-  return context.body(null, 204);
+app.post("/api/recipes/sync", authentication, adminRequired, async (context) => {
+  const recipeIds = await syncRecipeDirectory();
+  await ensureSystemPermissions();
+  const dashboards = await syncRecipeDashboards(context.get("currentUser").id);
+  return context.json({ recipeIds, synchronized: recipeIds.length, dashboards });
 });
 
 async function catalogSourceTables(sourceId: string, tables: Awaited<ReturnType<typeof inspectReadOnlyPostgres>>): Promise<void> {
@@ -438,8 +421,15 @@ app.delete("/api/queries/:id", authentication, permissionRequired("queries:delet
 app.get("/api/dashboards", authentication, async (context: AppContext) => {
   const currentUser = context.get("currentUser");
   const allDashboards = await db.select().from(dashboards).orderBy(asc(dashboards.name));
+  const dashboardQueries = await db.select({ dashboardId: savedQueries.dashboardId, requiredPermissionKeys: savedQueries.requiredPermissionKeys })
+    .from(savedQueries);
   return context.json(allDashboards
-    .filter((dashboard) => hasPermission(currentUser, resourcePermission("dashboard", dashboard.id, "view")))
+    .filter((dashboard) => {
+      if (hasPermission(currentUser, resourcePermission("dashboard", dashboard.id, "view"))) return true;
+      if (!dashboard.recipeId) return false;
+      const queries = dashboardQueries.filter((query) => query.dashboardId === dashboard.id);
+      return queries.some((query) => parsePermissionKeys(query.requiredPermissionKeys).every((key) => hasPermission(currentUser, key)));
+    })
     .map(({ id, name, description, createdAt, updatedAt }) => ({ id, name, description, createdAt, updatedAt })));
 });
 
@@ -483,14 +473,14 @@ app.delete("/api/dashboards/:id", authentication, permissionRequired("dashboards
 app.get("/api/dashboards/:id", authentication, async (context: AppContext) => {
   const dashboard = await getDashboardOrThrow(z.string().uuid().parse(context.req.param("id")));
   const currentUser = context.get("currentUser");
-  if (!hasPermission(currentUser, resourcePermission("dashboard", dashboard.id, "view"))) {
+  if (!dashboard.recipeId && !hasPermission(currentUser, resourcePermission("dashboard", dashboard.id, "view"))) {
     throw new ApiError(403, "O usuário não possui acesso a este dashboard.");
   }
-  const queries = await db.select({ id: savedQueries.id, parameters: savedQueries.parameters, requiredPermissionKeys: savedQueries.requiredPermissionKeys })
+  const queries = await db.select({ id: savedQueries.id, parameters: savedQueries.parameters, requiredPermissionKeys: savedQueries.requiredPermissionKeys, recipeId: savedQueries.recipeId })
     .from(savedQueries)
     .where(eq(savedQueries.dashboardId, dashboard.id));
   const allowedQueryIds = new Set(queries
-    .filter((query) => hasPermission(currentUser, resourcePermission("query", query.id, "execute")) && parsePermissionKeys(query.requiredPermissionKeys).every((key) => hasPermission(currentUser, key)))
+    .filter((query) => (hasPermission(currentUser, resourcePermission("query", query.id, "execute")) || (dashboard.recipeId === query.recipeId)) && parsePermissionKeys(query.requiredPermissionKeys).every((key) => hasPermission(currentUser, key)))
     .map((query) => query.id));
   const definition = definitionForUser(dashboardDefinitionSchema.parse(dashboard.definition), allowedQueryIds);
   return context.json({
@@ -507,9 +497,11 @@ app.get("/api/dashboards/:id", authentication, async (context: AppContext) => {
 app.get("/query/:uuid", authentication, async (context: AppContext) => {
   const query = await getQueryOrThrow(z.string().uuid().parse(context.req.param("uuid")));
   const currentUser = context.get("currentUser");
+  const dashboard = await getDashboardOrThrow(query.dashboardId);
   const dashboardPermission = resourcePermission("dashboard", query.dashboardId, "view");
   const queryPermission = resourcePermission("query", query.id, "execute");
-  if (!hasPermission(currentUser, dashboardPermission) || !hasPermission(currentUser, queryPermission)) {
+  const recipeManaged = Boolean(query.recipeId && dashboard.recipeId === query.recipeId);
+  if ((!recipeManaged && !hasPermission(currentUser, dashboardPermission)) || (!recipeManaged && !hasPermission(currentUser, queryPermission))) {
     throw new ApiError(403, "O usuário não possui autorização para executar esta query.");
   }
   const requiredPermissions = parsePermissionKeys(query.requiredPermissionKeys);

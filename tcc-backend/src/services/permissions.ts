@@ -1,8 +1,9 @@
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, like, notInArray } from "drizzle-orm";
 import { db } from "../db/client.js";
 import { permissions, userPermissions } from "../db/schema.js";
+import { getPersistedRecipes } from "./recipes.js";
 
-export const SYSTEM_PERMISSIONS = [
+const API_PERMISSIONS = [
   ["users:read", "Ler usuários"],
   ["users:create", "Criar usuários"],
   ["users:update", "Editar usuários"],
@@ -25,14 +26,64 @@ export const SYSTEM_PERMISSIONS = [
   ["queries:delete", "Excluir queries"],
 ] as const;
 
+type PermissionDefinition = { key: string; name: string; description?: string };
+
+async function recipePermissions(): Promise<PermissionDefinition[]> {
+  const recipes = await getPersistedRecipes();
+  const found = new Map<string, PermissionDefinition>();
+
+  const visit = (value: unknown): void => {
+    if (Array.isArray(value)) {
+      value.forEach(visit);
+      return;
+    }
+    if (!value || typeof value !== "object") return;
+    const record = value as Record<string, unknown>;
+    if (typeof record.permission === "string") {
+      found.set(record.permission, {
+        key: record.permission,
+        name: `Recipe: ${record.permission}`,
+        description: "Permissão declarada pela recipe de dashboard.",
+      });
+    }
+    Object.values(record).forEach(visit);
+  };
+
+  recipes.forEach(visit);
+  return [...found.values()];
+}
+
 export async function ensureSystemPermissions(): Promise<void> {
-  for (const [key, name] of SYSTEM_PERMISSIONS) {
-    await db.insert(permissions).values({ key, name, system: true }).onConflictDoNothing();
+  const recipeDefinitions = await recipePermissions();
+  const definitions: PermissionDefinition[] = [
+    ...API_PERMISSIONS.map(([key, name]) => ({ key, name })),
+    ...recipeDefinitions,
+  ];
+  const keys = definitions.map((permission) => permission.key);
+
+  // Resource permissions from old versions are not system permissions.
+  await db.update(permissions).set({ system: false }).where(
+    and(eq(permissions.system, true), like(permissions.key, "query:%")),
+  );
+  await db.update(permissions).set({ system: false }).where(
+    and(eq(permissions.system, true), like(permissions.key, "dashboard:%")),
+  );
+
+  for (const definition of definitions) {
+    await db.insert(permissions).values({ ...definition, system: true }).onConflictDoUpdate({
+      target: permissions.key,
+      set: { name: definition.name, description: definition.description ?? null, system: true },
+    });
   }
+
+  await db.delete(permissions).where(and(eq(permissions.system, true), notInArray(permissions.key, keys)));
 }
 
 export async function createResourcePermission(key: string, name: string, description: string): Promise<void> {
-  await db.insert(permissions).values({ key, name, description, system: true }).onConflictDoNothing();
+  await db.insert(permissions).values({ key, name, description, system: false }).onConflictDoUpdate({
+    target: permissions.key,
+    set: { name, description, system: false },
+  });
 }
 
 export async function assignPermissionKeys(userId: string, keys: string[]): Promise<void> {

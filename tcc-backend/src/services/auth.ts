@@ -8,6 +8,7 @@ export interface AuthenticatedUser {
   id: string;
   name: string;
   email: string;
+  isAdmin: boolean;
   permissions: string[];
 }
 
@@ -54,10 +55,11 @@ export async function findAuthenticatedUser(token: string | undefined): Promise<
     id: row.user.id,
     name: row.user.name,
     email: row.user.email,
+    isAdmin: row.user.isAdmin,
     permissions: permissionRows.map((permission) => permission.key),
   };
 }
 
 export function hasPermission(user: AuthenticatedUser, key: string): boolean {
-  return user.permissions.includes(key);
+  return user.isAdmin || user.permissions.includes(key);
 }

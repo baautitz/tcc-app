@@ -6,9 +6,12 @@ CREATE TABLE IF NOT EXISTS users (
   email varchar(320) NOT NULL UNIQUE,
   password_hash text NOT NULL,
   active boolean NOT NULL DEFAULT true,
+  is_admin boolean NOT NULL DEFAULT false,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin boolean NOT NULL DEFAULT false;
 
 CREATE TABLE IF NOT EXISTS permissions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -17,6 +20,16 @@ CREATE TABLE IF NOT EXISTS permissions (
   description text,
   system boolean NOT NULL DEFAULT false,
   created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS recipes (
+  id varchar(160) PRIMARY KEY,
+  name varchar(200) NOT NULL,
+  description text,
+  source_uri text NOT NULL,
+  checksum varchar(64) NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS user_permissions (
@@ -64,10 +77,13 @@ CREATE TABLE IF NOT EXISTS dashboards (
   name varchar(160) NOT NULL,
   description text,
   definition jsonb NOT NULL DEFAULT '{"layout":{"columns":12,"gap":16},"components":[]}'::jsonb,
+  recipe_id varchar(160),
   created_by uuid NOT NULL REFERENCES users(id),
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+ALTER TABLE dashboards ADD COLUMN IF NOT EXISTS recipe_id varchar(160);
 
 CREATE TABLE IF NOT EXISTS saved_queries (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -77,7 +93,12 @@ CREATE TABLE IF NOT EXISTS saved_queries (
   sql_text text NOT NULL,
   parameters jsonb NOT NULL DEFAULT '[]'::jsonb,
   required_permission_keys jsonb NOT NULL DEFAULT '[]'::jsonb,
+  recipe_id varchar(160),
+  recipe_key varchar(255),
   created_by uuid NOT NULL REFERENCES users(id),
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+ALTER TABLE saved_queries ADD COLUMN IF NOT EXISTS recipe_id varchar(160);
+ALTER TABLE saved_queries ADD COLUMN IF NOT EXISTS recipe_key varchar(255);

@@ -1,0 +1,194 @@
+{
+  "id": "fechamento_mes_readonly",
+  "name": "Fechamento de Mês - Consulta",
+  "description": "Dashboard de consulta do fechamento mensal.",
+  "workspace": {
+    "params": [
+      {
+        "name": "start_date",
+        "label": "Data Inicial",
+        "type": "date",
+        "required": true
+      },
+      {
+        "name": "end_date",
+        "label": "Data Final",
+        "type": "date",
+        "required": true
+      },
+      {
+        "name": "categories_focus",
+        "label": "Categorias em Foco",
+        "type": "multi_select",
+        "required": false,
+        "lookup": {
+          "source": "olist",
+          "query": "SELECT id AS value, name AS label FROM categories ORDER BY name"
+        }
+      }
+    ]
+  },
+  "sources": {
+    "olist": {
+      "queries": {
+        "vendas": {
+          "primaryKey": "vendedor_id",
+          "columns": [
+            {
+              "name": "vendedor_id",
+              "type": "number",
+              "label": "ID Vendedor"
+            },
+            {
+              "name": "vendedor",
+              "type": "text",
+              "label": "Vendedor"
+            },
+            {
+              "name": "venda_geral",
+              "type": "money",
+              "label": "Venda Geral"
+            }
+          ],
+          "options": [
+            {
+              "id": "equipe",
+              "label": "Equipe",
+              "permission": "recipe:fechamento_mes_readonly:query:vendas_equipe",
+              "sql": "SELECT e.id AS vendedor_id, e.name AS vendedor, SUM(v.total) AS venda_geral FROM vendas v INNER JOIN employees e ON v.vendedor_id = e.id INNER JOIN products p ON v.product_id = p.id WHERE v.created_at BETWEEN {{workspace.start_date}} AND {{workspace.end_date}} AND ({{workspace.categories_focus}} IS NULL OR p.category_id IN ({{workspace.categories_focus}})) GROUP BY e.id, e.name"
+            },
+            {
+              "id": "proprias",
+              "label": "Próprias",
+              "permission": "recipe:fechamento_mes_readonly:query:vendas_proprias",
+              "sql": "SELECT e.id AS vendedor_id, e.name AS vendedor, SUM(v.total) AS venda_geral FROM vendas v INNER JOIN employees e ON v.vendedor_id = e.id INNER JOIN products p ON v.product_id = p.id WHERE v.created_at BETWEEN {{workspace.start_date}} AND {{workspace.end_date}} AND e.id = {{user.externals.olist}} AND ({{workspace.categories_focus}} IS NULL OR p.category_id IN ({{workspace.categories_focus}})) GROUP BY e.id, e.name"
+            }
+          ]
+        },
+        "total_vendas": {
+          "primaryKey": "total_vendas",
+          "columns": [
+            {
+              "name": "total_vendas",
+              "type": "money",
+              "label": "Total de Vendas"
+            }
+          ],
+          "options": [
+            {
+              "id": "total",
+              "label": "Total",
+              "permission": "recipe:fechamento_mes_readonly:query:total_vendas",
+              "sql": "SELECT SUM(v.total) AS total_vendas FROM vendas v WHERE v.created_at BETWEEN {{workspace.start_date}} AND {{workspace.end_date}}"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "ui": {
+    "layout": {
+      "type": "grid",
+      "columns": 12,
+      "gap": 16
+    },
+    "components": [
+      {
+        "id": "kpi_total_vendas",
+        "component": "stat_card",
+        "layoutProps": {
+          "colSpan": 12
+        },
+        "props": {
+          "title": "Total em Vendas",
+          "source": "olist",
+          "query": "total_vendas",
+          "field": "total_vendas",
+          "format": "currency",
+          "icon": "DollarSign"
+        }
+      },
+      {
+        "id": "grafico_ranking_vendas",
+        "component": "bar_chart",
+        "layoutProps": {
+          "colSpan": 6,
+          "rowSpan": 2
+        },
+        "props": {
+          "title": "Ranking de Vendas por Vendedor",
+          "source": "olist",
+          "query": "vendas",
+          "nameKey": "vendedor",
+          "valueKey": "venda_geral",
+          "limit": 5
+        }
+      },
+      {
+        "id": "grafico_distribuicao_vendas",
+        "component": "pie_chart",
+        "layoutProps": {
+          "colSpan": 6,
+          "rowSpan": 2
+        },
+        "props": {
+          "title": "Distribuição das Vendas",
+          "source": "olist",
+          "query": "vendas",
+          "nameKey": "vendedor",
+          "valueKey": "venda_geral"
+        }
+      },
+      {
+        "id": "tabela_vendedores",
+        "component": "data_table",
+        "layoutProps": {
+          "colSpan": 12
+        },
+        "props": {
+          "title": "Vendas por Vendedor",
+          "source": "olist",
+          "query": "vendas",
+          "profiles": [
+            {
+              "id": "equipe",
+              "label": "Equipe",
+              "options": {
+                "vendas": "equipe"
+              }
+            },
+            {
+              "id": "proprias",
+              "label": "Próprias",
+              "options": {
+                "vendas": "proprias"
+              }
+            }
+          ],
+          "columns": [
+            {
+              "key": "vendedor_id",
+              "label": "ID",
+              "sortable": true
+            },
+            {
+              "key": "vendedor",
+              "label": "Vendedor",
+              "sortable": true,
+              "searchable": true
+            },
+            {
+              "key": "venda_geral",
+              "label": "Venda Geral",
+              "format": "currency",
+              "sortable": true
+            }
+          ],
+          "pagination": {
+            "pageSize": 10
+          }
+        }
+      }
+    ]
+  }
+}

@@ -21,6 +21,7 @@ export const users = pgTable("users", {
   email: varchar("email", { length: 320 }).notNull(),
   passwordHash: text("password_hash").notNull(),
   active: boolean("active").notNull().default(true),
+  isAdmin: boolean("is_admin").notNull().default(false),
   createdAt,
   updatedAt,
 }, (table) => [uniqueIndex("users_email_unique").on(table.email)]);
@@ -33,6 +34,16 @@ export const permissions = pgTable("permissions", {
   system: boolean("system").notNull().default(false),
   createdAt,
 }, (table) => [uniqueIndex("permissions_key_unique").on(table.key)]);
+
+export const recipes = pgTable("recipes", {
+  id: varchar("id", { length: 160 }).primaryKey(),
+  name: varchar("name", { length: 200 }).notNull(),
+  description: text("description"),
+  sourceUri: text("source_uri").notNull(),
+  checksum: varchar("checksum", { length: 64 }).notNull(),
+  createdAt,
+  updatedAt,
+});
 
 export const userPermissions = pgTable("user_permissions", {
   userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
@@ -77,6 +88,7 @@ export const dashboards = pgTable("dashboards", {
   name: varchar("name", { length: 160 }).notNull(),
   description: text("description"),
   definition: jsonb("definition").notNull().default(sql`'{"layout":{"columns":12,"gap":16},"components":[]}'::jsonb`),
+  recipeId: varchar("recipe_id", { length: 160 }),
   createdBy: uuid("created_by").notNull().references(() => users.id),
   createdAt,
   updatedAt,
@@ -90,6 +102,8 @@ export const savedQueries = pgTable("saved_queries", {
   sqlText: text("sql_text").notNull(),
   parameters: jsonb("parameters").notNull().default(sql`'[]'::jsonb`),
   requiredPermissionKeys: jsonb("required_permission_keys").notNull().default(sql`'[]'::jsonb`),
+  recipeId: varchar("recipe_id", { length: 160 }),
+  recipeKey: varchar("recipe_key", { length: 255 }),
   createdBy: uuid("created_by").notNull().references(() => users.id),
   createdAt,
   updatedAt,

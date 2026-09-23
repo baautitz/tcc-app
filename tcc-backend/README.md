@@ -10,6 +10,10 @@ API Hono para dashboards com hidratação assíncrona de componentes. A platafor
 
 O seed de desenvolvimento cria `admin@tcc.local` com senha `Admin@123`. Troque ou remova esse acesso antes de expor a aplicação.
 
+A recipe SDUI é validada como JSON e registrada no PostgreSQL apenas como referência (`source_uri`) e checksum. Em produção, o registro da recipe deve apontar para uma URL HTTPS (por exemplo, uma URL presigned do S3); o backend revalida a origem em runtime.
+
+Para registrar uma origem remota durante o seed, execute `pnpm db:seed -- https://...`.
+
 ## Segurança de servidores externos
 
 O cadastro testa a conexão, rejeita superusuários e privilégios de escrita/DDL/TEMP, cataloga tabelas de usuário e cifra a senha com AES-256-GCM. A chave `CREDENTIAL_ENCRYPTION_KEY` nunca pode ser versionada ou enviada ao frontend.
