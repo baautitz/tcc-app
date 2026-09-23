@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: tcc-postgres
+    environment:
+      POSTGRES_DB: tcc_platform
+      POSTGRES_USER: tcc
+      POSTGRES_PASSWORD: tcc_local_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - tcc_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tcc -d tcc_platform"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  tcc_postgres_data:
