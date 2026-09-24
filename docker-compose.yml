@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     container_name: tcc-postgres
     environment:
       POSTGRES_DB: tcc_platform
@@ -9,7 +9,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - tcc_postgres_data:/var/lib/postgresql/data
+      - tcc_postgres_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U tcc -d tcc_platform"]
       interval: 5s
