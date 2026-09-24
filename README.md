@@ -35,13 +35,13 @@ pnpm install && pnpm dev
 
 ## Base analítica Olist
 
-O arquivo `archive.zip` contém os CSVs do conjunto Olist; ele alimenta uma base
-analítica separada do banco interno da plataforma. Extraia os nove arquivos
-diretamente em `postgres/olist/data/` (ignorado pelo Git). O `init.sql` os carrega
-automaticamente na primeira criação do volume Docker.
+Baixe o conjunto Olist no [Kaggle](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce?resource=download).
+Ele alimenta uma base analítica separada do banco interno da plataforma. Extraia
+os nove CSVs diretamente em `postgres/olist/data/` (ignorado pelo Git). O
+`init.sql` os carrega automaticamente na primeira criação do volume Docker.
 
 ```bash
-unzip /home/vinicius/Desktop/archive.zip -d postgres/olist/data
+unzip /caminho/para/archive.zip -d postgres/olist/data
 docker compose up -d olist-postgres
 ```
 
