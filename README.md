@@ -39,6 +39,10 @@ Baixe o conjunto Olist no [Kaggle](https://www.kaggle.com/datasets/olistbr/brazi
 Ele alimenta uma base analítica separada do banco interno da plataforma. Extraia
 os nove CSVs diretamente em `postgres/olist/data/` (ignorado pelo Git). O
 `init.sql` os carrega automaticamente na primeira criação do volume Docker.
+Os CSVs são usados somente em um schema temporário `staging`, removido ao fim da
+carga. A base final é normalizada e relaciona clientes, registros de cliente por
+pedido, pedidos, itens, produtos, vendedores, pagamentos, avaliações, categorias
+e localidades com chaves estrangeiras.
 
 ```bash
 unzip /caminho/para/archive.zip -d postgres/olist/data
@@ -57,9 +61,10 @@ na aplicação com os seguintes dados locais:
 | Usuário | `olist_reader` |
 | Senha | `olist_readonly_password` |
 
-As tabelas estão no schema `olist` (por exemplo, `olist.orders` e
-`olist.order_items`). O usuário de leitura não possui privilégios de escrita,
-DDL, `TEMP` ou superusuário, conforme a validação da API.
+As tabelas estão no schema `olist` (por exemplo, `olist.orders`,
+`olist.order_items`, `olist.customers` e `olist.order_customers`). O usuário de
+leitura não possui privilégios de escrita, DDL, `TEMP` ou superusuário, conforme
+a validação da API.
 
 Para usar senhas diferentes, defina `OLIST_POSTGRES_PASSWORD` e
 `OLIST_READER_PASSWORD` antes de criar o volume. Os scripts em
