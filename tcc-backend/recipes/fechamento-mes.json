@@ -23,7 +23,7 @@
         "required": false,
         "lookup": {
           "source": "olist",
-          "query": "SELECT id AS value, name AS label FROM categories ORDER BY name"
+          "query": "SELECT category_name AS value, COALESCE(category_name_english, category_name) AS label FROM olist.categories ORDER BY label"
         }
       }
     ]
@@ -36,7 +36,7 @@
           "columns": [
             {
               "name": "vendedor_id",
-              "type": "number",
+              "type": "text",
               "label": "ID Vendedor"
             },
             {
@@ -52,16 +52,10 @@
           ],
           "options": [
             {
-              "id": "equipe",
-              "label": "Equipe",
+              "id": "todos",
+              "label": "Todos os vendedores",
               "permission": "recipe:fechamento_mes_readonly:query:vendas_equipe",
-              "sql": "SELECT e.id AS vendedor_id, e.name AS vendedor, SUM(v.total) AS venda_geral FROM vendas v INNER JOIN employees e ON v.vendedor_id = e.id INNER JOIN products p ON v.product_id = p.id WHERE v.created_at BETWEEN {{workspace.start_date}} AND {{workspace.end_date}} AND ({{workspace.categories_focus}} IS NULL OR p.category_id IN ({{workspace.categories_focus}})) GROUP BY e.id, e.name"
-            },
-            {
-              "id": "proprias",
-              "label": "Próprias",
-              "permission": "recipe:fechamento_mes_readonly:query:vendas_proprias",
-              "sql": "SELECT e.id AS vendedor_id, e.name AS vendedor, SUM(v.total) AS venda_geral FROM vendas v INNER JOIN employees e ON v.vendedor_id = e.id INNER JOIN products p ON v.product_id = p.id WHERE v.created_at BETWEEN {{workspace.start_date}} AND {{workspace.end_date}} AND e.id = {{user.externals.olist}} AND ({{workspace.categories_focus}} IS NULL OR p.category_id IN ({{workspace.categories_focus}})) GROUP BY e.id, e.name"
+              "sql": "SELECT oi.seller_id AS vendedor_id, CONCAT(city.name, '/', city.state_code, ' · ', oi.seller_id) AS vendedor, SUM(oi.price) AS venda_geral FROM olist.orders o INNER JOIN olist.order_items oi ON oi.order_id = o.order_id INNER JOIN olist.products p ON p.product_id = oi.product_id INNER JOIN olist.sellers s ON s.seller_id = oi.seller_id INNER JOIN olist.cities city ON city.city_id = s.city_id WHERE o.purchased_at >= {{workspace.start_date}}::date AND o.purchased_at < ({{workspace.end_date}}::date + INTERVAL '1 day') AND ({{workspace.categories_focus}}::text[] IS NULL OR p.category_name = ANY({{workspace.categories_focus}}::text[])) GROUP BY oi.seller_id, city.name, city.state_code"
             }
           ]
         },
@@ -79,7 +73,7 @@
               "id": "total",
               "label": "Total",
               "permission": "recipe:fechamento_mes_readonly:query:total_vendas",
-              "sql": "SELECT SUM(v.total) AS total_vendas FROM vendas v WHERE v.created_at BETWEEN {{workspace.start_date}} AND {{workspace.end_date}}"
+              "sql": "SELECT COALESCE(SUM(oi.price), 0) AS total_vendas FROM olist.orders o INNER JOIN olist.order_items oi ON oi.order_id = o.order_id INNER JOIN olist.products p ON p.product_id = oi.product_id WHERE o.purchased_at >= {{workspace.start_date}}::date AND o.purchased_at < ({{workspace.end_date}}::date + INTERVAL '1 day') AND ({{workspace.categories_focus}}::text[] IS NULL OR p.category_name = ANY({{workspace.categories_focus}}::text[]))"
             }
           ]
         }
@@ -100,7 +94,7 @@
           "colSpan": 12
         },
         "props": {
-          "title": "Total em Vendas",
+          "title": "Total em Produtos",
           "source": "olist",
           "query": "total_vendas",
           "field": "total_vendas",
@@ -132,7 +126,7 @@
           "rowSpan": 2
         },
         "props": {
-          "title": "Distribuição das Vendas",
+          "title": "Distribuição das Vendas por Vendedor",
           "source": "olist",
           "query": "vendas",
           "nameKey": "vendedor",
@@ -149,22 +143,6 @@
           "title": "Vendas por Vendedor",
           "source": "olist",
           "query": "vendas",
-          "profiles": [
-            {
-              "id": "equipe",
-              "label": "Equipe",
-              "options": {
-                "vendas": "equipe"
-              }
-            },
-            {
-              "id": "proprias",
-              "label": "Próprias",
-              "options": {
-                "vendas": "proprias"
-              }
-            }
-          ],
           "columns": [
             {
               "key": "vendedor_id",
