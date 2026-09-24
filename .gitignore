@@ -3,5 +3,5 @@ node_modules/
 dist/
 .env
 coverage/
-postgres/olist/data/*
-!postgres/olist/data/.gitkeep
+olist/data/*
+!olist/data/.gitkeep

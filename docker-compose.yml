@@ -17,27 +17,5 @@ services:
       retries: 10
     restart: unless-stopped
 
-  olist-postgres:
-    image: postgres:18-alpine
-    container_name: tcc-olist-postgres
-    environment:
-      POSTGRES_DB: olist
-      POSTGRES_USER: olist_owner
-      POSTGRES_PASSWORD: ${OLIST_POSTGRES_PASSWORD:-olist_owner_local_password}
-      OLIST_READER_PASSWORD: ${OLIST_READER_PASSWORD:-olist_readonly_password}
-    ports:
-      - "5433:5432"
-    volumes:
-      - olist_postgres_data:/var/lib/postgresql
-      - ./postgres/olist/init.sql:/docker-entrypoint-initdb.d/10-init.sql:ro
-      - ./postgres/olist/data:/docker-entrypoint-initdb.d/data:ro
-    healthcheck:
-      test: ["CMD-SHELL", "PGPASSWORD=\"$${POSTGRES_PASSWORD}\" psql -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\" -tAc \"SELECT to_regclass('olist.orders') IS NOT NULL\" | grep -qx t"]
-      interval: 5s
-      timeout: 5s
-      retries: 30
-    restart: unless-stopped
-
 volumes:
   tcc_postgres_data:
-  olist_postgres_data:
