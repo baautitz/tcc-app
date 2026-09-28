@@ -55,6 +55,8 @@ BEGIN;
 ALTER ROLE :"readonly_user" SET default_transaction_read_only = on;
 ALTER ROLE :"readonly_user" SET search_path = olist, pg_catalog;
 
+-- PostgreSQL grants TEMP by default through PUBLIC; the backend rejects that privilege.
+REVOKE TEMPORARY ON DATABASE olist FROM PUBLIC;
 REVOKE ALL ON DATABASE olist FROM :"readonly_user";
 GRANT CONNECT ON DATABASE olist TO :"readonly_user";
 REVOKE ALL ON SCHEMA public FROM :"readonly_user";
