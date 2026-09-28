@@ -1,4 +1,4 @@
-import type { CurrentUser, Dashboard, DashboardSummary, DataSource, DataSourceTable, Permission, QuerySummary, SavedQuery, User } from "./types";
+import type { CurrentUser, Dashboard, DashboardDocument, DashboardSummary, DashboardUser, DataSource, DataSourceTable, Permission, QuerySummary, SavedQuery, User } from "./types";
 
 const baseUrl = (import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000").replace(/\/$/, "");
 
@@ -37,7 +37,12 @@ export const api = {
   updateUser: (id: string, body: unknown) => request<{ id: string }>(`/api/users/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   deleteUser: (id: string) => request<void>(`/api/users/${id}`, { method: "DELETE" }),
   permissions: () => request<Permission[]>("/api/permissions"),
-  syncRecipes: () => request<{ recipeIds: string[]; synchronized: number; dashboards: { dashboards: number; queries: number } }>("/api/recipes/sync", { method: "POST" }),
+  syncDashboards: () => request<{ dashboardIds: string[]; synchronized: number; removedOrphans: number }>("/api/dashboards/sync", { method: "POST" }),
+  createDashboard: (body: { name: string; description: string }) => request<{ id: string }>("/api/admin/dashboards", { method: "POST", body: JSON.stringify(body) }),
+  dashboardContext: (id: string) => request<DashboardDocument>(`/api/admin/dashboards/${encodeURIComponent(id)}`),
+  updateDashboardContext: (id: string, body: DashboardDocument) => request<{ id: string; saved: boolean }>(`/api/admin/dashboards/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(body) }),
+  dashboardUsers: (id: string) => request<{ users: DashboardUser[]; userIds: string[] }>(`/api/admin/dashboards/${encodeURIComponent(id)}/users`),
+  updateDashboardUsers: (id: string, userIds: string[]) => request<{ dashboardId: string; userIds: string[] }>(`/api/admin/dashboards/${encodeURIComponent(id)}/users`, { method: "PUT", body: JSON.stringify({ userIds }) }),
   createPermission: (body: unknown) => request<Permission>("/api/permissions", { method: "POST", body: JSON.stringify(body) }),
   updatePermission: (id: string, body: unknown) => request<Permission>(`/api/permissions/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   deletePermission: (id: string) => request<void>(`/api/permissions/${id}`, { method: "DELETE" }),
@@ -47,14 +52,11 @@ export const api = {
   updateDataSource: (id: string, body: unknown) => request<DataSource>(`/api/data-sources/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   deleteDataSource: (id: string) => request<void>(`/api/data-sources/${id}`, { method: "DELETE" }),
   updateTableContext: (sourceId: string, tableId: string, context: string) => request<DataSourceTable>(`/api/data-sources/${sourceId}/tables/${tableId}`, { method: "PATCH", body: JSON.stringify({ context }) }),
-  adminDashboards: () => request<Array<DashboardSummary & { definition: Dashboard["definition"] }>>("/api/admin/dashboards"),
-  createDashboard: (body: unknown) => request<DashboardSummary>("/api/dashboards", { method: "POST", body: JSON.stringify(body) }),
-  updateDashboard: (id: string, body: unknown) => request<DashboardSummary>(`/api/dashboards/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
-  deleteDashboard: (id: string) => request<void>(`/api/dashboards/${id}`, { method: "DELETE" }),
   queries: () => request<QuerySummary[]>("/api/queries"),
   savedQuery: (id: string) => request<SavedQuery>(`/api/queries/${id}`),
   createQuery: (body: unknown) => request<SavedQuery>("/api/queries", { method: "POST", body: JSON.stringify(body) }),
   updateQuery: (id: string, body: unknown) => request<SavedQuery>(`/api/queries/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  testQueryDraft: (body: unknown) => request<{ rows: Record<string, unknown>[] }>("/api/queries/test", { method: "POST", body: JSON.stringify(body) }),
   deleteQuery: (id: string) => request<void>(`/api/queries/${id}`, { method: "DELETE" }),
   testQuery: (id: string, parameters: Record<string, string>) => request<{ rows: Record<string, unknown>[] }>(`/api/queries/${id}/test`, { method: "POST", body: JSON.stringify({ parameters }) }),
 };

@@ -1,17 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useLocation, useNavigate, Outlet } from "react-router-dom";
 import {
-  BarChart3,
   Database,
   FileCode2,
   KeyRound,
   LayoutDashboard,
   LogOut,
-  PanelTop,
   UserRound,
   Users,
 } from "lucide-react";
-import { api } from "@/api";
 import { useAuth } from "@/context/AuthContext";
 import {
   Sidebar,
@@ -19,12 +16,10 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupLabel,
-  SidebarHeader,
   SidebarInset,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSkeleton,
   SidebarProvider,
   SidebarTrigger,
   useSidebar,
@@ -49,7 +44,6 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/components/ui/toast";
-import type { DashboardSummary } from "@/types";
 
 function SidebarAutoClose() {
   const { setOpenMobile } = useSidebar();
@@ -84,11 +78,14 @@ function getPageTitle(pathname: string) {
     return "Dashboard";
   }
 
+  if (pathname.startsWith("/admin/dashboards/")) {
+    return "Contexto do dashboard";
+  }
+
   const administrationTitles: Record<string, string> = {
     "/admin/users": "Usuários",
     "/admin/permissions": "Permissões",
     "/admin/sources": "Servidores PostgreSQL",
-    "/admin/dashboards": "Dashboards",
     "/admin/queries": "Queries",
   };
 
@@ -101,7 +98,7 @@ function getPageTitle(pathname: string) {
 
 function hasAdministrationAccess(permissions: string[]) {
   return permissions.includes("*") || permissions.some((permission) =>
-    ["users:", "permissions:", "data-sources:", "dashboards:", "queries:"].some((prefix) =>
+    ["users:", "permissions:", "data-sources:", "queries:"].some((prefix) =>
       permission.startsWith(prefix),
     ),
   );
@@ -111,36 +108,6 @@ export function AppLayout() {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const [dashboards, setDashboards] = useState<DashboardSummary[]>([]);
-  const [loadingDashboards, setLoadingDashboards] = useState(true);
-
-  useEffect(() => {
-    let active = true;
-
-    setLoadingDashboards(true);
-    api
-      .dashboards()
-      .then((items) => {
-        if (active) {
-          setDashboards(items);
-        }
-      })
-      .catch((reason: Error) => {
-        if (active) {
-          setDashboards([]);
-          toast.error(reason.message || "Não foi possível carregar os dashboards.");
-        }
-      })
-      .finally(() => {
-        if (active) {
-          setLoadingDashboards(false);
-        }
-      });
-
-    return () => {
-      active = false;
-    };
-  }, []);
 
   const handleLogout = async () => {
     try {
@@ -158,58 +125,19 @@ export function AppLayout() {
       <SidebarAutoClose />
 
       <Sidebar variant="inset" collapsible="icon">
-        <SidebarHeader>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                size="lg"
-                tooltip="TCC Dashboards"
-                onClick={() => navigate("/")}
-              >
-                <div className="flex aspect-square size-8 items-center justify-center rounded-none bg-primary text-primary-foreground">
-                  <PanelTop className="size-4" />
-                </div>
-                <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">TCC Dashboards</span>
-                </div>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarHeader>
-
         <SidebarContent>
           <SidebarGroup>
-            <SidebarGroupLabel>Navegação</SidebarGroupLabel>
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton
                   isActive={location.pathname === "/"}
-                  tooltip="Todos os dashboards"
+                  tooltip="Dashboards"
                   onClick={() => navigate("/")}
                 >
                   <LayoutDashboard className="size-4" />
-                  <span>Todos os dashboards</span>
+                  <span>Dashboards</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
-
-              {loadingDashboards ? (
-                Array.from({ length: 3 }, (_, index) => (
-                  <SidebarMenuItem key={index}>
-                    <SidebarMenuSkeleton showIcon />
-                  </SidebarMenuItem>
-                ))
-              ) : dashboards.map((dashboard) => (
-                <SidebarMenuItem key={dashboard.id}>
-                  <SidebarMenuButton
-                    isActive={location.pathname === `/dashboards/${dashboard.id}`}
-                    tooltip={dashboard.name}
-                    onClick={() => navigate(`/dashboards/${dashboard.id}`)}
-                  >
-                    <BarChart3 className="size-4" />
-                    <span>{dashboard.name}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
             </SidebarMenu>
           </SidebarGroup>
 
@@ -245,16 +173,6 @@ export function AppLayout() {
                   >
                     <Database className="size-4" />
                     <span>Servidores</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    isActive={location.pathname === "/admin/dashboards"}
-                    tooltip="Dashboards"
-                    onClick={() => navigate("/admin/dashboards")}
-                  >
-                    <LayoutDashboard className="size-4" />
-                    <span>Dashboards</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>

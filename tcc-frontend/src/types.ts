@@ -18,7 +18,6 @@ export type DashboardSummary = {
   id: string;
   name: string;
   description: string | null;
-  recipeId?: string | null;
 };
 
 export type DashboardComponent = {
@@ -33,6 +32,8 @@ export type DashboardComponent = {
 export type DashboardDefinition = {
   layout: { columns: 12; gap: number };
   components: DashboardComponent[];
+  workspace: { params: DashboardArgument[] };
+  queryBindings: QueryBinding[];
 };
 
 export type QueryParameter = {
@@ -42,12 +43,45 @@ export type QueryParameter = {
   required: boolean;
 };
 
+export type DashboardOption = { label: string; value: string };
+
+export type DashboardArgument = QueryParameter & {
+  lookup?: { queryUuid: string; valueField: string; labelField: string };
+  options?: DashboardOption[];
+};
+
+export type QueryBinding = {
+  queryUuid: string;
+  parameters: Record<string, QueryParameterSource>;
+};
+
+export type QueryParameterSource =
+  | { source: "context"; argument: string }
+  | { source: "manual"; value: string | string[] };
+
+export type DashboardDocumentComponent = {
+  id: string;
+  component: DashboardComponent["type"];
+  layoutProps: { colSpan: number; rowSpan: number };
+  props: Record<string, unknown>;
+};
+
+export type DashboardDocument = {
+  id: string;
+  name: string;
+  description?: string;
+  workspace: { params: DashboardArgument[] };
+  queryBindings: QueryBinding[];
+  ui: { layout: Record<string, unknown> & { gap: number }; components: DashboardDocumentComponent[] } & Record<string, unknown>;
+};
+
 export type Dashboard = DashboardSummary & {
   definition: DashboardDefinition;
-  queryParameters: Array<{ queryUuid: string; parameters: QueryParameter[] }>;
 };
 
 export type User = CurrentUser & { active: boolean; createdAt: string };
+
+export type DashboardUser = Pick<User, "id" | "name" | "email" | "active">;
 
 export type DataSource = {
   id: string;
@@ -69,11 +103,9 @@ export type DataSourceTable = {
 
 export type QuerySummary = {
   id: string;
-  dashboardId: string;
   dataSourceId: string;
   name: string;
   parameters: QueryParameter[];
-  requiredPermissionKeys: string[];
 };
 
 export type SavedQuery = QuerySummary & {
