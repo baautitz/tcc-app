@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assertReadOnlySql, bindQueryParameters } from "./query-security.js";
+import { assertReadOnlySql, assertSqlParameters, bindQueryParameters } from "./query-security.js";
 import type { ParameterDefinition } from "../lib/contracts.js";
 
 const parameters: ParameterDefinition[] = [
@@ -31,5 +31,11 @@ describe("query security", () => {
 
   it("rejeita parâmetros não declarados", () => {
     expect(() => bindQueryParameters("SELECT 1", parameters, { injected: "x" })).toThrow("não foi declarado");
+  });
+
+  it("valida que os placeholders e parâmetros declarados correspondem", () => {
+    expect(() => assertSqlParameters("SELECT {{start_date}}", parameters)).toThrow("categories");
+    expect(() => assertSqlParameters("SELECT {{unknown}}", parameters)).toThrow("unknown");
+    expect(() => assertSqlParameters("SELECT {{start_date}}, {{categories}}", parameters)).not.toThrow();
   });
 });
