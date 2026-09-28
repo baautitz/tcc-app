@@ -24,6 +24,18 @@ export function assertParameterDefinitions(parameters: ParameterDefinition[]): v
   }
 }
 
+export function assertSqlParameters(sqlText: string, definitions: ParameterDefinition[]): void {
+  const declared = new Set(definitions.map((definition) => definition.name));
+  const used = new Set<string>();
+  for (const [, name] of sqlText.matchAll(/\{\{([a-zA-Z][a-zA-Z0-9_]*)\}\}/g)) {
+    if (!declared.has(name)) throw new Error(`O parâmetro '${name}' usado no SQL não foi declarado.`);
+    used.add(name);
+  }
+  for (const name of declared) {
+    if (!used.has(name)) throw new Error(`O parâmetro '${name}' foi declarado, mas não é utilizado no SQL.`);
+  }
+}
+
 export function bindQueryParameters(
   sqlText: string,
   definitions: ParameterDefinition[],

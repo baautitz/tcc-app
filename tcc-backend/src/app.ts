@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { Hono, type Context, type Next } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { cors } from "hono/cors";
@@ -6,27 +5,28 @@ import { and, asc, eq, inArray } from "drizzle-orm";
 import { ZodError, z } from "zod";
 import { getEnvironment } from "./config.js";
 import { db } from "./db/client.js";
-import { dashboards, dataSources, dataSourceTables, permissions, savedQueries, userPermissions, users } from "./db/schema.js";
+import { dashboardUsers, dataSources, dataSourceTables, permissions, savedQueries, userPermissions, users } from "./db/schema.js";
 import {
-  dashboardDefinitionSchema,
-  dashboardInputSchema,
   passwordSchema,
   permissionKeySchema,
   parameterDefinitionSchema,
   queryInputSchema,
+  queryTestInputSchema,
+  dashboardCreateSchema,
+  dashboardDocumentSchema,
   sourceInputSchema,
   sourceUpdateInputSchema,
-  type DashboardDefinition,
   type ParameterDefinition,
 } from "./lib/contracts.js";
 import { decryptCredential, encryptCredential } from "./lib/credentials.js";
 import { hashPassword, verifyPassword } from "./lib/passwords.js";
 import { inspectReadOnlyPostgres, runReadOnlyQuery, type ExternalPostgresConfig } from "./services/external-postgres.js";
 import { createSession, findAuthenticatedUser, hasPermission, revokeSession, SESSION_COOKIE, type AuthenticatedUser } from "./services/auth.js";
-import { assignPermissionKeys, createResourcePermission, ensureSystemPermissions, grantPermissionKeys } from "./services/permissions.js";
-import { syncRecipeDirectory } from "./services/recipes.js";
-import { syncRecipeDashboards } from "./services/recipe-sync.js";
-import { assertParameterDefinitions, assertReadOnlySql, bindQueryParameters } from "./services/query-security.js";
+import { assignPermissionKeys } from "./services/permissions.js";
+import { createDashboardFile, getDashboardFileById, getDashboardFiles, getRegisteredDashboards, saveDashboardFile, syncDashboardDirectory } from "./services/dashboards.js";
+import { buildDashboardDefinitionFromDocument, dashboardQueryReferences } from "./services/dashboard-sync.js";
+import { canAccessDashboard, canExecuteQuery } from "./services/dashboard-access.js";
+import { assertParameterDefinitions, assertReadOnlySql, assertSqlParameters, bindQueryParameters } from "./services/query-security.js";
 
 type AppVariables = { currentUser: AuthenticatedUser };
 type AppContext = Context<{ Variables: AppVariables }>;
@@ -44,12 +44,19 @@ app.use("*", cors({
   origin: environment.FRONTEND_ORIGIN,
   credentials: true,
   allowHeaders: ["Content-Type"],
-  allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+  allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
 }));
 
 app.onError((error, context) => {
   if (error instanceof ApiError) return context.json({ error: error.message }, error.status as never);
-  if (error instanceof ZodError) return context.json({ error: "Dados inválidos.", details: error.flatten() }, 400);
+  if (error instanceof ZodError) {
+    const issue = error.issues[0];
+    const path = issue?.path.join(".");
+    const message = issue
+      ? `Dados inválidos${path ? ` em '${path}'` : ""}: ${issue.message}`
+      : "Dados inválidos.";
+    return context.json({ error: message, details: error.flatten() }, 400);
+  }
   console.error(error);
   return context.json({ error: "Erro interno do servidor." }, 500);
 });
@@ -87,10 +94,6 @@ async function adminRequired(context: AppContext, next: Next): Promise<Response 
   await next();
 }
 
-function resourcePermission(kind: "dashboard" | "query", id: string, action: "view" | "execute"): string {
-  return `${kind}:${id}:${action}`;
-}
-
 function sourceConnection(source: typeof dataSources.$inferSelect): ExternalPostgresConfig {
   return {
     host: source.host,
@@ -110,25 +113,20 @@ function parseParameters(value: unknown): ParameterDefinition[] {
   return z.array(parameterDefinitionSchema).parse(value);
 }
 
-function parsePermissionKeys(value: unknown): string[] {
-  return z.array(permissionKeySchema).parse(value);
-}
-
 function validateQueryInput(input: z.infer<typeof queryInputSchema>): void {
-  assertReadOnlySql(input.sqlText);
-  assertParameterDefinitions(input.parameters);
+  try {
+    assertReadOnlySql(input.sqlText);
+    assertParameterDefinitions(input.parameters);
+    assertSqlParameters(input.sqlText, input.parameters);
+  } catch (error) {
+    throw new ApiError(400, error instanceof Error ? error.message : "A query é inválida.");
+  }
 }
 
 async function assertKnownPermissionKeys(keys: string[]): Promise<void> {
   if (keys.length === 0) return;
   const known = await db.select({ key: permissions.key }).from(permissions).where(inArray(permissions.key, keys));
-  if (known.length !== keys.length) throw new ApiError(400, "Uma ou mais permissões obrigatórias não existem no catálogo.");
-}
-
-async function getDashboardOrThrow(dashboardId: string) {
-  const dashboard = (await db.select().from(dashboards).where(eq(dashboards.id, dashboardId)).limit(1))[0];
-  if (!dashboard) throw new ApiError(404, "Dashboard não encontrado.");
-  return dashboard;
+  if (known.length !== keys.length) throw new ApiError(400, "Uma ou mais permissões não existem no catálogo.");
 }
 
 async function getSourceOrThrow(sourceId: string) {
@@ -143,22 +141,47 @@ async function getQueryOrThrow(queryId: string) {
   return query;
 }
 
-async function validateDashboardDefinition(dashboardId: string, definition: DashboardDefinition): Promise<void> {
-  const queryIds = [...new Set(definition.components.map((component) => component.queryUuid))];
-  if (queryIds.length === 0) return;
-  const matched = await db.select({ id: savedQueries.id, dashboardId: savedQueries.dashboardId })
-    .from(savedQueries)
-    .where(inArray(savedQueries.id, queryIds));
-  if (matched.length !== queryIds.length || matched.some((query) => query.dashboardId !== dashboardId)) {
-    throw new ApiError(400, "Todo componente deve referenciar uma query existente do próprio dashboard.");
+async function getAccessibleDashboards(currentUser: AuthenticatedUser) {
+  const registered = await getRegisteredDashboards();
+  if (currentUser.isAdmin) return registered;
+  const assignments = await db.select({ dashboardId: dashboardUsers.dashboardId })
+    .from(dashboardUsers)
+    .where(eq(dashboardUsers.userId, currentUser.id));
+  const assignedIds = new Set(assignments.map((assignment) => assignment.dashboardId));
+  return registered.filter((dashboard) => canAccessDashboard(currentUser, dashboard.id, assignedIds));
+}
+
+async function assertDashboardAccess(currentUser: AuthenticatedUser, dashboardId: string): Promise<void> {
+  if (currentUser.isAdmin) return;
+  const assignment = (await db.select({ dashboardId: dashboardUsers.dashboardId })
+    .from(dashboardUsers)
+    .where(and(eq(dashboardUsers.dashboardId, dashboardId), eq(dashboardUsers.userId, currentUser.id)))
+    .limit(1))[0];
+  if (!canAccessDashboard(currentUser, dashboardId, new Set(assignment ? [assignment.dashboardId] : []))) {
+    throw new ApiError(403, "O usuário não possui acesso a este dashboard.");
   }
 }
 
-function definitionForUser(definition: DashboardDefinition, availableQueryIds: Set<string>): DashboardDefinition {
-  return {
-    ...definition,
-    components: definition.components.filter((component) => availableQueryIds.has(component.queryUuid)),
-  };
+async function accessibleQueryIds(currentUser: AuthenticatedUser): Promise<Set<string>> {
+  if (currentUser.isAdmin) {
+    const rows = await db.select({ id: savedQueries.id }).from(savedQueries);
+    return new Set(rows.map((row) => row.id));
+  }
+  const dashboardsForUser = await getAccessibleDashboards(currentUser);
+  return new Set(dashboardsForUser.flatMap((dashboard) => [...dashboardQueryReferences(dashboard)]));
+}
+
+async function runQueryDefinition(input: z.infer<typeof queryTestInputSchema>): Promise<Record<string, unknown>[]> {
+  const source = await getSourceOrThrow(input.dataSourceId);
+  try {
+    assertReadOnlySql(input.sqlText);
+    assertParameterDefinitions(input.parameters);
+    assertSqlParameters(input.sqlText, input.parameters);
+    const bound = bindQueryParameters(input.sqlText, input.parameters, input.values);
+    return await runReadOnlyQuery(sourceConnection(source), bound.sqlText, bound.values);
+  } catch (error) {
+    throw new ApiError(400, error instanceof Error ? error.message : "Não foi possível testar a query.");
+  }
 }
 
 app.post("/api/auth/login", async (context) => {
@@ -258,11 +281,63 @@ app.get("/api/permissions", authentication, permissionRequired("permissions:read
   return context.json(await db.select().from(permissions).where(eq(permissions.system, true)).orderBy(asc(permissions.key)));
 });
 
-app.post("/api/recipes/sync", authentication, adminRequired, async (context) => {
-  const recipeIds = await syncRecipeDirectory();
-  await ensureSystemPermissions();
-  const dashboards = await syncRecipeDashboards(context.get("currentUser").id);
-  return context.json({ recipeIds, synchronized: recipeIds.length, dashboards });
+app.post("/api/dashboards/sync", authentication, adminRequired, async (context) => {
+  return context.json(await syncDashboardDirectory());
+});
+
+app.post("/api/admin/dashboards", authentication, adminRequired, async (context) => {
+  const input = await jsonBody(context, dashboardCreateSchema);
+  const dashboard = await createDashboardFile(input);
+  return context.json({ id: dashboard.id }, 201);
+});
+
+app.get("/api/admin/dashboards/:id", authentication, adminRequired, async (context) => {
+  const dashboardId = z.string().uuid().parse(context.req.param("id")).toLowerCase();
+  const dashboard = await getDashboardFileById(dashboardId);
+  if (!dashboard) throw new ApiError(404, "Dashboard não encontrado.");
+  return context.json(dashboard);
+});
+
+app.put("/api/admin/dashboards/:id", authentication, adminRequired, async (context) => {
+  const dashboardId = z.string().uuid().parse(context.req.param("id")).toLowerCase();
+  const input = await jsonBody(context, dashboardDocumentSchema);
+  if (input.id !== dashboardId) throw new ApiError(400, "O id do dashboard não pode ser alterado.");
+
+  try {
+    await saveDashboardFile(dashboardId, input);
+  } catch (error) {
+    throw new ApiError(400, error instanceof Error ? error.message : "Não foi possível salvar o dashboard.");
+  }
+  return context.json({ id: dashboardId, saved: true });
+});
+
+app.get("/api/admin/dashboards/:id/users", authentication, adminRequired, async (context) => {
+  const dashboardId = z.string().uuid().parse(context.req.param("id")).toLowerCase();
+  const dashboard = await getDashboardFileById(dashboardId);
+  if (!dashboard) throw new ApiError(404, "Dashboard não encontrado.");
+  const assigned = await db.select({ userId: dashboardUsers.userId }).from(dashboardUsers).where(eq(dashboardUsers.dashboardId, dashboardId));
+  const availableUsers = await db.select({ id: users.id, name: users.name, email: users.email, active: users.active })
+    .from(users)
+    .orderBy(asc(users.name));
+  return context.json({ users: availableUsers, userIds: assigned.map((assignment) => assignment.userId) });
+});
+
+app.put("/api/admin/dashboards/:id/users", authentication, adminRequired, async (context) => {
+  const dashboardId = z.string().uuid().parse(context.req.param("id")).toLowerCase();
+  const dashboard = await getDashboardFileById(dashboardId);
+  if (!dashboard) throw new ApiError(404, "Dashboard não encontrado.");
+  const input = await jsonBody(context, z.object({ userIds: z.array(z.string().uuid()) }).strict());
+  const uniqueUserIds = [...new Set(input.userIds)];
+  if (uniqueUserIds.length !== input.userIds.length) throw new ApiError(400, "Não repita usuários na lista de acesso do dashboard.");
+  const knownUsers = uniqueUserIds.length === 0 ? [] : await db.select({ id: users.id }).from(users).where(inArray(users.id, uniqueUserIds));
+  if (knownUsers.length !== uniqueUserIds.length) throw new ApiError(400, "Um ou mais usuários selecionados não existem.");
+  await db.transaction(async (tx) => {
+    await tx.delete(dashboardUsers).where(eq(dashboardUsers.dashboardId, dashboardId));
+    if (uniqueUserIds.length > 0) {
+      await tx.insert(dashboardUsers).values(uniqueUserIds.map((userId) => ({ dashboardId, userId })));
+    }
+  });
+  return context.json({ dashboardId, userIds: uniqueUserIds });
 });
 
 async function catalogSourceTables(sourceId: string, tables: Awaited<ReturnType<typeof inspectReadOnlyPostgres>>): Promise<void> {
@@ -348,7 +423,11 @@ app.patch("/api/data-sources/:sourceId/tables/:tableId", authentication, permiss
 
 app.delete("/api/data-sources/:id", authentication, permissionRequired("data-sources:delete"), async (context) => {
   const sourceId = z.string().uuid().parse(context.req.param("id"));
-  const deleted = await db.delete(dataSources).where(eq(dataSources.id, sourceId)).returning({ id: dataSources.id });
+  await getSourceOrThrow(sourceId);
+  const deleted = await db.transaction(async (tx) => {
+    await tx.delete(savedQueries).where(eq(savedQueries.dataSourceId, sourceId));
+    return tx.delete(dataSources).where(eq(dataSources.id, sourceId)).returning({ id: dataSources.id });
+  });
   if (deleted.length === 0) throw new ApiError(404, "Servidor PostgreSQL não encontrado.");
   return context.body(null, 204);
 });
@@ -356,33 +435,33 @@ app.delete("/api/data-sources/:id", authentication, permissionRequired("data-sou
 app.get("/api/queries", authentication, permissionRequired("queries:read"), async (context) => {
   return context.json(await db.select({
     id: savedQueries.id,
-    dashboardId: savedQueries.dashboardId,
     dataSourceId: savedQueries.dataSourceId,
     name: savedQueries.name,
     parameters: savedQueries.parameters,
-    requiredPermissionKeys: savedQueries.requiredPermissionKeys,
     createdAt: savedQueries.createdAt,
     updatedAt: savedQueries.updatedAt,
   }).from(savedQueries).orderBy(asc(savedQueries.name)));
 });
 
 app.get("/api/queries/:id", authentication, permissionRequired("queries:read"), async (context) => {
-  const query = await getQueryOrThrow(z.string().uuid().parse(context.req.param("id")));
-  return context.json(query);
+  return context.json(await getQueryOrThrow(z.string().uuid().parse(context.req.param("id"))));
+});
+
+app.post("/api/queries/test", authentication, async (context: AppContext) => {
+  const currentUser = context.get("currentUser");
+  if (!hasPermission(currentUser, "queries:create") && !hasPermission(currentUser, "queries:update")) {
+    throw new ApiError(403, "A permissão 'queries:create' ou 'queries:update' é necessária para testar uma query.");
+  }
+  const input = await jsonBody(context, queryTestInputSchema);
+  return context.json({ rows: await runQueryDefinition(input) });
 });
 
 app.post("/api/queries", authentication, permissionRequired("queries:create"), async (context: AppContext) => {
   const input = await jsonBody(context, queryInputSchema);
   validateQueryInput(input);
-  await getDashboardOrThrow(input.dashboardId);
   await getSourceOrThrow(input.dataSourceId);
-  await assertKnownPermissionKeys(input.requiredPermissionKeys);
-  const queryId = randomUUID();
-  const executePermission = resourcePermission("query", queryId, "execute");
-  await createResourcePermission(executePermission, `Executar query: ${input.name}`, "Permite hidratar os componentes vinculados a esta query.");
-  const query = (await db.insert(savedQueries).values({ id: queryId, ...input, createdBy: context.get("currentUser").id }).returning())[0];
+  const query = (await db.insert(savedQueries).values({ ...input, createdBy: context.get("currentUser").id }).returning())[0];
   if (!query) throw new ApiError(500, "Não foi possível criar a query.");
-  await grantPermissionKeys(context.get("currentUser").id, [executePermission]);
   return context.json(query, 201);
 });
 
@@ -390,9 +469,7 @@ app.patch("/api/queries/:id", authentication, permissionRequired("queries:update
   const queryId = z.string().uuid().parse(context.req.param("id"));
   const input = await jsonBody(context, queryInputSchema);
   validateQueryInput(input);
-  await getDashboardOrThrow(input.dashboardId);
   await getSourceOrThrow(input.dataSourceId);
-  await assertKnownPermissionKeys(input.requiredPermissionKeys);
   const query = (await db.update(savedQueries).set({ ...input, updatedAt: new Date() }).where(eq(savedQueries.id, queryId)).returning())[0];
   if (!query) throw new ApiError(404, "Query não encontrada.");
   return context.json(query);
@@ -400,124 +477,80 @@ app.patch("/api/queries/:id", authentication, permissionRequired("queries:update
 
 app.post("/api/queries/:id/test", authentication, permissionRequired("queries:update"), async (context) => {
   const query = await getQueryOrThrow(z.string().uuid().parse(context.req.param("id")));
-  const source = await getSourceOrThrow(query.dataSourceId);
   const body = await jsonBody(context, z.object({ parameters: z.record(z.union([z.string(), z.array(z.string())])).default({}) }));
-  const bound = bindQueryParameters(query.sqlText, parseParameters(query.parameters), body.parameters);
-  const rows = await runReadOnlyQuery(sourceConnection(source), bound.sqlText, bound.values);
-  return context.json({ rows });
+  return context.json({ rows: await runQueryDefinition({
+    dataSourceId: query.dataSourceId,
+    sqlText: query.sqlText,
+    parameters: parseParameters(query.parameters),
+    values: body.parameters,
+  }) });
 });
 
 app.delete("/api/queries/:id", authentication, permissionRequired("queries:delete"), async (context) => {
   const queryId = z.string().uuid().parse(context.req.param("id"));
-  const query = await getQueryOrThrow(queryId);
-  const dashboardsWithQuery = await db.select().from(dashboards);
-  const isReferenced = dashboardsWithQuery.some((dashboard) => dashboardDefinitionSchema.parse(dashboard.definition).components.some((component) => component.queryUuid === query.id));
-  if (isReferenced) throw new ApiError(400, "Remova a referência ao componente antes de excluir a query.");
+  const dashboardFiles = await getDashboardFiles();
+  const isReferenced = dashboardFiles.some(({ dashboard }) => dashboardQueryReferences(dashboard).has(queryId));
+  if (isReferenced) throw new ApiError(400, "Remova as referências do dashboard (componentes, lookups e mapeamentos) antes de excluir a query.");
+  await getQueryOrThrow(queryId);
   await db.delete(savedQueries).where(eq(savedQueries.id, queryId));
-  await db.delete(permissions).where(eq(permissions.key, resourcePermission("query", queryId, "execute")));
   return context.body(null, 204);
 });
 
 app.get("/api/dashboards", authentication, async (context: AppContext) => {
+  await syncDashboardDirectory();
   const currentUser = context.get("currentUser");
-  const allDashboards = await db.select().from(dashboards).orderBy(asc(dashboards.name));
-  const dashboardQueries = await db.select({ dashboardId: savedQueries.dashboardId, requiredPermissionKeys: savedQueries.requiredPermissionKeys })
-    .from(savedQueries);
-  return context.json(allDashboards
-    .filter((dashboard) => {
-      if (hasPermission(currentUser, resourcePermission("dashboard", dashboard.id, "view"))) return true;
-      if (!dashboard.recipeId) return false;
-      const queries = dashboardQueries.filter((query) => query.dashboardId === dashboard.id);
-      return queries.some((query) => parsePermissionKeys(query.requiredPermissionKeys).every((key) => hasPermission(currentUser, key)));
-    })
-    .map(({ id, name, description, createdAt, updatedAt }) => ({ id, name, description, createdAt, updatedAt })));
-});
-
-app.get("/api/admin/dashboards", authentication, permissionRequired("dashboards:read"), async (context) => {
-  return context.json(await db.select().from(dashboards).orderBy(asc(dashboards.name)));
-});
-
-app.post("/api/dashboards", authentication, permissionRequired("dashboards:create"), async (context: AppContext) => {
-  const input = await jsonBody(context, dashboardInputSchema);
-  const dashboardId = randomUUID();
-  await validateDashboardDefinition(dashboardId, input.definition);
-  const viewPermission = resourcePermission("dashboard", dashboardId, "view");
-  await createResourcePermission(viewPermission, `Visualizar dashboard: ${input.name}`, "Permite abrir este dashboard.");
-  const dashboard = (await db.insert(dashboards).values({ id: dashboardId, ...input, createdBy: context.get("currentUser").id }).returning())[0];
-  if (!dashboard) throw new ApiError(500, "Não foi possível criar o dashboard.");
-  await grantPermissionKeys(context.get("currentUser").id, [viewPermission]);
-  return context.json(dashboard, 201);
-});
-
-app.patch("/api/dashboards/:id", authentication, permissionRequired("dashboards:update"), async (context) => {
-  const dashboardId = z.string().uuid().parse(context.req.param("id"));
-  const input = await jsonBody(context, dashboardInputSchema);
-  await validateDashboardDefinition(dashboardId, input.definition);
-  const dashboard = (await db.update(dashboards).set({ ...input, updatedAt: new Date() }).where(eq(dashboards.id, dashboardId)).returning())[0];
-  if (!dashboard) throw new ApiError(404, "Dashboard não encontrado.");
-  return context.json(dashboard);
-});
-
-app.delete("/api/dashboards/:id", authentication, permissionRequired("dashboards:delete"), async (context) => {
-  const dashboardId = z.string().uuid().parse(context.req.param("id"));
-  const dashboard = await getDashboardOrThrow(dashboardId);
-  const definition = dashboardDefinitionSchema.parse(dashboard.definition);
-  if (definition.components.length > 0) throw new ApiError(400, "Remova os componentes do dashboard antes de excluí-lo.");
-  const queries = await db.select({ id: savedQueries.id }).from(savedQueries).where(eq(savedQueries.dashboardId, dashboardId));
-  if (queries.length > 0) throw new ApiError(400, "Exclua as queries do dashboard antes de removê-lo.");
-  await db.delete(dashboards).where(eq(dashboards.id, dashboardId));
-  await db.delete(permissions).where(eq(permissions.key, resourcePermission("dashboard", dashboardId, "view")));
-  return context.body(null, 204);
+  const accessibleDashboards = await getAccessibleDashboards(currentUser);
+  return context.json(accessibleDashboards.map((dashboard) => ({
+    id: dashboard.id,
+    name: dashboard.name,
+    description: dashboard.description ?? null,
+  })));
 });
 
 app.get("/api/dashboards/:id", authentication, async (context: AppContext) => {
-  const dashboard = await getDashboardOrThrow(z.string().uuid().parse(context.req.param("id")));
+  const dashboardId = z.string().uuid().parse(context.req.param("id")).toLowerCase();
+  const dashboard = (await getRegisteredDashboards()).find((item) => item.id === dashboardId);
+  if (!dashboard) throw new ApiError(404, "Dashboard não encontrado.");
   const currentUser = context.get("currentUser");
-  if (!dashboard.recipeId && !hasPermission(currentUser, resourcePermission("dashboard", dashboard.id, "view"))) {
-    throw new ApiError(403, "O usuário não possui acesso a este dashboard.");
+  await assertDashboardAccess(currentUser, dashboardId);
+  const queryIds = [...dashboardQueryReferences(dashboard)];
+  const catalogQueries = queryIds.length
+    ? await db.select({ id: savedQueries.id, parameters: savedQueries.parameters }).from(savedQueries).where(inArray(savedQueries.id, queryIds))
+    : [];
+  let definition;
+  try {
+    definition = buildDashboardDefinitionFromDocument(dashboard, catalogQueries, { validateCatalog: false });
+  } catch (error) {
+    throw new ApiError(400, error instanceof Error ? error.message : "O dashboard possui referências inválidas.");
   }
-  const queries = await db.select({ id: savedQueries.id, parameters: savedQueries.parameters, requiredPermissionKeys: savedQueries.requiredPermissionKeys, recipeId: savedQueries.recipeId })
-    .from(savedQueries)
-    .where(eq(savedQueries.dashboardId, dashboard.id));
-  const allowedQueryIds = new Set(queries
-    .filter((query) => (hasPermission(currentUser, resourcePermission("query", query.id, "execute")) || (dashboard.recipeId === query.recipeId)) && parsePermissionKeys(query.requiredPermissionKeys).every((key) => hasPermission(currentUser, key)))
-    .map((query) => query.id));
-  const definition = definitionForUser(dashboardDefinitionSchema.parse(dashboard.definition), allowedQueryIds);
   return context.json({
     id: dashboard.id,
     name: dashboard.name,
-    description: dashboard.description,
+    description: dashboard.description ?? null,
     definition,
-    queryParameters: queries
-      .filter((query) => allowedQueryIds.has(query.id))
-      .map((query) => ({ queryUuid: query.id, parameters: parseParameters(query.parameters) })),
   });
 });
 
 app.get("/query/:uuid", authentication, async (context: AppContext) => {
   const query = await getQueryOrThrow(z.string().uuid().parse(context.req.param("uuid")));
   const currentUser = context.get("currentUser");
-  const dashboard = await getDashboardOrThrow(query.dashboardId);
-  const dashboardPermission = resourcePermission("dashboard", query.dashboardId, "view");
-  const queryPermission = resourcePermission("query", query.id, "execute");
-  const recipeManaged = Boolean(query.recipeId && dashboard.recipeId === query.recipeId);
-  if ((!recipeManaged && !hasPermission(currentUser, dashboardPermission)) || (!recipeManaged && !hasPermission(currentUser, queryPermission))) {
-    throw new ApiError(403, "O usuário não possui autorização para executar esta query.");
-  }
-  const requiredPermissions = parsePermissionKeys(query.requiredPermissionKeys);
-  if (!requiredPermissions.every((key) => hasPermission(currentUser, key))) {
-    throw new ApiError(403, "O usuário não possui as permissões de negócio necessárias para esta query.");
+  const queryIds = await accessibleQueryIds(currentUser);
+  if (!canExecuteQuery(currentUser, query.id, queryIds)) {
+    throw new ApiError(403, "A query não está vinculada a nenhum dashboard acessível por este usuário.");
   }
   const parameters = parseParameters(query.parameters);
-  const rawParameters: Record<string, string | string[] | undefined> = {};
+  const rawParameters: Record<string, string | string[]> = {};
   const url = new URL(context.req.url);
   for (const name of new Set([...url.searchParams.keys()])) {
     const values = url.searchParams.getAll(name);
     rawParameters[name] = values.length > 1 ? values : values[0];
   }
-  const bound = bindQueryParameters(query.sqlText, parameters, rawParameters);
-  const source = await getSourceOrThrow(query.dataSourceId);
-  const rows = await runReadOnlyQuery(sourceConnection(source), bound.sqlText, bound.values);
+  const rows = await runQueryDefinition({
+    dataSourceId: query.dataSourceId,
+    sqlText: query.sqlText,
+    parameters,
+    values: rawParameters,
+  });
   return context.json({ rows });
 });
 

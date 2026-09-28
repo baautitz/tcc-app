@@ -35,15 +35,10 @@ export const permissions = pgTable("permissions", {
   createdAt,
 }, (table) => [uniqueIndex("permissions_key_unique").on(table.key)]);
 
-export const recipes = pgTable("recipes", {
-  id: varchar("id", { length: 160 }).primaryKey(),
-  name: varchar("name", { length: 200 }).notNull(),
-  description: text("description"),
-  sourceUri: text("source_uri").notNull(),
-  checksum: varchar("checksum", { length: 64 }).notNull(),
-  createdAt,
-  updatedAt,
-});
+export const dashboards = pgTable("dashboards", {
+  dashboardId: uuid("dashboard_id").primaryKey(),
+  filePath: text("file_path").notNull(),
+}, (table) => [uniqueIndex("dashboards_file_path_unique").on(table.filePath)]);
 
 export const userPermissions = pgTable("user_permissions", {
   userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
@@ -83,28 +78,19 @@ export const dataSourceTables = pgTable("data_source_tables", {
   discoveredAt: timestamp("discovered_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [uniqueIndex("data_source_tables_unique").on(table.dataSourceId, table.schemaName, table.tableName)]);
 
-export const dashboards = pgTable("dashboards", {
+export const savedQueries = pgTable("saved_queries", {
   id: uuid("id").primaryKey().defaultRandom(),
+  dataSourceId: uuid("data_source_id").notNull().references(() => dataSources.id, { onDelete: "cascade" }),
   name: varchar("name", { length: 160 }).notNull(),
-  description: text("description"),
-  definition: jsonb("definition").notNull().default(sql`'{"layout":{"columns":12,"gap":16},"components":[]}'::jsonb`),
-  recipeId: varchar("recipe_id", { length: 160 }),
+  sqlText: text("sql_text").notNull(),
+  parameters: jsonb("parameters").notNull().default(sql`'[]'::jsonb`),
   createdBy: uuid("created_by").notNull().references(() => users.id),
   createdAt,
   updatedAt,
 });
 
-export const savedQueries = pgTable("saved_queries", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  dashboardId: uuid("dashboard_id").notNull().references(() => dashboards.id, { onDelete: "cascade" }),
-  dataSourceId: uuid("data_source_id").notNull().references(() => dataSources.id),
-  name: varchar("name", { length: 160 }).notNull(),
-  sqlText: text("sql_text").notNull(),
-  parameters: jsonb("parameters").notNull().default(sql`'[]'::jsonb`),
-  requiredPermissionKeys: jsonb("required_permission_keys").notNull().default(sql`'[]'::jsonb`),
-  recipeId: varchar("recipe_id", { length: 160 }),
-  recipeKey: varchar("recipe_key", { length: 255 }),
-  createdBy: uuid("created_by").notNull().references(() => users.id),
+export const dashboardUsers = pgTable("dashboard_users", {
+  dashboardId: uuid("dashboard_id").notNull().references(() => dashboards.dashboardId, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   createdAt,
-  updatedAt,
-});
+}, (table) => [primaryKey({ columns: [table.dashboardId, table.userId] })]);

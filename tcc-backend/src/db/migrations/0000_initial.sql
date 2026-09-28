@@ -1,6 +1,6 @@
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
-CREATE TABLE IF NOT EXISTS users (
+CREATE TABLE users (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name varchar(160) NOT NULL,
   email varchar(320) NOT NULL UNIQUE,
@@ -11,9 +11,7 @@ CREATE TABLE IF NOT EXISTS users (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
-ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin boolean NOT NULL DEFAULT false;
-
-CREATE TABLE IF NOT EXISTS permissions (
+CREATE TABLE permissions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   key varchar(255) NOT NULL UNIQUE,
   name varchar(160) NOT NULL,
@@ -22,24 +20,26 @@ CREATE TABLE IF NOT EXISTS permissions (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS recipes (
-  id varchar(160) PRIMARY KEY,
-  name varchar(200) NOT NULL,
-  description text,
-  source_uri text NOT NULL,
-  checksum varchar(64) NOT NULL,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
+CREATE TABLE dashboards (
+  dashboard_id uuid PRIMARY KEY,
+  file_path text NOT NULL UNIQUE
 );
 
-CREATE TABLE IF NOT EXISTS user_permissions (
+CREATE TABLE user_permissions (
   user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   permission_id uuid NOT NULL REFERENCES permissions(id) ON DELETE CASCADE,
   created_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (user_id, permission_id)
 );
 
-CREATE TABLE IF NOT EXISTS sessions (
+CREATE TABLE dashboard_users (
+  dashboard_id uuid NOT NULL REFERENCES dashboards(dashboard_id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (dashboard_id, user_id)
+);
+
+CREATE TABLE sessions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   token_hash varchar(64) NOT NULL,
@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS sessions (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS data_sources (
+CREATE TABLE data_sources (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name varchar(160) NOT NULL UNIQUE,
   host varchar(255) NOT NULL,
@@ -62,7 +62,7 @@ CREATE TABLE IF NOT EXISTS data_sources (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS data_source_tables (
+CREATE TABLE data_source_tables (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   data_source_id uuid NOT NULL REFERENCES data_sources(id) ON DELETE CASCADE,
   schema_name varchar(255) NOT NULL,
@@ -72,33 +72,13 @@ CREATE TABLE IF NOT EXISTS data_source_tables (
   UNIQUE (data_source_id, schema_name, table_name)
 );
 
-CREATE TABLE IF NOT EXISTS dashboards (
+CREATE TABLE saved_queries (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  name varchar(160) NOT NULL,
-  description text,
-  definition jsonb NOT NULL DEFAULT '{"layout":{"columns":12,"gap":16},"components":[]}'::jsonb,
-  recipe_id varchar(160),
-  created_by uuid NOT NULL REFERENCES users(id),
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
-);
-
-ALTER TABLE dashboards ADD COLUMN IF NOT EXISTS recipe_id varchar(160);
-
-CREATE TABLE IF NOT EXISTS saved_queries (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  dashboard_id uuid NOT NULL REFERENCES dashboards(id) ON DELETE CASCADE,
-  data_source_id uuid NOT NULL REFERENCES data_sources(id),
+  data_source_id uuid NOT NULL REFERENCES data_sources(id) ON DELETE CASCADE,
   name varchar(160) NOT NULL,
   sql_text text NOT NULL,
   parameters jsonb NOT NULL DEFAULT '[]'::jsonb,
-  required_permission_keys jsonb NOT NULL DEFAULT '[]'::jsonb,
-  recipe_id varchar(160),
-  recipe_key varchar(255),
   created_by uuid NOT NULL REFERENCES users(id),
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
-
-ALTER TABLE saved_queries ADD COLUMN IF NOT EXISTS recipe_id varchar(160);
-ALTER TABLE saved_queries ADD COLUMN IF NOT EXISTS recipe_key varchar(255);
