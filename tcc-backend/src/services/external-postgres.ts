@@ -1,5 +1,7 @@
 import { Client, type QueryResultRow } from "pg";
+import Cursor from "pg-cursor";
 import { MAX_DATA_SOURCE_CATALOG_TABLES } from "./data-source-catalog.js";
+import { normalizeReadOnlySql } from "./query-security.js";
 
 export interface ExternalPostgresConfig {
   host: string;
@@ -20,6 +22,295 @@ export interface DiscoveredColumn {
   udtName: string;
   nullable: boolean;
   ordinalPosition: number;
+}
+
+export const AI_QUERY_CONNECTION_TIMEOUT_MS = 5_000;
+export const AI_QUERY_STATEMENT_TIMEOUT_MS = 10_000;
+export const AI_QUERY_MAX_ROWS = 50;
+export const AI_QUERY_MAX_BYTES = 48_000;
+
+export interface BoundedReadOnlyQueryResult {
+  rows: Record<string, unknown>[];
+  rowLimit: number;
+  byteLimit: number;
+  bytes: number;
+  truncated: boolean;
+  truncationReason: "row_limit" | "byte_limit" | null;
+}
+
+interface CursorQuery {
+  read(count: number): Promise<Record<string, unknown>[]>;
+  close(): Promise<void>;
+}
+
+interface BoundedReadOnlyClient {
+  connect(): Promise<void>;
+  query(sql: string): Promise<unknown>;
+  query(cursor: CursorQuery): Promise<unknown>;
+  end(): Promise<void>;
+}
+
+export interface BoundedReadOnlyQueryOptions {
+  rowLimit?: number;
+  byteLimit?: number;
+  createClient?: (config: ExternalPostgresConfig) => BoundedReadOnlyClient;
+  createCursor?: (sqlText: string, values: unknown[]) => CursorQuery;
+}
+
+export class ExternalQueryExecutionError extends Error {
+  constructor(
+    public readonly category: "timeout" | "connection" | "database",
+    public readonly sqlState: string | null,
+    public readonly retryable: boolean,
+  ) {
+    super(
+      category === "timeout"
+        ? "A consulta excedeu o tempo limite. Simplifique a query e tente novamente."
+        : category === "connection"
+          ? "Não foi possível conectar ao servidor de dados. Verifique a disponibilidade e tente novamente."
+          : "O PostgreSQL rejeitou a consulta. Revise as tabelas, colunas, tipos e parâmetros informados.",
+    );
+    this.name = "ExternalQueryExecutionError";
+  }
+}
+
+export function classifyExternalQueryError(
+  error: unknown,
+): ExternalQueryExecutionError {
+  const source =
+    error && typeof error === "object"
+      ? (error as { code?: unknown; message?: unknown })
+      : {};
+  const code = typeof source.code === "string" ? source.code : "";
+  const message = typeof source.message === "string" ? source.message : "";
+  const timeout =
+    code === "57014" || (!code && /timeout|timed out/i.test(message));
+  const retryableTransportCodes = new Set([
+    "08000",
+    "08001",
+    "08003",
+    "08006",
+    "08007",
+    "08P01",
+    "ECONNRESET",
+    "ECONNREFUSED",
+    "EPIPE",
+    "EHOSTUNREACH",
+    "ENETUNREACH",
+    "EAI_AGAIN",
+    "ETIMEDOUT",
+  ]);
+  if (timeout)
+    return new ExternalQueryExecutionError("timeout", code || null, false);
+  if (retryableTransportCodes.has(code) || code.startsWith("08")) {
+    return new ExternalQueryExecutionError("connection", code || null, true);
+  }
+  return new ExternalQueryExecutionError(
+    "database",
+    /^[0-9A-Z]{5}$/.test(code) ? code : null,
+    false,
+  );
+}
+
+function defaultBoundedClient(
+  config: ExternalPostgresConfig,
+): BoundedReadOnlyClient {
+  return new Client({
+    host: config.host,
+    port: config.port,
+    database: config.database,
+    user: config.user,
+    password: config.password,
+    connectionTimeoutMillis: AI_QUERY_CONNECTION_TIMEOUT_MS,
+    statement_timeout: AI_QUERY_STATEMENT_TIMEOUT_MS,
+  }) as unknown as BoundedReadOnlyClient;
+}
+
+function rowByteLength(row: Record<string, unknown>): number {
+  return Buffer.byteLength(JSON.stringify(row), "utf8");
+}
+
+/** Executes an AI query in a read-only transaction, fetching one bounded row at a time. */
+export async function runBoundedReadOnlyQuery(
+  config: ExternalPostgresConfig,
+  sqlText: string,
+  values: unknown[],
+  options: BoundedReadOnlyQueryOptions = {},
+): Promise<BoundedReadOnlyQueryResult> {
+  const rowLimit = options.rowLimit ?? AI_QUERY_MAX_ROWS;
+  const byteLimit = options.byteLimit ?? AI_QUERY_MAX_BYTES;
+  if (
+    !Number.isSafeInteger(rowLimit) ||
+    rowLimit < 1 ||
+    rowLimit > AI_QUERY_MAX_ROWS
+  )
+    throw new Error("Limite de linhas inválido.");
+  if (
+    !Number.isSafeInteger(byteLimit) ||
+    byteLimit < 1 ||
+    byteLimit > AI_QUERY_MAX_BYTES
+  )
+    throw new Error("Limite de bytes inválido.");
+  const safeSql = normalizeReadOnlySql(sqlText);
+  const boundedSql = `
+    SELECT
+      CASE WHEN octet_length(encoded.row_json) <= ${byteLimit} THEN encoded.row_json ELSE NULL END AS "__ai_row_json",
+      octet_length(encoded.row_json) AS "__ai_row_bytes"
+    FROM (${safeSql}) AS "__ai_query_source"
+    CROSS JOIN LATERAL (SELECT to_jsonb("__ai_query_source")::text AS row_json) AS encoded
+    LIMIT ${rowLimit + 1}
+  `;
+  const client = (options.createClient ?? defaultBoundedClient)(config);
+  const createCursor =
+    options.createCursor ??
+    ((query, queryValues) =>
+      new Cursor(query, queryValues) as unknown as CursorQuery);
+  let connected = false;
+  let transactionOpen = false;
+  let cursor: CursorQuery | undefined;
+  try {
+    await client.connect();
+    connected = true;
+    await client.query("BEGIN READ ONLY");
+    transactionOpen = true;
+    await client.query(
+      `SET LOCAL statement_timeout = '${AI_QUERY_STATEMENT_TIMEOUT_MS}ms'`,
+    );
+    // Only pg_catalog functions/operators are resolvable implicitly. User tables must be schema-qualified.
+    await client.query("SET LOCAL search_path = pg_catalog");
+    cursor = createCursor(boundedSql, values);
+    await client.query(cursor);
+
+    const rows: Record<string, unknown>[] = [];
+    let bytes = 2; // JSON array brackets.
+    let truncated = false;
+    let truncationReason: BoundedReadOnlyQueryResult["truncationReason"] = null;
+    while (true) {
+      const nextRows = await cursor.read(1);
+      if (nextRows.length === 0) break;
+      const encodedRow = nextRows[0]!;
+      if (rows.length >= rowLimit) {
+        truncated = true;
+        truncationReason = "row_limit";
+        break;
+      }
+      const rowJson = encodedRow.__ai_row_json;
+      const encodedBytes = Number(encodedRow.__ai_row_bytes);
+      if (
+        rowJson === null ||
+        typeof rowJson !== "string" ||
+        !Number.isSafeInteger(encodedBytes) ||
+        encodedBytes > byteLimit
+      ) {
+        truncated = true;
+        truncationReason = "byte_limit";
+        break;
+      }
+      let row: Record<string, unknown>;
+      try {
+        row = parseJsonPreservingNumbers(rowJson);
+      } catch {
+        throw new Error(
+          "O servidor retornou uma linha que não pôde ser interpretada.",
+        );
+      }
+      let nextRowBytes: number;
+      try {
+        nextRowBytes = rowByteLength(row) + (rows.length > 0 ? 1 : 0);
+      } catch {
+        throw new Error(
+          "O resultado contém valores que não podem ser serializados com segurança.",
+        );
+      }
+      if (bytes + nextRowBytes > byteLimit) {
+        truncated = true;
+        truncationReason = "byte_limit";
+        break;
+      }
+      rows.push(row);
+      bytes += nextRowBytes;
+    }
+
+    await cursor.close();
+    cursor = undefined;
+    await client.query("COMMIT");
+    transactionOpen = false;
+    return { rows, rowLimit, byteLimit, bytes, truncated, truncationReason };
+  } catch (error) {
+    if (error instanceof ExternalQueryExecutionError) throw error;
+    throw classifyExternalQueryError(error);
+  } finally {
+    if (cursor) await cursor.close().catch(() => undefined);
+    if (connected && transactionOpen)
+      await client.query("ROLLBACK").catch(() => undefined);
+    if (connected) await client.end().catch(() => undefined);
+  }
+}
+
+/** Preserves PostgreSQL JSON numeric lexemes as strings, avoiding JS precision loss for int8/numeric. */
+function parseJsonPreservingNumbers(jsonText: string): Record<string, unknown> {
+  let quoted = "";
+  let inString = false;
+  let escaped = false;
+  for (let index = 0; index < jsonText.length;) {
+    const character = jsonText[index]!;
+    if (inString) {
+      quoted += character;
+      if (escaped) escaped = false;
+      else if (character === "\\") escaped = true;
+      else if (character === '"') inString = false;
+      index += 1;
+      continue;
+    }
+    if (character === '"') {
+      inString = true;
+      quoted += character;
+      index += 1;
+      continue;
+    }
+    if (character === "-" || /[0-9]/.test(character)) {
+      const number = /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/.exec(
+        jsonText.slice(index),
+      )?.[0];
+      if (number) {
+        quoted += JSON.stringify(number);
+        index += number.length;
+        continue;
+      }
+    }
+    quoted += character;
+    index += 1;
+  }
+  const parsed: unknown = JSON.parse(quoted);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+    throw new Error("Expected a JSON object");
+  return parsed as Record<string, unknown>;
+}
+
+export async function runBoundedReadOnlyQueryWithRetry(
+  config: ExternalPostgresConfig,
+  sqlText: string,
+  values: unknown[],
+  options: BoundedReadOnlyQueryOptions & {
+    beforeAttempt?: (attempt: number) => boolean | Promise<boolean>;
+  } = {},
+): Promise<BoundedReadOnlyQueryResult> {
+  let attempt = 0;
+  while (true) {
+    attempt += 1;
+    if (options.beforeAttempt && !(await options.beforeAttempt(attempt))) {
+      throw new ExternalQueryExecutionError("connection", null, false);
+    }
+    try {
+      return await runBoundedReadOnlyQuery(config, sqlText, values, options);
+    } catch (error) {
+      const classified =
+        error instanceof ExternalQueryExecutionError
+          ? error
+          : classifyExternalQueryError(error);
+      if (attempt >= 2 || !classified.retryable) throw classified;
+    }
+  }
 }
 
 const METADATA_CONNECTION_TIMEOUT_MS = 5_000;
@@ -44,7 +335,10 @@ export async function listPostgresBaseTables(
   const client = createMetadataClient(config);
   try {
     await client.connect();
-    const result = await client.query<{ schema_name: string; table_name: string }>(`
+    const result = await client.query<{
+      schema_name: string;
+      table_name: string;
+    }>(`
       SELECT table_schema AS schema_name, table_name
       FROM information_schema.tables
       WHERE table_type = 'BASE TABLE'
@@ -54,7 +348,9 @@ export async function listPostgresBaseTables(
       LIMIT ${MAX_DATA_SOURCE_CATALOG_TABLES + 1}
     `);
     if (result.rows.length > MAX_DATA_SOURCE_CATALOG_TABLES) {
-      throw new Error(`O catálogo do servidor excede o limite de ${MAX_DATA_SOURCE_CATALOG_TABLES} tabelas.`);
+      throw new Error(
+        `O catálogo do servidor excede o limite de ${MAX_DATA_SOURCE_CATALOG_TABLES} tabelas.`,
+      );
     }
     return result.rows.map((row) => ({
       schemaName: row.schema_name,
@@ -80,15 +376,20 @@ export async function getPostgresTableColumns(
       udt_name: string;
       is_nullable: "YES" | "NO";
       ordinal_position: number;
-    }>(`
+    }>(
+      `
       SELECT column_name, data_type, udt_name, is_nullable, ordinal_position
       FROM information_schema.columns
       WHERE table_schema = $1 AND table_name = $2
       ORDER BY ordinal_position
       LIMIT 1001
-    `, [schemaName, tableName]);
+    `,
+      [schemaName, tableName],
+    );
     if (result.rows.length > 1_000) {
-      throw new Error("A tabela excede o limite de colunas para consulta assistida.");
+      throw new Error(
+        "A tabela excede o limite de colunas para consulta assistida.",
+      );
     }
     return result.rows.map((row) => ({
       columnName: row.column_name,
@@ -178,7 +479,9 @@ export async function inspectReadOnlyPostgres(
       LIMIT ${MAX_DATA_SOURCE_CATALOG_TABLES + 1}
     `);
     if (tableResult.rows.length > MAX_DATA_SOURCE_CATALOG_TABLES) {
-      throw new Error(`O catálogo do servidor excede o limite de ${MAX_DATA_SOURCE_CATALOG_TABLES} tabelas.`);
+      throw new Error(
+        `O catálogo do servidor excede o limite de ${MAX_DATA_SOURCE_CATALOG_TABLES} tabelas.`,
+      );
     }
     return tableResult.rows.map((table) => ({
       schemaName: table.schema_name,

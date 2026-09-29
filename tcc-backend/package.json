@@ -21,11 +21,13 @@
     "hono": "^4.11.4",
     "langchain": "^1.5.14",
     "pg": "^8.16.3",
+    "pg-cursor": "^2.22.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/node": "^24.7.2",
     "@types/pg": "^8.15.5",
+    "@types/pg-cursor": "^2.7.2",
     "drizzle-kit": "^0.31.4",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3",

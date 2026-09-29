@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  assertAiReadOnlySql,
+  assertAiCatalogTableReferences,
   assertReadOnlySql,
   assertSqlParameters,
   bindQueryParameters,
+  QueryInputValidationError,
 } from "./query-security.js";
 import type { ParameterDefinition } from "../lib/contracts.js";
 
@@ -37,6 +40,86 @@ describe("query security", () => {
     ).toThrow("não permitida");
   });
 
+  it("ignora palavras e ponto-e-vírgula dentro de literais e comentários SQL", () => {
+    expect(() =>
+      assertReadOnlySql(
+        "SELECT 'delete; update' AS message /* DROP TABLE x; */ -- ; DELETE\nFROM products; -- final comment",
+      ),
+    ).not.toThrow();
+    expect(() => assertReadOnlySql("SELECT 1 /* comentário sem fim")).toThrow(
+      "incompleto",
+    );
+    expect(() =>
+      assertReadOnlySql("SELECT 1; /* comentário */ DELETE FROM products"),
+    ).toThrow("somente uma instrução");
+  });
+
+  it("rejeita mutações em comentários/CTEs e funções PostgreSQL com efeitos", () => {
+    expect(() =>
+      assertReadOnlySql(
+        "WITH changed AS (/* c */ DELETE FROM products RETURNING id) SELECT * FROM changed",
+      ),
+    ).toThrow("não permitida");
+    expect(() => assertReadOnlySql("SELECT nextval('orders_id_seq')")).toThrow(
+      "não é permitida",
+    );
+    expect(() => assertAiReadOnlySql("SELECT pg_catalog.pg_sleep(10)")).toThrow(
+      "não é permitida",
+    );
+    expect(() =>
+      assertAiReadOnlySql("SELECT dblink_exec('foreign', 'DROP TABLE x')"),
+    ).toThrow("não é permitida");
+    expect(() =>
+      assertAiReadOnlySql("SELECT pg_read_file('/etc/passwd')"),
+    ).toThrow("não é permitida");
+    expect(() => assertAiReadOnlySql("SELECT random()")).toThrow(
+      "lista segura",
+    );
+    expect(() =>
+      assertAiReadOnlySql(
+        "SELECT public.custom_reporting_function(order_id) FROM public.orders",
+      ),
+    ).toThrow("lista segura");
+    expect(() =>
+      assertReadOnlySql("SELECT * FROM orders FOR KEY SHARE"),
+    ).toThrow("bloqueio");
+  });
+
+  it("preserva UDFs read-only para consultas existentes, mas aplica allowlist estrita ao preview IA", () => {
+    expect(() =>
+      assertReadOnlySql(
+        "SELECT public.custom_reporting_function(order_id) FROM public.orders",
+      ),
+    ).not.toThrow();
+    expect(() =>
+      assertAiReadOnlySql(
+        "SELECT public.custom_reporting_function(order_id) FROM public.orders",
+      ),
+    ).toThrow("lista segura");
+  });
+
+  it("limita referências do preview às tabelas base catalogadas, respeitando CTEs e JOINs", () => {
+    const knownTables = [
+      { schemaName: "public", tableName: "orders" },
+      { schemaName: "sales", tableName: "regions" },
+    ];
+    expect(() =>
+      assertAiCatalogTableReferences(
+        "WITH totals(total) AS (SELECT count(*) FROM public.orders) SELECT * FROM totals t JOIN sales.regions r ON true",
+        knownTables,
+      ),
+    ).not.toThrow();
+    expect(() =>
+      assertAiCatalogTableReferences(
+        "SELECT * FROM public.orders o, public.unregistered_view v",
+        knownTables,
+      ),
+    ).toThrow("não pertence ao catálogo base");
+    expect(() =>
+      assertAiCatalogTableReferences("SELECT * FROM orders", knownTables),
+    ).toThrow("Qualifique o schema");
+  });
+
   it("converte apenas parâmetros declarados em bind values", () => {
     const bound = bindQueryParameters(
       "SELECT * FROM sales WHERE created_at >= {{start_date}} AND category_id = ANY({{categories}})",
@@ -54,6 +137,64 @@ describe("query security", () => {
     expect(() =>
       bindQueryParameters("SELECT 1", parameters, { injected: "x" }),
     ).toThrow("não foi declarado");
+  });
+
+  it("aplica binds apenas em placeholders SQL, nunca dentro de strings/comentários", () => {
+    const bound = bindQueryParameters(
+      "SELECT '{{start_date}}' AS label, created_at FROM sales WHERE created_at >= {{start_date}} -- {{categories}}",
+      [parameters[0]!],
+      { start_date: "2026-01-01" },
+    );
+    expect(bound.sqlText).toBe(
+      "SELECT '{{start_date}}' AS label, created_at FROM sales WHERE created_at >= $1 -- {{categories}}",
+    );
+    expect(bound.values).toEqual(["2026-01-01"]);
+  });
+
+  it("valida datas de calendário e limita payloads e arrays de parâmetros", () => {
+    expect(() =>
+      bindQueryParameters("SELECT {{start_date}}", [parameters[0]!], {
+        start_date: "2025-02-29",
+      }),
+    ).toThrow("data válida");
+    expect(() =>
+      bindQueryParameters("SELECT {{start_date}}", [parameters[0]!], {
+        start_date: "0000-01-01",
+      }),
+    ).toThrow("data válida");
+    expect(() =>
+      bindQueryParameters("SELECT {{start_date}}", [parameters[0]!], {
+        start_date: "2024-02-29",
+      }),
+    ).not.toThrow();
+    expect(() =>
+      bindQueryParameters("SELECT {{categories}}", [parameters[1]!], {
+        categories: Array.from({ length: 51 }, (_, index) => String(index)),
+      }),
+    ).toThrow("limites");
+    expect(() =>
+      bindQueryParameters("SELECT {{categories}}", [parameters[1]!], {
+        categories: ["x".repeat(2049)],
+      }),
+    ).toThrow("limites");
+    expect(() =>
+      bindQueryParameters("SELECT {{start_date}}", [parameters[0]!], {
+        start_date: "2026-01-01",
+        unexpected: "x",
+      }),
+    ).toThrow("não foi declarado");
+  });
+
+  it("marca parâmetro obrigatório ausente para que o agente pergunte em vez de gerar SQL inválido", () => {
+    try {
+      bindQueryParameters("SELECT {{start_date}}", [parameters[0]!], {});
+      throw new Error("expected validation error");
+    } catch (error) {
+      expect(error).toBeInstanceOf(QueryInputValidationError);
+      expect((error as QueryInputValidationError).code).toBe(
+        "MISSING_PARAMETERS",
+      );
+    }
   });
 
   it("valida que os placeholders e parâmetros declarados correspondem", () => {

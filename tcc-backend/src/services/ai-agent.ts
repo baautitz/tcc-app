@@ -11,6 +11,8 @@ type AiEnvironment = Pick<Environment, "AI_BASE_URL" | "AI_API_KEY" | "AI_MODEL"
 export const DEFAULT_AI_REQUEST_TIMEOUT_MS = 60_000;
 export const MIN_AI_REQUEST_TIMEOUT_MS = 1_000;
 export const MAX_AI_REQUEST_TIMEOUT_MS = 300_000;
+// Leaves room for schema reads, three SQL drafts with corrections, and a final response.
+export const AI_AGENT_RECURSION_LIMIT = 24;
 
 export type AiConfigurationIssue =
   | { enabled: false; code: "AI_NOT_CONFIGURED"; missing: string[] }
@@ -46,6 +48,13 @@ export interface AiChatAgent {
     input: { messages: Array<{ role: AiChatRole; content: string }> },
     config: RunnableConfig & { streamMode: "messages"; context?: AiAgentContext },
   ): Promise<AsyncIterable<AiAgentToken>>;
+}
+
+export function createAiAgentRunConfig(
+  config: RunnableConfig,
+  context: AiAgentContext,
+): RunnableConfig & { context: AiAgentContext } {
+  return { ...config, context, recursionLimit: AI_AGENT_RECURSION_LIMIT };
 }
 
 export class AiUnavailableError extends Error {
@@ -155,9 +164,7 @@ export function createAiAgent(options: {
   return {
     async stream(input, config) {
       const result = await agent.stream(input, {
-        ...config,
-        context: options.context ?? {},
-        recursionLimit: 8,
+        ...createAiAgentRunConfig(config, options.context ?? {}),
       });
       return result as AsyncIterable<AiAgentToken>;
     },

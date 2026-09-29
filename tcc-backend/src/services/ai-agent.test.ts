@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import { getEnvironment } from "../config.js";
 import {
   createAiAgent,
+  createAiAgentRunConfig,
   createAiModel,
+  AI_AGENT_RECURSION_LIMIT,
   DEFAULT_AI_REQUEST_TIMEOUT_MS,
   getAiAvailability,
   resolveAiConfiguration,
@@ -85,6 +87,14 @@ describe("configuração e factory da IA", () => {
     expect(resolveAiConfiguration({ ...configured, AI_REQUEST_TIMEOUT_MS: "999999" })).toMatchObject({
       enabled: false,
       code: "AI_CONFIGURATION_INVALID",
+    });
+  });
+
+  it("reserva iterações suficientes para leituras, até três rascunhos SQL e resposta final", () => {
+    expect(AI_AGENT_RECURSION_LIMIT).toBeGreaterThanOrEqual(20);
+    expect(createAiAgentRunConfig({ signal: new AbortController().signal }, { isAdmin: true })).toMatchObject({
+      recursionLimit: AI_AGENT_RECURSION_LIMIT,
+      context: { isAdmin: true },
     });
   });
 });

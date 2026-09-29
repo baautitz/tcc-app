@@ -1,0 +1,350 @@
+import { describe, expect, it, vi } from "vitest";
+import type { AuthenticatedUser } from "./auth.js";
+import type { AiReadSource } from "./ai-read-tools.js";
+import {
+  createAiQueryTestTools,
+  AI_QUERY_TEST_LIMITS,
+  type AiQueryTestResult,
+} from "./ai-query-tools.js";
+import { ExternalQueryExecutionError } from "./external-postgres.js";
+
+const sourceId = "00000000-0000-4000-8000-000000000001";
+const admin: AuthenticatedUser = {
+  id: "00000000-0000-4000-8000-000000000099",
+  name: "Admin",
+  email: "admin@example.test",
+  isAdmin: true,
+  permissions: [],
+};
+const source: AiReadSource = {
+  id: sourceId,
+  name: "Analytics",
+  databaseName: "analytics",
+  context: "",
+  connection: {
+    host: "db.internal.test",
+    port: 5432,
+    database: "analytics",
+    user: "readonly_user",
+    password: "credential-that-must-never-reach-model",
+  },
+};
+
+function makeTools(
+  options: {
+    currentUser?: AuthenticatedUser;
+    runQuery?: Parameters<typeof createAiQueryTestTools>[0]["runQuery"];
+    onToolEvent?: Parameters<typeof createAiQueryTestTools>[0]["onToolEvent"];
+    repository?: Partial<
+      Parameters<typeof createAiQueryTestTools>[0]["repository"]
+    >;
+  } = {},
+) {
+  const findSource = vi.fn(async (requestedId: string) =>
+    requestedId === sourceId ? source : undefined,
+  );
+  const tools = createAiQueryTestTools({
+    currentUser: options.currentUser ?? admin,
+    repository: {
+      findSource,
+      listCatalogTables: async () => [
+        {
+          id: "00000000-0000-4000-8000-000000000003",
+          dataSourceId: sourceId,
+          schemaName: "public",
+          tableName: "orders",
+        },
+      ],
+      listLiveBaseTables: async () => [
+        { schemaName: "public", tableName: "orders" },
+      ],
+      ...options.repository,
+    },
+    runQuery: options.runQuery,
+    onToolEvent: options.onToolEvent,
+  });
+  const testQuery = tools.find((item) => item.name === "test_query");
+  if (!testQuery) throw new Error("test_query tool not found");
+  return { testQuery, findSource };
+}
+
+function resultObject(value: unknown): Record<string, unknown> {
+  if (typeof value === "string")
+    return JSON.parse(value) as Record<string, unknown>;
+  if (value && typeof value === "object" && "content" in value) {
+    const content = (value as { content: unknown }).content;
+    if (typeof content === "string")
+      return JSON.parse(content) as Record<string, unknown>;
+  }
+  return value as Record<string, unknown>;
+}
+
+const queryResult: AiQueryTestResult = {
+  rows: [{ total: "4" }],
+  rowLimit: 50,
+  byteLimit: 48_000,
+  bytes: 13,
+  truncated: false,
+  truncationReason: null,
+};
+
+describe("ferramenta LangChain test_query", () => {
+  it("só é registrada para administradores", () => {
+    expect(() =>
+      makeTools({ currentUser: { ...admin, isAdmin: false } }),
+    ).toThrow("apenas para administradores");
+  });
+
+  it("liga parâmetros declarados, usa a fonte cadastrada e não devolve credenciais", async () => {
+    const runQuery = vi.fn(async () => queryResult);
+    const { testQuery } = makeTools({ runQuery });
+    const output = resultObject(
+      await testQuery.invoke({
+        dataSourceId: sourceId,
+        sqlText:
+          "SELECT count(*) AS total FROM public.orders WHERE created_at >= {{start_date}}",
+        parameters: [
+          {
+            name: "start_date",
+            label: "Data inicial",
+            type: "date",
+            required: true,
+          },
+        ],
+        values: { start_date: "2026-09-01" },
+      } as never),
+    );
+
+    expect(runQuery).toHaveBeenCalledWith(
+      source,
+      "SELECT count(*) AS total FROM public.orders WHERE created_at >= $1",
+      ["2026-09-01"],
+      expect.any(Function),
+    );
+    expect(output).toMatchObject({
+      ok: true,
+      rows: [{ total: "4" }],
+      rowCount: 1,
+      truncated: false,
+    });
+    expect(JSON.stringify(output)).not.toContain(
+      "credential-that-must-never-reach-model",
+    );
+    expect(JSON.stringify(output)).not.toContain("db.internal.test");
+  });
+
+  it("devolve pergunta de esclarecimento e não tenta SQL sem parâmetro obrigatório", async () => {
+    const runQuery = vi.fn(async () => queryResult);
+    const events: Array<{ type: string; ok?: boolean }> = [];
+    const { testQuery } = makeTools({
+      runQuery,
+      onToolEvent: (event) => {
+        events.push(event);
+      },
+    });
+    const output = resultObject(
+      await testQuery.invoke({
+        dataSourceId: sourceId,
+        sqlText:
+          "SELECT * FROM public.orders WHERE created_at >= {{start_date}}",
+        parameters: [
+          {
+            name: "start_date",
+            label: "Data inicial",
+            type: "date",
+            required: true,
+          },
+        ],
+        values: {},
+      } as never),
+    );
+
+    expect(output).toMatchObject({
+      ok: false,
+      code: "MISSING_PARAMETERS",
+      askUser: true,
+      retryable: false,
+    });
+    expect(runQuery).not.toHaveBeenCalled();
+    expect(events.map(({ type }) => type)).toEqual([
+      "tool_start",
+      "tool_result",
+    ]);
+    expect(events[1]?.ok).toBe(false);
+  });
+
+  it("rejeita data inválida e funções fora da allowlist sem consultar o banco", async () => {
+    const runQuery = vi.fn(async () => queryResult);
+    const { testQuery } = makeTools({ runQuery });
+    const invalidDate = resultObject(
+      await testQuery.invoke({
+        dataSourceId: sourceId,
+        sqlText: "SELECT {{start_date}} AS period",
+        parameters: [
+          { name: "start_date", label: "Data", type: "date", required: false },
+        ],
+        values: { start_date: "2026-02-30" },
+      } as never),
+    );
+    expect(invalidDate).toMatchObject({
+      ok: false,
+      code: "INVALID_PARAMETERS",
+    });
+
+    const customFunction = resultObject(
+      await testQuery.invoke({
+        dataSourceId: sourceId,
+        sqlText: "SELECT public.send_webhook('https://example.test')",
+        parameters: [],
+        values: {},
+      } as never),
+    );
+    expect(customFunction).toMatchObject({ ok: false, code: "INVALID_SQL" });
+
+    const unknownView = resultObject(
+      await testQuery.invoke({
+        dataSourceId: sourceId,
+        sqlText: "SELECT * FROM public.unregistered_view",
+        parameters: [],
+        values: {},
+      } as never),
+    );
+    expect(unknownView).toMatchObject({ ok: false, code: "INVALID_SQL" });
+    expect(runQuery).not.toHaveBeenCalled();
+  });
+
+  it("aborta se a configuração da fonte mudar entre leitura do catálogo e execução", async () => {
+    const runQuery = vi.fn(async () => queryResult);
+    let reads = 0;
+    const findSource = vi.fn(async () => {
+      reads += 1;
+      return reads === 1
+        ? source
+        : {
+            ...source,
+            connection: { ...source.connection, host: "changed.internal.test" },
+          };
+    });
+    const { testQuery } = makeTools({ runQuery, repository: { findSource } });
+    const output = resultObject(
+      await testQuery.invoke({
+        dataSourceId: sourceId,
+        sqlText: "SELECT count(*) FROM public.orders",
+        parameters: [],
+        values: {},
+      } as never),
+    );
+
+    expect(output).toMatchObject({ ok: false, code: "DATA_SOURCE_CHANGED" });
+    expect(runQuery).not.toHaveBeenCalled();
+    expect(findSource).toHaveBeenCalledTimes(2);
+  });
+
+  it("descarta a amostra se o alvo da fonte mudar enquanto a consulta executa", async () => {
+    const runQuery = vi.fn(async () => queryResult);
+    let reads = 0;
+    const findSource = vi.fn(async () => {
+      reads += 1;
+      return reads === 3
+        ? {
+            ...source,
+            connection: { ...source.connection, database: "new_analytics" },
+          }
+        : source;
+    });
+    const { testQuery } = makeTools({ runQuery, repository: { findSource } });
+    const output = resultObject(
+      await testQuery.invoke({
+        dataSourceId: sourceId,
+        sqlText: "SELECT count(*) FROM public.orders",
+        parameters: [],
+        values: {},
+      } as never),
+    );
+
+    expect(output).toMatchObject({ ok: false, code: "DATA_SOURCE_CHANGED" });
+    expect(output).not.toHaveProperty("rows");
+    expect(runQuery).toHaveBeenCalledTimes(1);
+    expect(findSource).toHaveBeenCalledTimes(3);
+  });
+
+  it("impõe no backend 3 drafts SQL distintos e no máximo 6 tentativas PostgreSQL", async () => {
+    let attempts = 0;
+    const runQuery = vi.fn(async (_source, _sql, _values, beforeAttempt) => {
+      expect(beforeAttempt(1)).toBe(true);
+      attempts += 1;
+      expect(beforeAttempt(2)).toBe(true);
+      attempts += 1;
+      return queryResult;
+    });
+    const { testQuery } = makeTools({ runQuery });
+
+    for (const sqlText of [
+      "SELECT 1 AS value",
+      "SELECT 2 AS value",
+      "SELECT 3 AS value",
+    ]) {
+      const output = resultObject(
+        await testQuery.invoke({
+          dataSourceId: sourceId,
+          sqlText,
+          parameters: [],
+          values: {},
+        } as never),
+      );
+      expect(output.ok).toBe(true);
+    }
+    const overLimit = resultObject(
+      await testQuery.invoke({
+        dataSourceId: sourceId,
+        sqlText: "SELECT 4 AS value",
+        parameters: [],
+        values: {},
+      } as never),
+    );
+
+    expect(AI_QUERY_TEST_LIMITS).toMatchObject({
+      maxDistinctSqlDrafts: 3,
+      maxDatabaseAttempts: 6,
+    });
+    expect(overLimit).toMatchObject({
+      ok: false,
+      code: "SQL_DRAFT_LIMIT_REACHED",
+      askUser: true,
+    });
+    expect(runQuery).toHaveBeenCalledTimes(3);
+    expect(attempts).toBe(6);
+  });
+
+  it("serializa falhas de timeout e de transporte sem expor mensagem PostgreSQL bruta", async () => {
+    const rawDatabaseMessage =
+      "canceling statement due to statement timeout at db.internal.test";
+    const runQuery = vi.fn(async () => {
+      throw new ExternalQueryExecutionError("timeout", "57014", false);
+    });
+    const events: Array<{ type: string; ok?: boolean }> = [];
+    const { testQuery } = makeTools({
+      runQuery,
+      onToolEvent: (event) => {
+        events.push(event);
+      },
+    });
+    const output = resultObject(
+      await testQuery.invoke({
+        dataSourceId: sourceId,
+        sqlText: "SELECT count(*) FROM public.orders",
+        parameters: [],
+        values: {},
+      } as never),
+    );
+
+    expect(output).toMatchObject({
+      ok: false,
+      code: "QUERY_TIMEOUT",
+      sqlState: "57014",
+      retryable: false,
+    });
+    expect(JSON.stringify(output)).not.toContain(rawDatabaseMessage);
+    expect(events[1]?.ok).toBe(false);
+  });
+});

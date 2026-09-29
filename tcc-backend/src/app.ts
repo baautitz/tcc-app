@@ -29,6 +29,7 @@ import { canAccessDashboard, canExecuteQuery } from "./services/dashboard-access
 import { assertParameterDefinitions, assertReadOnlySql, assertSqlParameters, bindQueryParameters } from "./services/query-security.js";
 import { createAiChatHandler } from "./services/ai-chat.js";
 import { createAiReadTools, type AiReadSource, type AiReadTable, type AiReadTableName } from "./services/ai-read-tools.js";
+import { createAiQueryTestTools } from "./services/ai-query-tools.js";
 import { DataSourceCatalogSnapshotChangedError, hasDataSourceTargetChanged, MAX_DATA_SOURCE_CATALOG_TABLES, reconcileDataSourceCatalog, type CatalogSourceSnapshot, type CatalogSourceUpdate } from "./services/data-source-catalog.js";
 import { DataSourceContextSourceNotFoundError, DataSourceContextVersionConflictError, updateTableContextIfSourceVersionMatches } from "./services/data-source-context.js";
 
@@ -68,11 +69,13 @@ app.onError((error, context) => {
 app.get("/api/health", (context) => context.json({ status: "ok", timestamp: new Date().toISOString() }));
 
 app.post("/api/admin/ai/chat", authentication, adminRequired, createAiChatHandler({
-  createTools: ({ currentUser, onToolEvent }) => createAiReadTools({
-    currentUser,
-    onToolEvent,
-    repository: createAiReadToolsRepository(),
-  }),
+  createTools: ({ currentUser, onToolEvent }) => {
+    const repository = createAiReadToolsRepository();
+    return [
+      ...createAiReadTools({ currentUser, onToolEvent, repository }),
+      ...createAiQueryTestTools({ currentUser, onToolEvent, repository }),
+    ];
+  },
 }));
 
 async function jsonBody<Schema extends z.ZodTypeAny>(context: Context, schema: Schema): Promise<z.output<Schema>> {
