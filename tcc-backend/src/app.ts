@@ -23,7 +23,7 @@ import {
 } from "./lib/contracts.js";
 import { decryptCredential, encryptCredential } from "./lib/credentials.js";
 import { hashPassword, verifyPassword } from "./lib/passwords.js";
-import { findUnsafeAiColumnTypes, getPostgresTableColumns, inspectReadOnlyPostgres, listPostgresBaseTables, runBoundedReadOnlyQuery, runReadOnlyQuery, type ExternalPostgresConfig } from "./services/external-postgres.js";
+import { findUnsafeAiColumnTypes, getPostgresTableColumns, inspectReadOnlyPostgres, listPostgresBaseTables, runBoundedReadOnlyQueryWithRetry, runReadOnlyQuery, type ExternalPostgresConfig } from "./services/external-postgres.js";
 import { createSession, findAuthenticatedUser, hasPermission, revokeSession, SESSION_COOKIE, type AuthenticatedUser } from "./services/auth.js";
 import { assignPermissionKeys } from "./services/permissions.js";
 import { createDashboardFile, getDashboardFileById, getDashboardFiles, getRegisteredDashboards, saveDashboardFile, syncDashboardDirectory } from "./services/dashboards.js";
@@ -782,7 +782,7 @@ app.post("/api/queries/test", authentication, async (context: AppContext) => {
   let preview;
   try {
     const bound = bindQueryParameters(input.sqlText, input.parameters, input.values);
-    preview = await runBoundedReadOnlyQuery(sourceConnection(source), bound.sqlText, bound.values, {
+    preview = await runBoundedReadOnlyQueryWithRetry(sourceConnection(source), bound.sqlText, bound.values, {
       preserveConfiguredSearchPath: true,
       allowGeneralReadOnlySql: true,
     });

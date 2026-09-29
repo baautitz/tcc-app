@@ -132,6 +132,29 @@ describe("execução limitada de consultas da IA", () => {
     expect(strict.createClient).not.toHaveBeenCalled();
   });
 
+  it("repete uma falha transitória do teste manual sem remover suporte a UDFs", async () => {
+    const connectionReset = Object.assign(new Error("connection reset"), {
+      code: "ECONNRESET",
+    });
+    const h = harness({ rows: [{ total: 1 }], connectErrors: [connectionReset] });
+    const result = await runBoundedReadOnlyQueryWithRetry(
+      connection,
+      "SELECT public.custom_reporting_function(order_id) AS total FROM public.orders",
+      [],
+      {
+        allowGeneralReadOnlySql: true,
+        preserveConfiguredSearchPath: true,
+        createClient: h.createClient,
+        createCursor: h.createCursor,
+      },
+    );
+
+    expect(result.rows).toEqual([{ total: "1" }]);
+    expect(h.createClient).toHaveBeenCalledTimes(2);
+    expect(h.statements).not.toContain("SET LOCAL search_path = pg_catalog");
+    expect(h.cursorQueries[0]?.sqlText).toContain("public.custom_reporting_function");
+  });
+
   it("limita linhas enquanto percorre o cursor e não devolve a linha excedente", async () => {
     const h = harness({ rows: [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }] });
     const result = await runBoundedReadOnlyQuery(
