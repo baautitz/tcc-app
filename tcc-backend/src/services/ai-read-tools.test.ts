@@ -135,7 +135,7 @@ describe("ferramentas de leitura de contexto e esquema da IA", () => {
     }));
     expect(result).toMatchObject({
       dataSource: { id: sourceId, context: { trust: "untrusted_metadata" } },
-      table: { id: tableId, context: { trust: "untrusted_metadata" } },
+      table: { id: tableId, context: { trust: "untrusted_metadata", truncated: false } },
       columns: [
         { name: "id", dataType: "integer", udtName: "int4", nullable: false, ordinalPosition: 1 },
         { name: "status", dataType: "USER-DEFINED", udtName: "order_status", nullable: false, ordinalPosition: 2 },
@@ -150,6 +150,26 @@ describe("ferramentas de leitura de contexto e esquema da IA", () => {
     expect(serialized).not.toContain("readonly_user");
     expect(serialized).not.toContain("db.internal.test");
     expect(serialized).not.toContain("DEFAULT");
+  });
+
+  it("sinaliza quando um contexto longo foi truncado antes do modelo recebê-lo", async () => {
+    const longSourceContext = "S".repeat(2_500);
+    const longTableContext = "T".repeat(2_500);
+    const tools = makeTools({ repo: {
+      findSource: async () => ({ ...source, context: longSourceContext }),
+      findCatalogTable: async () => ({ ...catalogTables[0]!, context: longTableContext }),
+    } });
+
+    const result = outputRecord(await invokeTool(tools, "get_data_source_table_schema", {
+      dataSourceId: sourceId,
+      tableId,
+    }));
+    const dataSourceContext = (result.dataSource as { context: { text: string; truncated: boolean } }).context;
+    const tableContext = (result.table as { context: { text: string; truncated: boolean } }).context;
+
+    expect(dataSourceContext).toMatchObject({ text: "S".repeat(2_000), truncated: true });
+    expect(tableContext).toMatchObject({ text: "T".repeat(2_000), truncated: true });
+    expect(dataSourceContext.text.length + tableContext.text.length).toBe(4_000);
   });
 
   it("pagina até 200 colunas e mantém a resposta sob o teto de bytes", async () => {

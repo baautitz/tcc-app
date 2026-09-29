@@ -29,6 +29,7 @@ import { canAccessDashboard, canExecuteQuery } from "./services/dashboard-access
 import { assertParameterDefinitions, assertReadOnlySql, assertSqlParameters, bindQueryParameters } from "./services/query-security.js";
 import { createAiChatHandler } from "./services/ai-chat.js";
 import { createAiReadTools, type AiReadSource, type AiReadTable, type AiReadTableName } from "./services/ai-read-tools.js";
+import { hasDataSourceTargetChanged, MAX_DATA_SOURCE_CATALOG_TABLES, reconcileDataSourceCatalog, type CatalogSourceUpdate } from "./services/data-source-catalog.js";
 
 type AppVariables = { currentUser: AuthenticatedUser };
 type AppContext = Context<{ Variables: AppVariables }>;
@@ -168,7 +169,11 @@ function createAiReadToolsRepository() {
         tableName: dataSourceTables.tableName,
       }).from(dataSourceTables)
         .where(eq(dataSourceTables.dataSourceId, dataSourceId))
-        .orderBy(asc(dataSourceTables.schemaName), asc(dataSourceTables.tableName));
+        .orderBy(asc(dataSourceTables.schemaName), asc(dataSourceTables.tableName))
+        .limit(MAX_DATA_SOURCE_CATALOG_TABLES + 1);
+      if (tables.length > MAX_DATA_SOURCE_CATALOG_TABLES) {
+        throw new Error(`O catálogo salvo excede o limite de ${MAX_DATA_SOURCE_CATALOG_TABLES} tabelas.`);
+      }
       return tables.map(aiReadTableName);
     },
     async findCatalogTable(dataSourceId: string, tableId: string) {
@@ -418,13 +423,56 @@ app.put("/api/admin/dashboards/:id/users", authentication, adminRequired, async 
   return context.json({ dashboardId, userIds: uniqueUserIds });
 });
 
-async function catalogSourceTables(sourceId: string, tables: Awaited<ReturnType<typeof inspectReadOnlyPostgres>>): Promise<void> {
-  for (const table of tables) {
-    await db.insert(dataSourceTables).values({ dataSourceId: sourceId, ...table }).onConflictDoUpdate({
-      target: [dataSourceTables.dataSourceId, dataSourceTables.schemaName, dataSourceTables.tableName],
-      set: { discoveredAt: new Date() },
-    });
-  }
+async function catalogSourceTables(
+  sourceId: string,
+  tables: Awaited<ReturnType<typeof inspectReadOnlyPostgres>>,
+  options: { sourceUpdate?: CatalogSourceUpdate; resetTableContexts?: boolean } = {},
+): Promise<void> {
+  await reconcileDataSourceCatalog({
+    transaction: (work) => db.transaction(async (tx) => work({
+      async lockDataSource(dataSourceId) {
+        const row = (await tx.select({ id: dataSources.id })
+          .from(dataSources)
+          .where(eq(dataSources.id, dataSourceId))
+          .for("update")
+          .limit(1))[0];
+        if (!row) throw new ApiError(404, "Servidor PostgreSQL não encontrado para atualizar o catálogo.");
+      },
+      async updateDataSource(dataSourceId, update) {
+        const row = (await tx.update(dataSources)
+          .set(update)
+          .where(eq(dataSources.id, dataSourceId))
+          .returning({ id: dataSources.id }))[0];
+        if (!row) throw new ApiError(404, "Servidor PostgreSQL não encontrado.");
+      },
+      listCatalogEntries(dataSourceId, limit) {
+        return tx.select({
+          id: dataSourceTables.id,
+          schemaName: dataSourceTables.schemaName,
+          tableName: dataSourceTables.tableName,
+        }).from(dataSourceTables)
+          .where(eq(dataSourceTables.dataSourceId, dataSourceId))
+          .limit(limit);
+      },
+      async upsertCatalogEntries(dataSourceId, discoveredTables, discoveredAt, resetContexts) {
+        await tx.insert(dataSourceTables).values(discoveredTables.map((table) => ({
+          dataSourceId,
+          ...table,
+          discoveredAt,
+        }))).onConflictDoUpdate({
+          target: [dataSourceTables.dataSourceId, dataSourceTables.schemaName, dataSourceTables.tableName],
+          // Keep human-authored table context on unchanged identities.
+          set: resetContexts ? { discoveredAt, context: "" } : { discoveredAt },
+        });
+      },
+      async deleteCatalogEntries(dataSourceId, tableIds) {
+        await tx.delete(dataSourceTables).where(and(
+          eq(dataSourceTables.dataSourceId, dataSourceId),
+          inArray(dataSourceTables.id, tableIds),
+        ));
+      },
+    })),
+  }, sourceId, tables, new Date(), options);
 }
 
 app.get("/api/data-sources", authentication, permissionRequired("data-sources:read"), async (context) => {
@@ -434,7 +482,13 @@ app.get("/api/data-sources", authentication, permissionRequired("data-sources:re
 
 app.get("/api/data-sources/:id", authentication, permissionRequired("data-sources:read"), async (context) => {
   const source = await getSourceOrThrow(z.string().uuid().parse(context.req.param("id")));
-  const tables = await db.select().from(dataSourceTables).where(eq(dataSourceTables.dataSourceId, source.id)).orderBy(asc(dataSourceTables.schemaName), asc(dataSourceTables.tableName));
+  const tables = await db.select().from(dataSourceTables)
+    .where(eq(dataSourceTables.dataSourceId, source.id))
+    .orderBy(asc(dataSourceTables.schemaName), asc(dataSourceTables.tableName))
+    .limit(MAX_DATA_SOURCE_CATALOG_TABLES + 1);
+  if (tables.length > MAX_DATA_SOURCE_CATALOG_TABLES) {
+    throw new ApiError(409, `O catálogo excede o limite de ${MAX_DATA_SOURCE_CATALOG_TABLES} tabelas; contate um administrador.`);
+  }
   return context.json({ ...safeSource(source), tables });
 });
 
@@ -468,7 +522,8 @@ app.patch("/api/data-sources/:id", authentication, permissionRequired("data-sour
   const existing = await getSourceOrThrow(sourceId);
   const password = input.password ?? sourceConnection(existing).password;
   const discovered = await inspectReadOnlyPostgres({ host: input.host, port: input.port, database: input.databaseName, user: input.username, password });
-  const source = (await db.update(dataSources).set({
+  const targetChanged = hasDataSourceTargetChanged(existing, input);
+  const sourceUpdate: CatalogSourceUpdate = {
     name: input.name,
     host: input.host,
     port: input.port,
@@ -477,9 +532,14 @@ app.patch("/api/data-sources/:id", authentication, permissionRequired("data-sour
     encryptedPassword: encryptCredential(password, environment.CREDENTIAL_ENCRYPTION_KEY),
     context: input.context,
     updatedAt: new Date(),
-  }).where(eq(dataSources.id, sourceId)).returning())[0];
-  if (!source) throw new ApiError(404, "Servidor PostgreSQL não encontrado.");
-  await catalogSourceTables(source.id, discovered);
+  };
+  // A changed endpoint/database can have different semantics behind identical table names.
+  // Clear table contexts together with the source update and catalog reconciliation.
+  await catalogSourceTables(sourceId, discovered, {
+    sourceUpdate,
+    resetTableContexts: targetChanged,
+  });
+  const source = await getSourceOrThrow(sourceId);
   return context.json(safeSource(source));
 });
 

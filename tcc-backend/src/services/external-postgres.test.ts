@@ -4,6 +4,7 @@ const pgState = vi.hoisted(() => ({
   options: [] as Array<Record<string, unknown>>,
   queries: [] as Array<{ sql: string; values?: unknown[] }>,
   rows: [] as Array<Record<string, unknown>>,
+  rowSets: [] as Array<Array<Record<string, unknown>>>,
 }));
 
 vi.mock("pg", () => ({
@@ -15,12 +16,12 @@ vi.mock("pg", () => ({
     async end() {}
     async query(sql: string, values?: unknown[]) {
       pgState.queries.push({ sql, values });
-      return { rows: pgState.rows };
+      return { rows: pgState.rowSets.shift() ?? pgState.rows };
     }
   },
 }));
 
-import { getPostgresTableColumns, listPostgresBaseTables } from "./external-postgres.js";
+import { getPostgresTableColumns, inspectReadOnlyPostgres, listPostgresBaseTables } from "./external-postgres.js";
 
 const connection = {
   host: "database.internal",
@@ -34,6 +35,7 @@ beforeEach(() => {
   pgState.options.length = 0;
   pgState.queries.length = 0;
   pgState.rows = [];
+  pgState.rowSets = [];
 });
 
 describe("introspecção PostgreSQL sem leitura de dados", () => {
@@ -70,5 +72,23 @@ describe("introspecção PostgreSQL sem leitura de dados", () => {
     expect(pgState.queries[0]?.sql).toContain("table_schema <> 'information_schema'");
     expect(pgState.queries[0]?.sql).toContain("LIMIT 10001");
     expect(result).toEqual([{ schemaName: "public", tableName: "orders" }]);
+  });
+
+  it("limita a descoberta usada no cadastro, edição e refresh a 10 mil tabelas", async () => {
+    pgState.rowSets = [
+      [{
+        is_superuser: false,
+        bypass_rls: false,
+        can_create_database: false,
+        can_create_temp: false,
+        can_create_schema: false,
+        can_write_table: false,
+      }],
+      Array.from({ length: 10_001 }, (_, index) => ({ schema_name: "public", table_name: `table_${index}` })),
+    ];
+
+    await expect(inspectReadOnlyPostgres(connection))
+      .rejects.toThrow("O catálogo do servidor excede o limite de 10000 tabelas.");
+    expect(pgState.queries[1]?.sql).toContain("LIMIT 10001");
   });
 });

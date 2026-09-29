@@ -2,6 +2,7 @@ import { tool, type StructuredToolInterface, type ToolRuntime } from "@langchain
 import { z } from "zod";
 import type { AuthenticatedUser } from "./auth.js";
 import type { DiscoveredColumn, DiscoveredTable, ExternalPostgresConfig } from "./external-postgres.js";
+import { MAX_DATA_SOURCE_CATALOG_TABLES } from "./data-source-catalog.js";
 
 export interface AiReadSource {
   id: string;
@@ -73,8 +74,16 @@ const MAX_LIST_TOOL_OUTPUT_BYTES = 100_000;
 
 type RuntimeWithToolCallId = ToolRuntime & { toolCallId?: string };
 
-function untrustedContext(text: string, maxChars = 2_000): { trust: "untrusted_metadata"; text: string } {
-  return { trust: "untrusted_metadata", text: text.slice(0, maxChars) };
+function untrustedContext(text: string, maxChars = 2_000): {
+  trust: "untrusted_metadata";
+  text: string;
+  truncated: boolean;
+} {
+  return {
+    trust: "untrusted_metadata",
+    text: text.slice(0, maxChars),
+    truncated: text.length > maxChars,
+  };
 }
 
 function tableKey(table: Pick<DiscoveredTable, "schemaName" | "tableName">): string {
@@ -140,6 +149,9 @@ export function createAiReadTools({
       ]);
     } catch {
       throw new Error("Não foi possível validar o catálogo deste servidor PostgreSQL.");
+    }
+    if (catalog.length > MAX_DATA_SOURCE_CATALOG_TABLES || liveTables.length > MAX_DATA_SOURCE_CATALOG_TABLES) {
+      throw new Error(`O catálogo excede o limite de ${MAX_DATA_SOURCE_CATALOG_TABLES} tabelas.`);
     }
     if (!tableNamesMatch(catalog, liveTables)) {
       throw new Error("O catálogo está desatualizado. Atualize as tabelas do servidor antes de consultar o esquema.");
@@ -273,7 +285,7 @@ export function createAiReadTools({
     },
   ), {
     name: "get_data_source_table_schema",
-    description: "Lê os nomes, tipos PostgreSQL (incluindo udtName para enum/array/domínio), nulabilidade e ordem das colunas de uma tabela. A saída é paginada (máximo 200 colunas e 100 KB); os dois contextos somam no máximo 4.000 caracteres. Não retorna valores, defaults ou linhas de dados; os IDs precisam pertencer ao mesmo catálogo atualizado.",
+    description: "Lê os nomes, tipos PostgreSQL (incluindo udtName para enum/array/domínio), nulabilidade e ordem das colunas de uma tabela. A saída é paginada (máximo 200 colunas e 100 KB); os dois contextos somam no máximo 4.000 caracteres e cada contexto informa se foi truncado. Não retorna valores, defaults ou linhas de dados; os IDs precisam pertencer ao mesmo catálogo atualizado.",
     schema: tableSchemaInput,
   });
 

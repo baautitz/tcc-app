@@ -1,4 +1,5 @@
 import { Client, type QueryResultRow } from "pg";
+import { MAX_DATA_SOURCE_CATALOG_TABLES } from "./data-source-catalog.js";
 
 export interface ExternalPostgresConfig {
   host: string;
@@ -50,10 +51,10 @@ export async function listPostgresBaseTables(
         AND table_schema NOT LIKE 'pg_%'
         AND table_schema <> 'information_schema'
       ORDER BY table_schema, table_name
-      LIMIT 10001
+      LIMIT ${MAX_DATA_SOURCE_CATALOG_TABLES + 1}
     `);
-    if (result.rows.length > 10_000) {
-      throw new Error("O catálogo do servidor excede o limite de tabelas para consulta assistida.");
+    if (result.rows.length > MAX_DATA_SOURCE_CATALOG_TABLES) {
+      throw new Error(`O catálogo do servidor excede o limite de ${MAX_DATA_SOURCE_CATALOG_TABLES} tabelas.`);
     }
     return result.rows.map((row) => ({
       schemaName: row.schema_name,
@@ -174,7 +175,11 @@ export async function inspectReadOnlyPostgres(
         AND table_schema NOT LIKE 'pg_%'
         AND table_schema <> 'information_schema'
       ORDER BY table_schema, table_name
+      LIMIT ${MAX_DATA_SOURCE_CATALOG_TABLES + 1}
     `);
+    if (tableResult.rows.length > MAX_DATA_SOURCE_CATALOG_TABLES) {
+      throw new Error(`O catálogo do servidor excede o limite de ${MAX_DATA_SOURCE_CATALOG_TABLES} tabelas.`);
+    }
     return tableResult.rows.map((table) => ({
       schemaName: table.schema_name,
       tableName: table.table_name,
