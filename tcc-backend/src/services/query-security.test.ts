@@ -75,6 +75,15 @@ describe("query security", () => {
     expect(() => assertAiReadOnlySql("SELECT random()")).toThrow(
       "lista segura",
     );
+    expect(() => assertAiReadOnlySql('SELECT "PG_CATALOG"."count"(*)')).toThrow(
+      "lista segura",
+    );
+    expect(() => assertAiReadOnlySql('SELECT pg_catalog."COUNT"(*)')).toThrow(
+      "lista segura",
+    );
+    expect(() =>
+      assertAiReadOnlySql('SELECT "pg_catalog"."count"(*)'),
+    ).not.toThrow();
     expect(() =>
       assertAiReadOnlySql(
         "SELECT public.custom_reporting_function(order_id) FROM public.orders",
@@ -98,17 +107,51 @@ describe("query security", () => {
     ).toThrow("lista segura");
   });
 
+  it("restringe casts e literais tipados da IA a tipos built-in", () => {
+    const rejected = [
+      "SELECT CAST('payload' AS evil.widget)",
+      "SELECT 'payload'::evil.widget",
+      "SELECT CAST('payload' AS public.custom_domain)",
+      "SELECT 'payload'::public.order_state",
+      "SELECT CAST('payload' AS public.custom_composite[])",
+      'SELECT CAST(1 AS "evil"."widget")',
+      'SELECT 1::"public"."custom_domain"[]',
+      "SELECT evil.widget 'payload'",
+      'SELECT "public"."custom_domain" \'payload\'',
+    ];
+    for (const sqlText of rejected)
+      expect(() => assertAiReadOnlySql(sqlText), sqlText).toThrow("tipo");
+
+    const accepted = [
+      "SELECT CAST('42' AS integer)",
+      "SELECT CAST('42.50' AS pg_catalog.numeric(10, 2))",
+      'SELECT CAST(1 AS "pg_catalog"."int4"[])',
+      "SELECT CAST(ARRAY[1] AS integer ARRAY[4])",
+      "SELECT '2026-01-31'::date",
+      "SELECT '2026-01-31 10:00:00+00'::timestamp(3) with time zone",
+      "SELECT DATE '2026-01-31', INTERVAL '1 day'",
+      "SELECT now() AT TIME ZONE 'UTC'",
+      "SELECT to_char(now(), 'YYYY-MM')",
+      "SELECT B'1010', X'FF'",
+    ];
+    for (const sqlText of accepted)
+      expect(() => assertAiReadOnlySql(sqlText), sqlText).not.toThrow();
+  });
+
   it("limita referências do preview às tabelas base catalogadas, respeitando CTEs e JOINs", () => {
     const knownTables = [
       { schemaName: "public", tableName: "orders" },
       { schemaName: "sales", tableName: "regions" },
     ];
-    expect(() =>
+    expect(
       assertAiCatalogTableReferences(
         "WITH totals(total) AS (SELECT count(*) FROM public.orders) SELECT * FROM totals t JOIN sales.regions r ON true",
         knownTables,
       ),
-    ).not.toThrow();
+    ).toEqual([
+      { schemaName: "public", tableName: "orders" },
+      { schemaName: "sales", tableName: "regions" },
+    ]);
     expect(() =>
       assertAiCatalogTableReferences(
         "SELECT * FROM public.orders o, public.unregistered_view v",
@@ -118,6 +161,19 @@ describe("query security", () => {
     expect(() =>
       assertAiCatalogTableReferences("SELECT * FROM orders", knownTables),
     ).toThrow("Qualifique o schema");
+  });
+
+  it("preserva identificadores quoted ao resolver referências usadas", () => {
+    const knownTables = [{ schemaName: "Sales", tableName: "Orders" }];
+    expect(
+      assertAiCatalogTableReferences(
+        'SELECT * FROM "Sales"."Orders"',
+        knownTables,
+      ),
+    ).toEqual([{ schemaName: "Sales", tableName: "Orders" }]);
+    expect(() =>
+      assertAiCatalogTableReferences("SELECT * FROM sales.orders", knownTables),
+    ).toThrow("não pertence ao catálogo base");
   });
 
   it("converte apenas parâmetros declarados em bind values", () => {

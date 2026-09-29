@@ -8,6 +8,7 @@ import { parameterDefinitionSchema } from "../lib/contracts.js";
 import type { AuthenticatedUser } from "./auth.js";
 import {
   ExternalQueryExecutionError,
+  type UnsafeAiColumnType,
   runBoundedReadOnlyQueryWithRetry,
 } from "./external-postgres.js";
 import type { AiReadSource } from "./ai-read-tools.js";
@@ -20,7 +21,10 @@ import {
   bindQueryParameters,
   QueryInputValidationError,
 } from "./query-security.js";
-import { assertAiCatalogTableReferences } from "./query-security.js";
+import {
+  assertAiCatalogTableReferences,
+  type AiCatalogTableReference,
+} from "./query-security.js";
 
 const MAX_SQL_DRAFT_CHARACTERS = 20_000;
 const MAX_SQL_DRAFTS = 3;
@@ -76,6 +80,10 @@ export interface AiQueryTestRepository {
   listLiveBaseTables(
     connection: AiReadSource["connection"],
   ): Promise<Array<{ schemaName: string; tableName: string }>>;
+  findUnsafeColumnTypes(
+    connection: AiReadSource["connection"],
+    tables: AiCatalogTableReference[],
+  ): Promise<UnsafeAiColumnType[]>;
 }
 
 export interface AiQueryTestResult {
@@ -96,6 +104,7 @@ export interface CreateAiQueryTestToolsOptions {
     sqlText: string,
     values: unknown[],
     beforeAttempt: (attempt: number) => boolean,
+    signal?: AbortSignal,
   ) => Promise<AiQueryTestResult>;
 }
 
@@ -126,7 +135,8 @@ async function withToolEvents<T>(
     );
     return result;
   } finally {
-    await emit({ type: "tool_result", toolCallId, toolName: "test_query", ok });
+    if (!runtime.signal?.aborted)
+      await emit({ type: "tool_result", toolCallId, toolName: "test_query", ok });
   }
 }
 
@@ -174,9 +184,10 @@ export function createAiQueryTestTools({
   currentUser,
   repository,
   onToolEvent,
-  runQuery = async (source, sqlText, values, beforeAttempt) =>
+  runQuery = async (source, sqlText, values, beforeAttempt, signal) =>
     runBoundedReadOnlyQueryWithRetry(source.connection, sqlText, values, {
       beforeAttempt,
+      retrySignal: signal,
     }),
 }: CreateAiQueryTestToolsOptions): StructuredToolInterface[] {
   if (!currentUser.isAdmin)
@@ -237,7 +248,7 @@ export function createAiQueryTestTools({
             return {
               ok: false,
               code: "DATABASE_ATTEMPT_LIMIT_REACHED",
-              message: `Esta execução de chat atingiu o limite de ${MAX_DATABASE_ATTEMPTS} tentativas ao banco de dados.`,
+              message: `Esta execução de chat atingiu o limite de ${MAX_DATABASE_ATTEMPTS} tentativas de execução do rascunho SQL ao banco de dados.`,
               askUser: true,
               retryable: false,
             };
@@ -295,8 +306,12 @@ export function createAiQueryTestTools({
               askUser: true,
             };
           }
+          let referencedTables: AiCatalogTableReference[];
           try {
-            assertAiCatalogTableReferences(input.sqlText, catalogTables);
+            referencedTables = assertAiCatalogTableReferences(
+              input.sqlText,
+              catalogTables,
+            );
           } catch (error) {
             if (error instanceof QueryInputValidationError)
               return validationResult(error);
@@ -306,6 +321,32 @@ export function createAiQueryTestTools({
               message:
                 "A query referencia tabelas fora do catálogo autorizado.",
               retryable: false,
+            };
+          }
+
+          let unsafeColumnTypes: UnsafeAiColumnType[];
+          try {
+            unsafeColumnTypes = await repository.findUnsafeColumnTypes(
+              source.connection,
+              referencedTables,
+            );
+          } catch {
+            return {
+              ok: false,
+              code: "DATA_SOURCE_CATALOG_UNAVAILABLE",
+              message:
+                "Não foi possível validar os tipos das colunas das tabelas usadas. Tente novamente após confirmar o catálogo do servidor.",
+              retryable: false,
+            };
+          }
+          if (unsafeColumnTypes.length > 0) {
+            return {
+              ok: false,
+              code: "UNSUPPORTED_TABLE_TYPES",
+              message:
+                "A prévia da IA não pode usar tabelas que contenham tipos PostgreSQL definidos pelo usuário, domains, enums ou composites. Remova essas relações da consulta ou peça ao administrador uma tabela compatível.",
+              retryable: false,
+              askUser: true,
             };
           }
 
@@ -341,6 +382,7 @@ export function createAiQueryTestTools({
                 databaseAttempts += 1;
                 return true;
               },
+              runtime.signal,
             );
             let finalSource: AiReadSource | undefined;
             try {
@@ -377,6 +419,11 @@ export function createAiQueryTestTools({
                 : "Esta é uma amostra limitada de leitura. Os valores numéricos são texto para preservar precisão. Não salve a query; apresente o SQL e os resultados para revisão do administrador.",
             };
           } catch (error) {
+            if (
+              runtime.signal?.aborted ||
+              (error instanceof Error && error.name === "AbortError")
+            )
+              throw error;
             const classified =
               error instanceof ExternalQueryExecutionError ? error : undefined;
             if (!classified) {
@@ -412,7 +459,7 @@ export function createAiQueryTestTools({
     {
       name: "test_query",
       description:
-        "Testa um rascunho SQL PostgreSQL em um servidor cadastrado usando apenas leitura, parâmetros vinculados e uma amostra com limites de tempo, linhas e bytes. Só aceita tabelas base do catálogo atualizado e funções built-in aprovadas; não aceita views, UDFs nem extensões. Não salva query nem altera dados. Máximo de 3 chamadas de teste SQL e 6 tentativas de execução ao banco por execução de chat. Quando um parâmetro obrigatório faltar, pergunte o valor ao administrador em vez de inventá-lo.",
+        "Testa um rascunho SQL PostgreSQL em um servidor cadastrado usando apenas leitura, parâmetros vinculados e uma amostra com limites de tempo, linhas e bytes. Só aceita tabelas base do catálogo atualizado, relações com colunas de tipos built-in e funções built-in aprovadas; não aceita views, UDFs, extensões nem colunas de tipos customizados. Não salva query nem altera dados. Máximo de 3 chamadas de teste SQL e 6 tentativas de execução do rascunho ao banco por execução de chat. Quando um parâmetro obrigatório faltar, pergunte o valor ao administrador em vez de inventá-lo.",
       schema: inputSchema,
     },
   );

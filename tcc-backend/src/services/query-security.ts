@@ -263,6 +263,130 @@ const SAFE_FUNCTIONS = new Set([
   "generate_subscripts",
 ]);
 
+// PostgreSQL casts and typed string literals can invoke arbitrary type input/output
+// functions. Keep the AI policy independent from the saved-query policy below.
+const SAFE_TYPE_NAMES = [
+  "abstime",
+  "aclitem",
+  "bigint",
+  "bigserial",
+  "bit",
+  "bit varying",
+  "bool",
+  "boolean",
+  "bpchar",
+  "box",
+  "bytea",
+  "char",
+  "character",
+  "character varying",
+  "cid",
+  "cidr",
+  "circle",
+  "date",
+  "daterange",
+  "datemultirange",
+  "decimal",
+  "double precision",
+  "float",
+  "float4",
+  "float8",
+  "gtsvector",
+  "inet",
+  "int",
+  "int2",
+  "int4",
+  "int8",
+  "integer",
+  "interval",
+  "json",
+  "jsonb",
+  "line",
+  "lseg",
+  "macaddr",
+  "macaddr8",
+  "money",
+  "name",
+  "national character",
+  "national character varying",
+  "national char",
+  "national char varying",
+  "numeric",
+  "numrange",
+  "nummultirange",
+  "oid",
+  "oidvector",
+  "path",
+  "pg_lsn",
+  "pg_snapshot",
+  "point",
+  "polygon",
+  "real",
+  "refcursor",
+  "regclass",
+  "regcollation",
+  "regconfig",
+  "regdictionary",
+  "regnamespace",
+  "regoper",
+  "regoperator",
+  "regproc",
+  "regprocedure",
+  "regrole",
+  "regtype",
+  "serial",
+  "serial2",
+  "serial4",
+  "serial8",
+  "smallint",
+  "smallserial",
+  "text",
+  "tid",
+  "time",
+  "time with time zone",
+  "time without time zone",
+  "timestamp",
+  "timestamp with time zone",
+  "timestamp without time zone",
+  "timestamptz",
+  "timetz",
+  "tsquery",
+  "tsrange",
+  "tsmultirange",
+  "tsvector",
+  "tstzrange",
+  "tstzmultirange",
+  "uuid",
+  "varbit",
+  "varchar",
+  "xid",
+  "xid8",
+  "xml",
+].sort((left, right) => right.split(" ").length - left.split(" ").length);
+
+const SAFE_TYPE_MODIFIER_NAMES = new Set([
+  "bit",
+  "bit varying",
+  "character",
+  "character varying",
+  "decimal",
+  "double precision",
+  "float",
+  "numeric",
+  "national character",
+  "national character varying",
+  "national char",
+  "national char varying",
+  "time",
+  "time with time zone",
+  "time without time zone",
+  "timestamp",
+  "timestamp with time zone",
+  "timestamp without time zone",
+  "varchar",
+  "varbit",
+]);
+
 const MAX_SQL_CHARACTERS = 100_000;
 const MAX_PARAMETERS = 50;
 const MAX_PARAMETER_VALUE_CHARACTERS = 2_048;
@@ -273,8 +397,11 @@ type Token = {
   kind:
     | "word"
     | "quoted_identifier"
+    | "string"
+    | "number"
     | "parameter"
     | "semicolon"
+    | "operator"
     | "punctuation";
   value: string;
   start: number;
@@ -324,12 +451,17 @@ function tokenizeSql(sqlText: string): Token[] {
     }
 
     // PostgreSQL escape strings and ordinary strings; doubled quotes escape a quote.
+    const prefixedString =
+      /[bBnNxX]/.test(character) &&
+      next === "'" &&
+      (index === 0 || !/[\w$]/.test(sqlText[index - 1]!));
     const escapeString =
       (character === "e" || character === "E") &&
       next === "'" &&
       (index === 0 || !/[\w$]/.test(sqlText[index - 1]!));
-    if (character === "'" || escapeString) {
-      index += escapeString ? 2 : 1;
+    if (character === "'" || escapeString || prefixedString) {
+      const start = index;
+      index += escapeString || prefixedString ? 2 : 1;
       let closed = false;
       while (index < sqlText.length) {
         if (escapeString && sqlText[index] === "\\") {
@@ -348,6 +480,7 @@ function tokenizeSql(sqlText: string): Token[] {
         index += 1;
       }
       if (!closed) throw new Error("A query contém uma string SQL incompleta.");
+      tokens.push({ kind: "string", value: "", start, end: index });
       continue;
     }
 
@@ -360,6 +493,12 @@ function tokenizeSql(sqlText: string): Token[] {
         const closeAt = sqlText.indexOf(delimiter, index + delimiter.length);
         if (closeAt < 0)
           throw new Error("A query contém uma string SQL incompleta.");
+        tokens.push({
+          kind: "string",
+          value: "",
+          start: index,
+          end: closeAt + delimiter.length,
+        });
         index = closeAt + delimiter.length;
         continue;
       }
@@ -416,7 +555,18 @@ function tokenizeSql(sqlText: string): Token[] {
       continue;
     }
 
-    if ("().,".includes(character)) {
+    if (character === ":" && next === ":") {
+      tokens.push({
+        kind: "operator",
+        value: "::",
+        start: index,
+        end: index + 2,
+      });
+      index += 2;
+      continue;
+    }
+
+    if ("().,[]".includes(character)) {
       tokens.push({
         kind: "punctuation",
         value: character,
@@ -424,6 +574,46 @@ function tokenizeSql(sqlText: string): Token[] {
         end: index + 1,
       });
       index += 1;
+      continue;
+    }
+
+    if (/[0-9]/.test(character)) {
+      const start = index++;
+      while (index < sqlText.length && /[0-9]/.test(sqlText[index]!))
+        index += 1;
+      tokens.push({
+        kind: "number",
+        value: sqlText.slice(start, index),
+        start,
+        end: index,
+      });
+      continue;
+    }
+
+    if (character === ":") {
+      tokens.push({
+        kind: "punctuation",
+        value: character,
+        start: index,
+        end: index + 1,
+      });
+      index += 1;
+      continue;
+    }
+
+    if ("+-*/<>=~!@#%^&|`?".includes(character)) {
+      const start = index++;
+      while (
+        index < sqlText.length &&
+        "+-*/<>=~!@#%^&|`?".includes(sqlText[index]!)
+      )
+        index += 1;
+      tokens.push({
+        kind: "operator",
+        value: sqlText.slice(start, index),
+        start,
+        end: index,
+      });
       continue;
     }
 
@@ -466,6 +656,296 @@ export class QueryInputValidationError extends Error {
   ) {
     super(message);
     this.name = "QueryInputValidationError";
+  }
+}
+
+const TYPE_LITERAL_BOUNDARY_WORDS = new Set([
+  "and",
+  "as",
+  "between",
+  "case",
+  "distinct",
+  "else",
+  "from",
+  "having",
+  "ilike",
+  "in",
+  "is",
+  "like",
+  "limit",
+  "not",
+  "offset",
+  "on",
+  "or",
+  "returning",
+  "select",
+  "similar",
+  "then",
+  "values",
+  "when",
+  "where",
+]);
+
+function normalizeTypeToken(token: Token | undefined): string | undefined {
+  if (!token || (token.kind !== "word" && token.kind !== "quoted_identifier"))
+    return undefined;
+  return token.kind === "word"
+    ? token.value.toLocaleLowerCase("en-US")
+    : token.value;
+}
+
+/** Parses one approved built-in type prefix and returns the token after its array suffixes. */
+function parseSafeTypePrefix(
+  tokens: Token[],
+  start: number,
+): number | undefined {
+  let cursor = start;
+  const first = normalizeTypeToken(tokens[cursor]);
+  if (!first) return undefined;
+
+  if (tokens[cursor + 1]?.value === ".") {
+    if (first !== "pg_catalog") return undefined;
+    cursor += 2;
+  }
+
+  const typeWords: string[] = [];
+  const maxWords = Math.max(
+    ...SAFE_TYPE_NAMES.map((name) => name.split(" ").length),
+  );
+  while (typeWords.length < maxWords) {
+    const value = normalizeTypeToken(tokens[cursor + typeWords.length]);
+    if (!value) break;
+    typeWords.push(value);
+  }
+
+  let typeName: string | undefined;
+  let typeNameLength = 0;
+  for (const candidate of SAFE_TYPE_NAMES) {
+    const parts = candidate.split(" ");
+    if (
+      parts.length <= typeWords.length &&
+      parts.every((part, index) => part === typeWords[index])
+    ) {
+      typeName = candidate;
+      typeNameLength = parts.length;
+      break;
+    }
+  }
+  if (!typeName) return undefined;
+  cursor += typeNameLength;
+
+  if (tokens[cursor]?.value === "(" && SAFE_TYPE_MODIFIER_NAMES.has(typeName)) {
+    cursor += 1;
+    let modifierCount = 0;
+    while (true) {
+      const number = tokens[cursor];
+      if (number?.kind !== "number" || number.value.length > 4)
+        return undefined;
+      modifierCount += 1;
+      cursor += 1;
+      if (tokens[cursor]?.value !== ",") break;
+      if (modifierCount >= 2) return undefined;
+      cursor += 1;
+    }
+    if (tokens[cursor]?.value !== ")") return undefined;
+    cursor += 1;
+  }
+
+  if (typeName === "time" || typeName === "timestamp") {
+    if (
+      tokens[cursor]?.value === "with" &&
+      tokens[cursor + 1]?.value === "time" &&
+      tokens[cursor + 2]?.value === "zone"
+    ) {
+      cursor += 3;
+    } else if (
+      tokens[cursor]?.value === "without" &&
+      tokens[cursor + 1]?.value === "time" &&
+      tokens[cursor + 2]?.value === "zone"
+    ) {
+      cursor += 3;
+    }
+  }
+
+  if (typeName === "interval") {
+    if (tokens[cursor]?.value === "(") {
+      cursor += 1;
+      const precision = tokens[cursor];
+      if (precision?.kind !== "number" || precision.value.length > 4)
+        return undefined;
+      cursor += 1;
+      if (tokens[cursor]?.value !== ")") return undefined;
+      cursor += 1;
+    }
+    const startField = tokens[cursor]?.value;
+    if (
+      ["year", "month", "day", "hour", "minute", "second"].includes(
+        startField ?? "",
+      )
+    ) {
+      cursor += 1;
+      if (startField === "second" && tokens[cursor]?.value === "(") {
+        cursor += 1;
+        const precision = tokens[cursor];
+        if (precision?.kind !== "number" || precision.value.length > 4)
+          return undefined;
+        cursor += 1;
+        if (tokens[cursor]?.value !== ")") return undefined;
+        cursor += 1;
+      }
+      if (tokens[cursor]?.value === "to") {
+        cursor += 1;
+        const endField = tokens[cursor]?.value;
+        if (
+          !["month", "day", "hour", "minute", "second"].includes(endField ?? "")
+        )
+          return undefined;
+        cursor += 1;
+        if (endField === "second" && tokens[cursor]?.value === "(") {
+          cursor += 1;
+          const precision = tokens[cursor];
+          if (precision?.kind !== "number" || precision.value.length > 4)
+            return undefined;
+          cursor += 1;
+          if (tokens[cursor]?.value !== ")") return undefined;
+          cursor += 1;
+        }
+      }
+    }
+  }
+
+  while (true) {
+    if (tokens[cursor]?.value === "array") cursor += 1;
+    if (tokens[cursor]?.value !== "[") break;
+    cursor += 1;
+    if (tokens[cursor]?.kind === "number") cursor += 1;
+    if (tokens[cursor]?.value !== "]") return undefined;
+    cursor += 1;
+  }
+  return cursor;
+}
+
+function isTypeLiteralBoundary(token: Token | undefined): boolean {
+  if (!token) return true;
+  if (token.kind === "operator" || token.kind === "parameter") return true;
+  if (token.kind === "punctuation")
+    return ["(", ",", "["].includes(token.value);
+  return token.kind === "word" && TYPE_LITERAL_BOUNDARY_WORDS.has(token.value);
+}
+
+function isTypeLikeSequence(
+  tokens: Token[],
+  start: number,
+  end: number,
+): boolean {
+  if (start >= end) return false;
+  for (const token of tokens.slice(start, end)) {
+    if (
+      token.kind === "word" ||
+      token.kind === "quoted_identifier" ||
+      token.kind === "number"
+    )
+      continue;
+    if (
+      token.kind === "punctuation" &&
+      [".", "(", ")", ",", "[", "]"].includes(token.value)
+    )
+      continue;
+    return false;
+  }
+  return true;
+}
+
+function assertAiCastTypes(tokens: Token[]): void {
+  for (let index = 0; index < tokens.length; index += 1) {
+    const token = tokens[index]!;
+    if (
+      token.kind === "word" &&
+      token.value === "cast" &&
+      tokens[index + 1]?.value === "("
+    ) {
+      const castOpen = index + 1;
+      let depth = 1;
+      let castClose = castOpen + 1;
+      while (castClose < tokens.length && depth > 0) {
+        if (tokens[castClose]?.value === "(") depth += 1;
+        else if (tokens[castClose]?.value === ")") depth -= 1;
+        if (depth > 0) castClose += 1;
+      }
+      if (depth !== 0)
+        throw new QueryInputValidationError("INVALID_SQL", "CAST incompleto.");
+      let nestedDepth = 0;
+      let asIndex = -1;
+      for (let cursor = castOpen + 1; cursor < castClose; cursor += 1) {
+        if (tokens[cursor]?.value === "(") nestedDepth += 1;
+        else if (tokens[cursor]?.value === ")") nestedDepth -= 1;
+        else if (
+          nestedDepth === 0 &&
+          tokens[cursor]?.kind === "word" &&
+          tokens[cursor]?.value === "as"
+        ) {
+          asIndex = cursor;
+          break;
+        }
+      }
+      if (asIndex < 0 || parseSafeTypePrefix(tokens, asIndex + 1) !== castClose)
+        throw new QueryInputValidationError(
+          "INVALID_SQL",
+          "CAST só pode converter para tipos PostgreSQL built-in aprovados.",
+        );
+    }
+
+    if (token.kind === "operator" && token.value === "::") {
+      if (!parseSafeTypePrefix(tokens, index + 1))
+        throw new QueryInputValidationError(
+          "INVALID_SQL",
+          "Casts PostgreSQL só podem usar tipos built-in aprovados.",
+        );
+    }
+
+    if (token.kind !== "string") continue;
+    if (
+      tokens[index - 1]?.value === "zone" &&
+      tokens[index - 2]?.value === "time" &&
+      tokens[index - 3]?.value === "at"
+    )
+      continue;
+    if (
+      tokens[index - 1]?.kind === "word" &&
+      TYPE_LITERAL_BOUNDARY_WORDS.has(tokens[index - 1]!.value)
+    )
+      continue;
+    if (
+      tokens[index - 1]?.kind !== "word" &&
+      tokens[index - 1]?.kind !== "quoted_identifier" &&
+      ![")", "]"].includes(tokens[index - 1]?.value ?? "")
+    )
+      continue;
+    const minimumStart = Math.max(0, index - 12);
+    let candidateStart = index - 1;
+    while (
+      candidateStart >= minimumStart &&
+      isTypeLikeSequence(tokens, candidateStart, index) &&
+      !(
+        tokens[candidateStart]?.kind === "word" &&
+        TYPE_LITERAL_BOUNDARY_WORDS.has(tokens[candidateStart]!.value)
+      ) &&
+      !isTypeLiteralBoundary(tokens[candidateStart - 1])
+    ) {
+      candidateStart -= 1;
+    }
+    if (
+      candidateStart < index &&
+      isTypeLikeSequence(tokens, candidateStart, index) &&
+      isTypeLiteralBoundary(tokens[candidateStart - 1])
+    ) {
+      const safeTypeEnd = parseSafeTypePrefix(tokens, candidateStart);
+      if (safeTypeEnd !== index)
+        throw new QueryInputValidationError(
+          "INVALID_SQL",
+          "Literais tipados só podem usar tipos PostgreSQL built-in aprovados.",
+        );
+    }
   }
 }
 
@@ -542,18 +1022,21 @@ export function assertReadOnlySql(sqlText: string): void {
 export function assertAiReadOnlySql(sqlText: string): void {
   assertReadOnlySql(sqlText);
   const tokens = significantTokens(tokenizeSql(sqlText));
+  assertAiCastTypes(tokens);
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index]!;
     if (token.kind !== "word" && token.kind !== "quoted_identifier") continue;
     if (isAliasColumnList(tokens, index)) continue;
-    const functionName = token.value.toLocaleLowerCase("en-US");
+    const functionName = normalizeIdentifier(token);
     const previous = tokens[index - 1];
     const next = tokens[index + 1];
     const isFunctionCall = next?.value === "(";
     if (!isFunctionCall) continue;
     const qualified = previous?.value === ".";
     const schemaName = qualified
-      ? tokens[index - 2]?.value.toLocaleLowerCase("en-US")
+      ? tokens[index - 2]
+        ? normalizeIdentifier(tokens[index - 2]!)
+        : undefined
       : undefined;
     if (
       (schemaName !== undefined && schemaName !== "pg_catalog") ||
@@ -589,12 +1072,13 @@ export interface AiCatalogTableReference {
 export function assertAiCatalogTableReferences(
   sqlText: string,
   knownTables: AiCatalogTableReference[],
-): void {
+): AiCatalogTableReference[] {
   const tokens = significantTokens(tokenizeSql(sqlText));
   const ctes = collectCteNames(tokens);
   const known = new Set(
     knownTables.map((table) => `${table.schemaName}\u0000${table.tableName}`),
   );
+  const referenced = new Map<string, AiCatalogTableReference>();
   const depths: number[] = [];
   let depth = 0;
   for (const token of tokens) {
@@ -610,7 +1094,12 @@ export function assertAiCatalogTableReferences(
       (token.value !== "from" && token.value !== "join")
     )
       continue;
-    assertRelationAt(tokens, index + 1, ctes, known);
+    const directRelation = assertRelationAt(tokens, index + 1, ctes, known);
+    if (directRelation)
+      referenced.set(
+        `${directRelation.schemaName}\u0000${directRelation.tableName}`,
+        directRelation,
+      );
     if (token.value !== "from") continue;
 
     const clauseDepth = depths[index]!;
@@ -635,10 +1124,17 @@ export function assertAiCatalogTableReferences(
         ].includes(current.value)
       )
         break;
-      if (current.value === ",")
-        assertRelationAt(tokens, cursor + 1, ctes, known);
+      if (current.value === ",") {
+        const commaRelation = assertRelationAt(tokens, cursor + 1, ctes, known);
+        if (commaRelation)
+          referenced.set(
+            `${commaRelation.schemaName}\u0000${commaRelation.tableName}`,
+            commaRelation,
+          );
+      }
     }
   }
+  return [...referenced.values()];
 }
 
 function collectCteNames(tokens: Token[]): Set<string> {
@@ -692,18 +1188,19 @@ function assertRelationAt(
   start: number,
   ctes: Set<string>,
   known: Set<string>,
-): void {
+): AiCatalogTableReference | undefined {
   let index = start;
   while (["only", "lateral"].includes(tokens[index]?.value ?? "")) index += 1;
   const relation = tokens[index];
-  if (!relation) return;
+  if (!relation) return undefined;
   if (relation.value === "(") {
     const firstInside = tokens[index + 1];
-    if (["select", "with", "values"].includes(firstInside?.value ?? "")) return;
-    assertRelationAt(tokens, index + 1, ctes, known);
-    return;
+    if (["select", "with", "values"].includes(firstInside?.value ?? ""))
+      return undefined;
+    return assertRelationAt(tokens, index + 1, ctes, known);
   }
-  if (relation.kind !== "word" && relation.kind !== "quoted_identifier") return;
+  if (relation.kind !== "word" && relation.kind !== "quoted_identifier")
+    return undefined;
 
   const firstName = normalizeIdentifier(relation);
   const dot = tokens[index + 1];
@@ -714,17 +1211,20 @@ function assertRelationAt(
     (secondName.kind === "word" || secondName.kind === "quoted_identifier")
   ) {
     // A following parenthesis is a table-valued function, whose function name is checked by the allowlist.
-    if (tokens[index + 3]?.value === "(") return;
+    if (tokens[index + 3]?.value === "(") return undefined;
     const key = `${firstName}\u0000${normalizeIdentifier(secondName)}`;
     if (!known.has(key))
       throw new QueryInputValidationError(
         "INVALID_SQL",
         `A tabela '${firstName}.${normalizeIdentifier(secondName)}' não pertence ao catálogo base atualizado do servidor.`,
       );
-    return;
+    return {
+      schemaName: firstName,
+      tableName: normalizeIdentifier(secondName),
+    };
   }
-  if (tokens[index + 1]?.value === "(") return;
-  if (ctes.has(firstName)) return;
+  if (tokens[index + 1]?.value === "(") return undefined;
+  if (ctes.has(firstName)) return undefined;
   throw new QueryInputValidationError(
     "INVALID_SQL",
     `Qualifique o schema da tabela '${firstName}' e use somente tabelas base catalogadas neste servidor.`,

@@ -1,7 +1,10 @@
 import { Client, type QueryResultRow } from "pg";
 import Cursor from "pg-cursor";
 import { MAX_DATA_SOURCE_CATALOG_TABLES } from "./data-source-catalog.js";
-import { normalizeReadOnlySql } from "./query-security.js";
+import {
+  normalizeReadOnlySql,
+  type AiCatalogTableReference,
+} from "./query-security.js";
 
 export interface ExternalPostgresConfig {
   host: string;
@@ -24,10 +27,19 @@ export interface DiscoveredColumn {
   ordinalPosition: number;
 }
 
+export interface UnsafeAiColumnType extends AiCatalogTableReference {
+  columnName: string;
+  typeSchema: string;
+  typeName: string;
+  typeKind: string;
+}
+
 export const AI_QUERY_CONNECTION_TIMEOUT_MS = 5_000;
 export const AI_QUERY_STATEMENT_TIMEOUT_MS = 10_000;
 export const AI_QUERY_MAX_ROWS = 50;
 export const AI_QUERY_MAX_BYTES = 48_000;
+export const AI_QUERY_RETRY_MIN_DELAY_MS = 100;
+export const AI_QUERY_RETRY_JITTER_MS = 100;
 
 export interface BoundedReadOnlyQueryResult {
   rows: Record<string, unknown>[];
@@ -53,6 +65,7 @@ interface BoundedReadOnlyClient {
 export interface BoundedReadOnlyQueryOptions {
   rowLimit?: number;
   byteLimit?: number;
+  retrySignal?: AbortSignal;
   createClient?: (config: ExternalPostgresConfig) => BoundedReadOnlyClient;
   createCursor?: (sqlText: string, values: unknown[]) => CursorQuery;
 }
@@ -252,7 +265,7 @@ function parseJsonPreservingNumbers(jsonText: string): Record<string, unknown> {
   let quoted = "";
   let inString = false;
   let escaped = false;
-  for (let index = 0; index < jsonText.length;) {
+  for (let index = 0; index < jsonText.length; ) {
     const character = jsonText[index]!;
     if (inString) {
       quoted += character;
@@ -298,6 +311,10 @@ export async function runBoundedReadOnlyQueryWithRetry(
   let attempt = 0;
   while (true) {
     attempt += 1;
+    if (options.retrySignal?.aborted)
+      throw (
+        options.retrySignal.reason ?? new DOMException("Aborted", "AbortError")
+      );
     if (options.beforeAttempt && !(await options.beforeAttempt(attempt))) {
       throw new ExternalQueryExecutionError("connection", null, false);
     }
@@ -309,8 +326,32 @@ export async function runBoundedReadOnlyQueryWithRetry(
           ? error
           : classifyExternalQueryError(error);
       if (attempt >= 2 || !classified.retryable) throw classified;
+      await waitBeforeTechnicalRetry(options.retrySignal);
     }
   }
+}
+
+function waitBeforeTechnicalRetry(signal?: AbortSignal): Promise<void> {
+  const delayMs =
+    AI_QUERY_RETRY_MIN_DELAY_MS +
+    Math.floor(Math.random() * (AI_QUERY_RETRY_JITTER_MS + 1));
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(signal.reason ?? new DOMException("Aborted", "AbortError"));
+      return;
+    }
+    const complete = () => {
+      signal?.removeEventListener("abort", abort);
+      resolve();
+    };
+    const timer = setTimeout(complete, delayMs);
+    const abort = () => {
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", abort);
+      reject(signal?.reason ?? new DOMException("Aborted", "AbortError"));
+    };
+    signal?.addEventListener("abort", abort, { once: true });
+  });
 }
 
 const METADATA_CONNECTION_TIMEOUT_MS = 5_000;
@@ -356,6 +397,92 @@ export async function listPostgresBaseTables(
       schemaName: row.schema_name,
       tableName: row.table_name,
     }));
+  } finally {
+    await client.end().catch(() => undefined);
+  }
+}
+
+/**
+ * Finds user-defined, domain, enum, composite, or pseudo types in referenced
+ * tables, recursively including array element types. AI previews reject the
+ * whole referenced table if any column has one of these types.
+ */
+export async function findUnsafeAiColumnTypes(
+  config: ExternalPostgresConfig,
+  tables: AiCatalogTableReference[],
+): Promise<UnsafeAiColumnType[]> {
+  if (tables.length === 0) return [];
+  const client = createMetadataClient(config);
+  try {
+    await client.connect();
+    const result = await client.query<UnsafeAiColumnType>(
+      `
+      WITH RECURSIVE requested(schema_name, table_name) AS (
+        SELECT * FROM unnest($1::text[], $2::text[])
+      ), table_columns AS (
+        SELECT
+          relation_namespace.nspname AS schema_name,
+          relation.relname AS table_name,
+          attribute.attname AS column_name,
+          attribute.atttypid AS type_oid
+        FROM requested
+        JOIN pg_catalog.pg_namespace AS relation_namespace
+          ON relation_namespace.nspname = requested.schema_name
+        JOIN pg_catalog.pg_class AS relation
+          ON relation.relnamespace = relation_namespace.oid
+          AND relation.relname = requested.table_name
+          AND relation.relkind IN ('r', 'p', 'f')
+        JOIN pg_catalog.pg_attribute AS attribute
+          ON attribute.attrelid = relation.oid
+          AND attribute.attnum > 0
+          AND NOT attribute.attisdropped
+      ), type_tree AS (
+        SELECT
+          table_columns.schema_name,
+          table_columns.table_name,
+          table_columns.column_name,
+          type.oid AS type_oid,
+          type.typnamespace,
+          type.typtype,
+          type.typelem,
+          type.typname
+        FROM table_columns
+        JOIN pg_catalog.pg_type AS type ON type.oid = table_columns.type_oid
+        UNION ALL
+        SELECT
+          type_tree.schema_name,
+          type_tree.table_name,
+          type_tree.column_name,
+          element.oid AS type_oid,
+          element.typnamespace,
+          element.typtype,
+          element.typelem,
+          element.typname
+        FROM type_tree
+        JOIN pg_catalog.pg_type AS current_type ON current_type.oid = type_tree.type_oid
+        JOIN pg_catalog.pg_type AS element ON element.oid = current_type.typelem
+        WHERE current_type.typelem <> 0
+      )
+      SELECT DISTINCT
+        type_tree.schema_name AS "schemaName",
+        type_tree.table_name AS "tableName",
+        type_tree.column_name AS "columnName",
+        type_namespace.nspname AS "typeSchema",
+        type_tree.typname AS "typeName",
+        type_tree.typtype AS "typeKind"
+      FROM type_tree
+      JOIN pg_catalog.pg_namespace AS type_namespace
+        ON type_namespace.oid = type_tree.typnamespace
+      WHERE type_namespace.nspname <> 'pg_catalog'
+        OR type_tree.typtype NOT IN ('b', 'r', 'm')
+      LIMIT 1001
+      `,
+      [
+        tables.map((table) => table.schemaName),
+        tables.map((table) => table.tableName),
+      ],
+    );
+    return result.rows;
   } finally {
     await client.end().catch(() => undefined);
   }
@@ -409,6 +536,7 @@ interface PrivilegeCheckRow extends QueryResultRow {
   can_create_database: boolean;
   can_create_temp: boolean;
   can_create_schema: boolean;
+  can_create_pg_catalog: boolean;
   can_write_table: boolean;
 }
 
@@ -433,6 +561,7 @@ export async function inspectReadOnlyPostgres(
         (SELECT rolbypassrls FROM pg_roles WHERE rolname = current_user) AS bypass_rls,
         has_database_privilege(current_user, current_database(), 'CREATE') AS can_create_database,
         has_database_privilege(current_user, current_database(), 'TEMP') AS can_create_temp,
+        has_schema_privilege(current_user, 'pg_catalog', 'CREATE') AS can_create_pg_catalog,
         EXISTS (
           SELECT 1 FROM pg_namespace n
           WHERE n.nspname NOT LIKE 'pg_%'

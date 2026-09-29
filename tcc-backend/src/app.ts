@@ -20,7 +20,7 @@ import {
 } from "./lib/contracts.js";
 import { decryptCredential, encryptCredential } from "./lib/credentials.js";
 import { hashPassword, verifyPassword } from "./lib/passwords.js";
-import { getPostgresTableColumns, inspectReadOnlyPostgres, listPostgresBaseTables, runReadOnlyQuery, type ExternalPostgresConfig } from "./services/external-postgres.js";
+import { findUnsafeAiColumnTypes, getPostgresTableColumns, inspectReadOnlyPostgres, listPostgresBaseTables, runReadOnlyQuery, type ExternalPostgresConfig } from "./services/external-postgres.js";
 import { createSession, findAuthenticatedUser, hasPermission, revokeSession, SESSION_COOKIE, type AuthenticatedUser } from "./services/auth.js";
 import { assignPermissionKeys } from "./services/permissions.js";
 import { createDashboardFile, getDashboardFileById, getDashboardFiles, getRegisteredDashboards, saveDashboardFile, syncDashboardDirectory } from "./services/dashboards.js";
@@ -200,6 +200,7 @@ function createAiReadToolsRepository() {
       return table ? aiReadTable(table) : undefined;
     },
     listLiveBaseTables: listPostgresBaseTables,
+    findUnsafeColumnTypes: findUnsafeAiColumnTypes,
     getLiveColumns: getPostgresTableColumns,
   };
 }

@@ -21,7 +21,12 @@ vi.mock("pg", () => ({
   },
 }));
 
-import { getPostgresTableColumns, inspectReadOnlyPostgres, listPostgresBaseTables } from "./external-postgres.js";
+import {
+  findUnsafeAiColumnTypes,
+  getPostgresTableColumns,
+  inspectReadOnlyPostgres,
+  listPostgresBaseTables,
+} from "./external-postgres.js";
 
 const connection = {
   host: "database.internal",
@@ -74,6 +79,45 @@ describe("introspecção PostgreSQL sem leitura de dados", () => {
     expect(result).toEqual([{ schemaName: "public", tableName: "orders" }]);
   });
 
+  it("inspeciona recursivamente os tipos das colunas das tabelas consultadas", async () => {
+    pgState.rows = [
+      {
+        schemaName: "public",
+        tableName: "orders",
+        columnName: "status",
+        typeSchema: "public",
+        typeName: "order_state",
+        typeKind: "e",
+      },
+      {
+        schemaName: "public",
+        tableName: "orders",
+        columnName: "payload",
+        typeSchema: "public",
+        typeName: "_custom_payload",
+        typeKind: "b",
+      },
+    ];
+
+    const result = await findUnsafeAiColumnTypes(connection, [
+      { schemaName: "public", tableName: "orders" },
+      { schemaName: "Sales", tableName: "Order Facts" },
+    ]);
+
+    expect(pgState.queries).toHaveLength(1);
+    expect(pgState.queries[0]?.sql).toContain("WITH RECURSIVE");
+    expect(pgState.queries[0]?.sql).toContain("JOIN pg_catalog.pg_type");
+    expect(pgState.queries[0]?.sql).toContain("current_type.typelem <> 0");
+    expect(pgState.queries[0]?.sql).toContain(
+      "type_tree.typtype NOT IN ('b', 'r', 'm')",
+    );
+    expect(pgState.queries[0]?.values).toEqual([
+      ["public", "Sales"],
+      ["orders", "Order Facts"],
+    ]);
+    expect(result).toEqual(pgState.rows);
+  });
+
   it("limita a descoberta usada no cadastro, edição e refresh a 10 mil tabelas", async () => {
     pgState.rowSets = [
       [{
@@ -82,13 +126,39 @@ describe("introspecção PostgreSQL sem leitura de dados", () => {
         can_create_database: false,
         can_create_temp: false,
         can_create_schema: false,
+        can_create_pg_catalog: false,
         can_write_table: false,
       }],
       Array.from({ length: 10_001 }, (_, index) => ({ schema_name: "public", table_name: `table_${index}` })),
     ];
 
     await expect(inspectReadOnlyPostgres(connection))
-      .rejects.toThrow("O catálogo do servidor excede o limite de 10000 tabelas.");
+      .rejects.toThrow(
+        "O catálogo do servidor excede o limite de 10000 tabelas.",
+      );
     expect(pgState.queries[1]?.sql).toContain("LIMIT 10001");
+  });
+
+  it("rejeita usuários que podem criar objetos em pg_catalog", async () => {
+    pgState.rowSets = [
+      [
+        {
+          is_superuser: false,
+          bypass_rls: false,
+          can_create_database: false,
+          can_create_temp: false,
+          can_create_schema: false,
+          can_create_pg_catalog: true,
+          can_write_table: false,
+        },
+      ],
+    ];
+
+    await expect(inspectReadOnlyPostgres(connection))
+      .rejects.toThrow("somente acesso de leitura");
+    expect(pgState.queries[0]?.sql).toContain(
+      "has_schema_privilege(current_user, 'pg_catalog', 'CREATE')",
+    );
+    expect(pgState.queries).toHaveLength(1);
   });
 });

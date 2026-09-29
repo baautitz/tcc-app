@@ -58,6 +58,7 @@ function makeTools(
       listLiveBaseTables: async () => [
         { schemaName: "public", tableName: "orders" },
       ],
+      findUnsafeColumnTypes: async () => [],
       ...options.repository,
     },
     runQuery: options.runQuery,
@@ -120,6 +121,7 @@ describe("ferramenta LangChain test_query", () => {
       "SELECT count(*) AS total FROM public.orders WHERE created_at >= $1",
       ["2026-09-01"],
       expect.any(Function),
+      undefined,
     );
     expect(output).toMatchObject({
       ok: true,
@@ -131,6 +133,45 @@ describe("ferramenta LangChain test_query", () => {
       "credential-that-must-never-reach-model",
     );
     expect(JSON.stringify(output)).not.toContain("db.internal.test");
+  });
+
+  it("propaga cancelamento do runtime e não emite resultado da tool após abort", async () => {
+    const controller = new AbortController();
+    const events: Array<{ type: string; ok?: boolean }> = [];
+    const runQuery = vi.fn(
+      async (
+        _source,
+        _sqlText,
+        _values,
+        _beforeAttempt,
+        signal?: AbortSignal,
+      ) => {
+        expect(signal).toBe(controller.signal);
+        controller.abort();
+        throw signal?.reason;
+      },
+    );
+    const { testQuery } = makeTools({
+      runQuery,
+      onToolEvent: (event) => {
+        events.push(event);
+      },
+    });
+
+    await expect(
+      testQuery.invoke(
+        {
+          dataSourceId: sourceId,
+          sqlText: "SELECT count(*) FROM public.orders",
+          parameters: [],
+          values: {},
+        },
+        { signal: controller.signal },
+      ),
+    ).rejects.toMatchObject({ name: "AbortError" });
+
+    expect(runQuery).toHaveBeenCalledTimes(1);
+    expect(events.map(({ type }) => type)).toEqual(["tool_start"]);
   });
 
   it("devolve pergunta de esclarecimento e não tenta SQL sem parâmetro obrigatório", async () => {
@@ -212,6 +253,62 @@ describe("ferramenta LangChain test_query", () => {
     expect(unknownView).toMatchObject({ ok: false, code: "INVALID_SQL" });
     expect(runQuery).not.toHaveBeenCalled();
   });
+
+  it.each([
+    ["base custom", "b", "custom_scalar", "SELECT id FROM public.orders"],
+    [
+      "base custom projetado",
+      "b",
+      "custom_scalar",
+      "SELECT payload FROM public.orders",
+    ],
+    ["domain", "d", "order_code", "SELECT code FROM public.orders"],
+    ["enum", "e", "order_state", "SELECT status FROM public.orders"],
+    ["composite", "c", "shipping_address", "SELECT id FROM public.orders"],
+    [
+      "array de tipo custom",
+      "b",
+      "_order_state",
+      "SELECT id FROM public.orders",
+    ],
+  ])(
+    "recusa tabelas referenciadas com qualquer coluna de tipo %s, mesmo fora da projeção",
+    async (_typeLabel, typeKind, typeName, sqlText) => {
+      const runQuery = vi.fn(async () => queryResult);
+      const findUnsafeColumnTypes = vi.fn(async () => [
+        {
+          schemaName: "public",
+          tableName: "orders",
+          columnName: "payload",
+          typeSchema: "public",
+          typeName,
+          typeKind,
+        },
+      ]);
+      const { testQuery } = makeTools({
+        runQuery,
+        repository: { findUnsafeColumnTypes },
+      });
+      const output = resultObject(
+        await testQuery.invoke({
+          dataSourceId: sourceId,
+          sqlText,
+          parameters: [],
+          values: {},
+        } as never),
+      );
+
+      expect(output).toMatchObject({
+        ok: false,
+        code: "UNSUPPORTED_TABLE_TYPES",
+        retryable: false,
+      });
+      expect(runQuery).not.toHaveBeenCalled();
+      expect(findUnsafeColumnTypes).toHaveBeenCalledWith(source.connection, [
+        { schemaName: "public", tableName: "orders" },
+      ]);
+    },
+  );
 
   it("aborta se a configuração da fonte mudar entre leitura do catálogo e execução", async () => {
     const runQuery = vi.fn(async () => queryResult);
