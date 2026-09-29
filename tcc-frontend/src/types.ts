@@ -85,6 +85,7 @@ export type DashboardUser = Pick<User, "id" | "name" | "email" | "active">;
 
 export type DataSource = {
   id: string;
+  updatedAt: string;
   name: string;
   host: string;
   port: number;

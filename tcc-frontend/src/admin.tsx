@@ -13,7 +13,7 @@ import {
   Trash2,
   Users,
 } from "lucide-react";
-import { api } from "@/api";
+import { api, ApiError } from "@/api";
 import type {
   DataSource,
   DataSourceTable,
@@ -679,7 +679,9 @@ function SourceSheet({
     },
   });
   const [tables, setTables] = useState<DataSourceTable[]>([]);
+  const [sourceUpdatedAt, setSourceUpdatedAt] = useState(source?.updatedAt ?? "");
   useEffect(() => {
+    setSourceUpdatedAt(source?.updatedAt ?? "");
     form.reset({
       name: source?.name ?? "",
       host: source?.host ?? "",
@@ -692,7 +694,10 @@ function SourceSheet({
     if (source && open)
       api
         .dataSource(source.id)
-        .then((detail) => setTables(detail.tables))
+        .then((detail) => {
+          setTables(detail.tables);
+          setSourceUpdatedAt(detail.updatedAt);
+        })
         .catch((reason: Error) => toast.error(reason.message));
     else setTables([]);
   }, [source, form, open]);
@@ -728,12 +733,29 @@ function SourceSheet({
         source.id,
         table.id,
         context,
+        sourceUpdatedAt,
       );
       setTables((items) =>
         items.map((item) => (item.id === updated.id ? updated : item)),
       );
       toast.success("Contexto da tabela salvo.");
     } catch (reason) {
+      if (reason instanceof ApiError && reason.status === 409) {
+        try {
+          const fresh = await api.dataSource(source.id);
+          setSourceUpdatedAt(fresh.updatedAt);
+          setTables(fresh.tables);
+          toast.error(
+            "O servidor mudou enquanto você editava. Os dados foram recarregados; revise o contexto antes de salvar novamente.",
+          );
+          return;
+        } catch (reloadReason) {
+          toast.error(
+            `${message(reason)} Não foi possível recarregar o servidor: ${message(reloadReason as Error)}`,
+          );
+          return;
+        }
+      }
       toast.error(message(reason as Error));
     }
   };

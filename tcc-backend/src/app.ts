@@ -30,6 +30,7 @@ import { assertParameterDefinitions, assertReadOnlySql, assertSqlParameters, bin
 import { createAiChatHandler } from "./services/ai-chat.js";
 import { createAiReadTools, type AiReadSource, type AiReadTable, type AiReadTableName } from "./services/ai-read-tools.js";
 import { DataSourceCatalogSnapshotChangedError, hasDataSourceTargetChanged, MAX_DATA_SOURCE_CATALOG_TABLES, reconcileDataSourceCatalog, type CatalogSourceSnapshot, type CatalogSourceUpdate } from "./services/data-source-catalog.js";
+import { DataSourceContextSourceNotFoundError, DataSourceContextVersionConflictError, updateTableContextIfSourceVersionMatches } from "./services/data-source-context.js";
 
 type AppVariables = { currentUser: AuthenticatedUser };
 type AppContext = Context<{ Variables: AppVariables }>;
@@ -566,7 +567,8 @@ app.patch("/api/data-sources/:id", authentication, permissionRequired("data-sour
     username: input.username,
     encryptedPassword: encryptCredential(password, environment.CREDENTIAL_ENCRYPTION_KEY),
     context: input.context,
-    updatedAt: new Date(),
+    // Keep this token strictly increasing even when edits land within one ms.
+    updatedAt: new Date(Math.max(Date.now(), expectedSourceSnapshot.updatedAt.getTime() + 1)),
   };
   // A changed endpoint/database can have different semantics behind identical table names.
   // Clear table contexts together with the source update and catalog reconciliation.
@@ -590,8 +592,39 @@ app.post("/api/data-sources/:id/refresh", authentication, permissionRequired("da
 app.patch("/api/data-sources/:sourceId/tables/:tableId", authentication, permissionRequired("data-sources:update"), async (context) => {
   const sourceId = z.string().uuid().parse(context.req.param("sourceId"));
   const tableId = z.string().uuid().parse(context.req.param("tableId"));
-  const input = await jsonBody(context, z.object({ context: z.string().max(20000) }));
-  const table = (await db.update(dataSourceTables).set({ context: input.context }).where(and(eq(dataSourceTables.id, tableId), eq(dataSourceTables.dataSourceId, sourceId))).returning())[0];
+  const input = await jsonBody(context, z.object({
+    context: z.string().max(20000),
+    expectedSourceUpdatedAt: z.string().datetime(),
+  }).strict());
+  let table: typeof dataSourceTables.$inferSelect | undefined;
+  try {
+    table = await updateTableContextIfSourceVersionMatches<typeof dataSourceTables.$inferSelect>({
+      transaction: (work) => db.transaction((tx) => work({
+        async lockSourceUpdatedAt(dataSourceId) {
+          const row = (await tx.select({ updatedAt: dataSources.updatedAt })
+            .from(dataSources)
+            .where(eq(dataSources.id, dataSourceId))
+            .for("update")
+            .limit(1))[0];
+          return row?.updatedAt;
+        },
+        async updateTableContext(dataSourceId, targetTableId, tableContext) {
+          return (await tx.update(dataSourceTables)
+            .set({ context: tableContext })
+            .where(and(eq(dataSourceTables.id, targetTableId), eq(dataSourceTables.dataSourceId, dataSourceId)))
+            .returning())[0];
+        },
+      })),
+    }, sourceId, tableId, input.context, input.expectedSourceUpdatedAt);
+  } catch (error) {
+    if (error instanceof DataSourceContextVersionConflictError) {
+      throw new ApiError(409, "O servidor foi alterado. Recarregue os dados antes de salvar o contexto.");
+    }
+    if (error instanceof DataSourceContextSourceNotFoundError) {
+      throw new ApiError(404, "Servidor PostgreSQL não encontrado.");
+    }
+    throw error;
+  }
   if (!table) throw new ApiError(404, "Tabela catalogada não encontrada.");
   return context.json(table);
 });

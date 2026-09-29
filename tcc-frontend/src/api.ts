@@ -132,10 +132,18 @@ export const api = {
     }),
   deleteDataSource: (id: string) =>
     request<void>(`/api/data-sources/${id}`, { method: "DELETE" }),
-  updateTableContext: (sourceId: string, tableId: string, context: string) =>
+  updateTableContext: (
+    sourceId: string,
+    tableId: string,
+    context: string,
+    expectedSourceUpdatedAt: string,
+  ) =>
     request<DataSourceTable>(
       `/api/data-sources/${sourceId}/tables/${tableId}`,
-      { method: "PATCH", body: JSON.stringify({ context }) },
+      {
+        method: "PATCH",
+        body: JSON.stringify({ context, expectedSourceUpdatedAt }),
+      },
     ),
   queries: () => request<QuerySummary[]>("/api/queries"),
   savedQuery: (id: string) => request<SavedQuery>(`/api/queries/${id}`),
