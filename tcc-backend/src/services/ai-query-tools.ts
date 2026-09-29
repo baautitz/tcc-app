@@ -110,6 +110,11 @@ export interface CreateAiQueryTestToolsOptions {
 
 type RuntimeWithToolCallId = ToolRuntime & { toolCallId?: string };
 
+function throwIfAborted(signal?: AbortSignal): void {
+  if (signal?.aborted)
+    throw signal.reason ?? new DOMException("Aborted", "AbortError");
+}
+
 async function withToolEvents<T>(
   runtime: RuntimeWithToolCallId,
   onToolEvent: CreateAiQueryTestToolsOptions["onToolEvent"],
@@ -205,6 +210,7 @@ export function createAiQueryTestTools({
         runtime as RuntimeWithToolCallId,
         onToolEvent,
         async () => {
+          throwIfAborted(runtime.signal);
           const fingerprint = draftFingerprint(input.sqlText);
           if (
             draftAttempts >= MAX_SQL_DRAFTS ||
@@ -372,6 +378,7 @@ export function createAiQueryTestTools({
             };
           }
 
+          throwIfAborted(runtime.signal);
           try {
             const result = await runQuery(
               currentSource,
@@ -384,6 +391,7 @@ export function createAiQueryTestTools({
               },
               runtime.signal,
             );
+            throwIfAborted(runtime.signal);
             let finalSource: AiReadSource | undefined;
             try {
               finalSource = await repository.findSource(input.dataSourceId);
@@ -419,10 +427,11 @@ export function createAiQueryTestTools({
                 : "Esta é uma amostra limitada de leitura. Os valores numéricos são texto para preservar precisão. Não salve a query; apresente o SQL e os resultados para revisão do administrador.",
             };
           } catch (error) {
-            if (
-              runtime.signal?.aborted ||
-              (error instanceof Error && error.name === "AbortError")
-            )
+            if (runtime.signal?.aborted)
+              throw (
+                runtime.signal.reason ?? new DOMException("Aborted", "AbortError")
+              );
+            if (error instanceof Error && error.name === "AbortError")
               throw error;
             const classified =
               error instanceof ExternalQueryExecutionError ? error : undefined;

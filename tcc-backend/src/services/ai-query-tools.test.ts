@@ -135,7 +135,7 @@ describe("ferramenta LangChain test_query", () => {
     expect(JSON.stringify(output)).not.toContain("db.internal.test");
   });
 
-  it("propaga cancelamento do runtime e não emite resultado da tool após abort", async () => {
+  it("descarta resposta SQL concluída após abort sem resultado de tool", async () => {
     const controller = new AbortController();
     const events: Array<{ type: string; ok?: boolean }> = [];
     const runQuery = vi.fn(
@@ -148,10 +148,10 @@ describe("ferramenta LangChain test_query", () => {
       ) => {
         expect(signal).toBe(controller.signal);
         controller.abort();
-        throw signal?.reason;
+        return queryResult;
       },
     );
-    const { testQuery } = makeTools({
+    const { testQuery, findSource } = makeTools({
       runQuery,
       onToolEvent: (event) => {
         events.push(event);
@@ -171,6 +171,7 @@ describe("ferramenta LangChain test_query", () => {
     ).rejects.toMatchObject({ name: "AbortError" });
 
     expect(runQuery).toHaveBeenCalledTimes(1);
+    expect(findSource).toHaveBeenCalledTimes(2);
     expect(events.map(({ type }) => type)).toEqual(["tool_start"]);
   });
 

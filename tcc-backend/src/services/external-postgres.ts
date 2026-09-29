@@ -191,6 +191,8 @@ export async function runBoundedReadOnlyQuery(
     );
     // Only pg_catalog functions/operators are resolvable implicitly. User tables must be schema-qualified.
     await client.query("SET LOCAL search_path = pg_catalog");
+    // pg-cursor has no stable AbortSignal cancellation API. An active fetch remains
+    // bounded by statement_timeout; the caller discards its result after an abort.
     cursor = createCursor(boundedSql, values);
     await client.query(cursor);
 
