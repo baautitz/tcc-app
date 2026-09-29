@@ -234,7 +234,7 @@ describe("ferramentas de leitura de contexto e esquema da IA", () => {
     await expect(result).rejects.toThrow("Servidor PostgreSQL não encontrado.");
     expect(events.map(({ type }) => type)).toEqual(["tool_start", "tool_result"]);
     expect(events[0]?.toolCallId).toBe(events[1]?.toolCallId);
-    expect(events.every((event) => event.type !== "query_preview" && event.toolName === "list_data_source_tables")).toBe(true);
+    expect(events.every((event) => event.type !== "query_preview" && event.type !== "dashboard_preview" && event.toolName === "list_data_source_tables")).toBe(true);
     expect(events[1] && "ok" in events[1] ? events[1].ok : undefined).toBe(false);
   });
 });

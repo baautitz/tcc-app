@@ -51,6 +51,7 @@ export type AiSseEvent =
   | { version: 1; type: "tool_start"; toolCallId: string; toolName: string }
   | { version: 1; type: "tool_result"; toolCallId: string; toolName: string; ok: boolean }
   | ({ version: 1 } & Extract<AiToolProgressEvent, { type: "query_preview" }>)
+  | ({ version: 1 } & Extract<AiToolProgressEvent, { type: "dashboard_preview" }>)
   | { version: 1; type: "proposal"; proposalId: string; kind: string; title: string; summary: string }
   | { version: 1; type: "error"; code: string; message: string; retryable: boolean }
   | { version: 1; type: "done"; messageId: string; finishReason: string | null };
@@ -64,6 +65,7 @@ type AiAgentFactory = (options: {
 
 type AiToolsFactory = (options: {
   currentUser: AuthenticatedUser;
+  pageContext?: AiChatRequest["pageContext"];
   onToolEvent: (event: AiToolProgressEvent) => void | Promise<void>;
 }) => StructuredToolInterface[];
 
@@ -130,6 +132,7 @@ function buildSystemPrompt(pageContext: AiChatRequest["pageContext"]): string {
     "Quando pedirem uma query, confira primeiro o servidor, esquema e contextos relevantes; escreva SQL PostgreSQL somente com SELECT ou WITH, use apenas tabelas base presentes no catálogo atualizado e sempre qualifique o schema (por exemplo, public.orders), use nomes de colunas verificados e parâmetros {{nome}} com definições e tipos corretos. Todas as colunas das tabelas referenciadas devem usar tipos built-in; a ferramenta rejeitará tabelas que tenham qualquer tipo definido pelo usuário, domain, enum ou composite. Não use views, tabelas não catalogadas, funções definidas pelo usuário nem extensões. Chamadas a funções são limitadas a uma allowlist segura de funções built-in do pg_catalog; CAST, :: e literais tipados só podem usar tipos built-in aprovados.",
     "Antes de apresentar uma query como válida, use test_query para executá-la como prévia limitada. Se parâmetros obrigatórios estiverem ausentes, pergunte ao administrador em vez de inventar valores. Se o teste falhar, corrija apenas com base no erro sanitizado e respeite o limite de rascunhos informado pela ferramenta.",
     "A ferramenta test_query não salva nada. Ela gera uma prévia estruturada revisada pelo administrador. Para nova query, defina queryName; para editar, use mode=update e um queryId explicitamente conhecido. Nunca invente IDs. A prévia estruturada não pode ser substituída pelo texto da resposta: aguarde clique explícito do administrador em Salvar nova query ou Aplicar edição. Não afirme que algo foi salvo antes dessa confirmação, nem que alterou dados/contextos ou atualizou a interface.",
+    "Para criar ou editar dashboard, liste primeiro as queries salvas com list_saved_queries e use somente os UUIDs retornados. Um testRunId é um recibo temporário de teste e nunca é queryUuid. Use get_saved_query para descobrir SQL e aliases das colunas. Para atualizar, leia primeiro o documento com get_current_dashboard e preserve workspace.params, queryBindings e os componentes não solicitados para alteração. Chame create_or_update_dashboard apenas para gerar uma proposta visual usando consultas salvas; ela não persiste. O administrador precisa clicar explicitamente em Criar dashboard ou Aplicar alterações antes de haver gravação. Nunca afirme que salvou antes desse clique. Inclua título por componente, aliases reais retornados pelas queries, gap suportado e preserve bindings/filtros; não inclua SQL ou fontes no documento.",
   ];
   if (pageContext) {
     base.push(`Contexto de navegação informado pela interface: ${JSON.stringify(pageContext)}.`);
@@ -208,6 +211,7 @@ export function createAiChatHandler(dependencies: {
     try {
       const tools = createTools({
         currentUser,
+        pageContext: parsedBody.pageContext,
         onToolEvent: (event) => enqueueToolEvent(event),
       });
       agent = createAgent({

@@ -20,8 +20,10 @@ import {
   Wrench,
   X,
 } from "lucide-react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -60,6 +62,8 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { toast } from "@/components/ui/toast";
 import type { QueryPreview } from "@/types";
+import type { DashboardDefinition, DashboardDocument } from "@/types";
+import { DashboardProposalCanvas } from "@/dashboard";
 
 type ChatMessage = {
   id: string;
@@ -96,7 +100,36 @@ type QueryPreviewItem = QueryPreview & {
   savedQueryId?: string;
   stale?: boolean;
 };
-type ChatItem = ChatMessage | ToolMessage | ProposalMessage | ErrorMessage | QueryPreviewItem;
+type DashboardPreviewQuery = {
+  rows: Record<string, unknown>[];
+  rowLimit: number;
+  byteLimit: number;
+  bytes: number;
+  truncated: boolean;
+  truncationReason: "row_limit" | "byte_limit" | null;
+  error?: string;
+};
+type DashboardPreviewItem = {
+  id: string;
+  kind: "dashboard_preview";
+  toolCallId: string;
+  proposalId: string;
+  expiresAt: string;
+  canCommit: boolean;
+  issues: string[];
+  mode: "create" | "update";
+  dashboardId: string;
+  expectedDashboardFingerprint: string | null;
+  document: DashboardDocument;
+  definition: DashboardDefinition;
+  changeSummary: string[];
+  requiresTruncationAcknowledgement: boolean;
+  queries: Record<string, DashboardPreviewQuery>;
+  saved?: boolean;
+  stale?: boolean;
+  saving?: boolean;
+};
+type ChatItem = ChatMessage | ToolMessage | ProposalMessage | ErrorMessage | QueryPreviewItem | DashboardPreviewItem;
 type ChatRoleMessage = { role: "user" | "assistant"; content: string };
 
 type ChatEvent =
@@ -111,6 +144,7 @@ type ChatEvent =
       ok: boolean;
     }
   | ({ version: 1; type: "query_preview"; toolCallId: string } & QueryPreview)
+  | ({ version: 1; type: "dashboard_preview" } & Omit<DashboardPreviewItem, "id" | "kind" | "saved" | "stale">)
   | {
       version: 1;
       type: "proposal";
@@ -273,6 +307,32 @@ function decodeEvent(eventName: string, data: string): ChatEvent | undefined {
       )
         return normalizedPayload as ChatEvent;
       throw new Error("A proposta da IA está malformada.");
+    case "dashboard_preview": {
+      const document = payload.document;
+      const definition = payload.definition;
+      const queries = payload.queries;
+      const validQueries = isRecord(queries) && Object.values(queries).every((query) =>
+        isRecord(query) &&
+        Array.isArray(query.rows) && query.rows.every(isRecord) &&
+        Number.isSafeInteger(query.rowLimit) && Number.isSafeInteger(query.byteLimit) &&
+        Number.isSafeInteger(query.bytes) && typeof query.truncated === "boolean" &&
+        (query.truncationReason === null || ["row_limit", "byte_limit"].includes(String(query.truncationReason))) &&
+        (query.error === undefined || typeof query.error === "string"),
+      );
+      if (
+        typeof payload.toolCallId === "string" &&
+        typeof payload.proposalId === "string" &&
+        typeof payload.expiresAt === "string" &&
+        typeof payload.canCommit === "boolean" && Array.isArray(payload.issues) && payload.issues.every((issue) => typeof issue === "string") &&
+        ["create", "update"].includes(String(payload.mode)) &&
+        typeof payload.dashboardId === "string" &&
+        (payload.expectedDashboardFingerprint === null || typeof payload.expectedDashboardFingerprint === "string") &&
+        isRecord(document) && typeof document.id === "string" && typeof document.name === "string" &&
+        isRecord(definition) && Array.isArray(definition.components) &&
+        validQueries
+      ) return normalizedPayload as ChatEvent;
+      throw new Error("A prévia do dashboard está malformada.");
+    }
     case "error":
       if (
         typeof payload.code === "string" &&
@@ -385,16 +445,117 @@ function toolLabel(toolName: string) {
   return labels[toolName] ?? `Executando ${toolName}`;
 }
 
+function DashboardPreviewCard({
+  item,
+  busy,
+  onApply,
+}: {
+  item: DashboardPreviewItem;
+  busy: boolean;
+  onApply: (acknowledgeTruncation: boolean) => void;
+}) {
+  const [acknowledgedLimit, setAcknowledgedLimit] = useState(false);
+  const [expired, setExpired] = useState(false);
+  const truncated = Object.values(item.queries).some((query) => query.truncated);
+
+  useEffect(() => {
+    setAcknowledgedLimit(false);
+    const remaining = new Date(item.expiresAt).getTime() - Date.now();
+    if (remaining <= 0) {
+      setExpired(true);
+      return;
+    }
+    setExpired(false);
+    const timer = window.setTimeout(() => setExpired(true), remaining);
+    return () => window.clearTimeout(timer);
+  }, [item.id, item.expiresAt]);
+
+  const componentTitles = item.definition.components.map((component) => component.title);
+  const queryCount = Object.keys(item.queries).length;
+  const unavailable = !item.canCommit || item.saved || item.stale || item.saving || expired || (truncated && !acknowledgedLimit) || busy;
+  return (
+    <section className="mx-3 flex min-w-0 flex-col gap-3 border border-primary/30 bg-primary/5 p-3 text-sm sm:mx-4">
+      <header className="min-w-0">
+        <p className="font-semibold">
+          {item.mode === "create" ? "Prévia de novo dashboard" : "Proposta de alterações"}
+        </p>
+        <h3 className="mt-1 break-words text-base font-semibold">{item.document.name}</h3>
+        {item.document.description && (
+          <p className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground">{item.document.description}</p>
+        )}
+        <p className="mt-2 text-xs text-muted-foreground">
+          {componentTitles.length} componentes · {queryCount} queries salvas · revisão em {new Date(item.expiresAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+        </p>
+        <ul className="mt-2 flex flex-wrap gap-1.5">
+          {componentTitles.map((title, index) => (
+            <li key={`${title}-${index}`} className="max-w-full truncate rounded border bg-background px-2 py-0.5 text-xs">{title}</li>
+          ))}
+        </ul>
+        <div className="mt-3 border-t border-primary/15 pt-2 text-xs">
+          <p className="font-medium">Resumo das alterações</p>
+          <ul className="mt-1 list-disc pl-4 text-muted-foreground">
+            {item.changeSummary.map((change, index) => <li key={`${index}-${change}`}>{change}</li>)}
+          </ul>
+        </div>
+      </header>
+
+      <DashboardProposalCanvas definition={item.definition} rowsByQuery={item.queries} />
+
+      {item.issues.length > 0 && (
+        <div role="alert" className="border border-destructive/30 bg-destructive/5 p-2 text-xs text-destructive">
+          <p className="font-medium">A prévia precisa de ajustes antes de confirmar</p>
+          <ul className="mt-1 list-disc pl-4">
+            {item.issues.map((issue, index) => <li key={`${index}-${issue}`}>{issue}</li>)}
+          </ul>
+        </div>
+      )}
+
+      {truncated && (
+        <Label className="flex items-start gap-2 border border-amber-500/30 bg-amber-500/5 p-2 text-xs">
+          <Checkbox checked={acknowledgedLimit} onCheckedChange={(checked) => setAcknowledgedLimit(checked === true)} />
+          <span>
+            A prévia de dados foi limitada. Revise os componentes sabendo que a amostra está truncada antes de confirmar.
+            <ul className="mt-1 list-disc pl-4">
+              {Object.entries(item.queries).filter(([, query]) => query.truncated).map(([queryId, query]) => (
+                <li key={queryId}>
+                  Query {queryId.slice(0, 8)}…: {query.rows.length}/{query.rowLimit} linhas · {query.bytes}/{query.byteLimit} bytes ({query.truncationReason}).
+                </li>
+              ))}
+            </ul>
+          </span>
+        </Label>
+      )}
+
+      <footer className="flex flex-col gap-2 border-t border-primary/15 pt-3 sm:flex-row sm:items-center sm:justify-between">
+        {item.saved ? (
+          <span className="text-xs text-emerald-700 dark:text-emerald-400">Dashboard salvo.</span>
+        ) : item.stale || expired ? (
+          <span className="text-xs text-muted-foreground">Prévia expirada ou desatualizada. Gere uma nova proposta.</span>
+        ) : (
+          <span className="text-xs text-muted-foreground">Nenhuma alteração é aplicada antes de confirmar.</span>
+        )}
+        {!item.saved && (
+          <Button size="sm" className="w-full sm:w-auto" disabled={unavailable} onClick={() => onApply(acknowledgedLimit)}>
+            {item.saving ? "Salvando…" : item.mode === "create" ? "Criar dashboard" : `Aplicar alterações em ${item.document.name}`}
+          </Button>
+        )}
+      </footer>
+    </section>
+  );
+}
+
 function ChatItemView({
   item,
   busy,
   onRetry,
   onReviewPreview,
+  onApplyDashboard,
 }: {
   item: ChatItem;
   busy: boolean;
   onRetry: () => void;
   onReviewPreview: (item: QueryPreviewItem) => void;
+  onApplyDashboard: (item: DashboardPreviewItem, acknowledgeTruncation: boolean) => void;
 }) {
   if (item.kind === "tool") {
     const success = item.status === "success";
@@ -440,6 +601,16 @@ function ChatItemView({
           )}
         </div>
       </div>
+    );
+  }
+
+  if (item.kind === "dashboard_preview") {
+    return (
+      <DashboardPreviewCard
+        item={item}
+        busy={busy}
+        onApply={(acknowledgeTruncation) => onApplyDashboard(item, acknowledgeTruncation)}
+      />
     );
   }
 
@@ -530,6 +701,7 @@ function ChatWindow({
   onClear,
   onClose,
   onPreviewSaved,
+  onApplyDashboard,
 }: {
   items: ChatItem[];
   busy: boolean;
@@ -542,6 +714,7 @@ function ChatWindow({
   onClear: () => void;
   onClose: () => void;
   onPreviewSaved: (testRunId: string, queryId: string) => void;
+  onApplyDashboard: (item: DashboardPreviewItem, acknowledgeTruncation: boolean) => void;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [reviewPreview, setReviewPreview] = useState<QueryPreviewItem>();
@@ -700,6 +873,7 @@ function ChatWindow({
                         busy={busy}
                         onRetry={onRetry}
                         onReviewPreview={setReviewPreview}
+                        onApplyDashboard={onApplyDashboard}
                       />
                     </MessageScrollerItem>
                   ))}
@@ -837,6 +1011,7 @@ export function AiChatDock({
   onOpenChange: (open: boolean) => void;
 }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const isMobile = useIsMobile();
   const refreshCurrentView = useCurrentViewRefresh();
   const [items, setItems] = useState<ChatItem[]>([]);
@@ -848,6 +1023,7 @@ export function AiChatDock({
   const lastPromptRef = useRef("");
   const pathRef = useRef(location.pathname);
   const refreshedToolCallsRef = useRef(new Set<string>());
+  const dashboardSavePendingRef = useRef(new Set<string>());
   pathRef.current = location.pathname;
 
   useEffect(
@@ -991,6 +1167,18 @@ export function AiChatDock({
             kind: "proposal",
             title: event.title,
             summary: event.summary,
+          });
+          return;
+        case "dashboard_preview":
+          setItems((current) => current.map((item) =>
+            item.kind === "dashboard_preview" && !item.saved && item.dashboardId === event.dashboardId
+              ? { ...item, stale: true }
+              : item,
+          ));
+          insertBeforeAssistant(assistantId, {
+            ...event,
+            id: event.proposalId,
+            kind: "dashboard_preview",
           });
           return;
         case "error":
@@ -1194,6 +1382,61 @@ export function AiChatDock({
     ));
   }, []);
 
+  const handleDashboardSaved = useCallback((dashboardId: string, mode: "create" | "update") => {
+    const routeDashboardId = /^\/dashboards\/([^/]+)$/.exec(location.pathname)?.[1];
+    if (mode === "create" || routeDashboardId?.toLowerCase() !== dashboardId.toLowerCase()) {
+      navigate(`/dashboards/${dashboardId}`);
+      return;
+    }
+    refreshCurrentView();
+  }, [location.pathname, navigate, refreshCurrentView]);
+
+  const applyDashboard = useCallback(async (item: DashboardPreviewItem, acknowledgeTruncation: boolean) => {
+    if (item.saved || item.stale || dashboardSavePendingRef.current.has(item.proposalId)) return;
+    if (new Date(item.expiresAt).getTime() <= Date.now()) {
+      setItems((current) => current.map((candidate) =>
+        candidate.kind === "dashboard_preview" && candidate.id === item.id
+          ? { ...candidate, stale: true }
+          : candidate,
+      ));
+      toast.error("A proposta expirou. Peça uma nova prévia ao assistente.");
+      return;
+    }
+    dashboardSavePendingRef.current.add(item.proposalId);
+    setItems((current) => current.map((candidate) =>
+      candidate.kind === "dashboard_preview" && candidate.id === item.id
+        ? { ...candidate, saving: true }
+        : candidate,
+    ));
+    try {
+      const result = await api.commitAiDashboardProposal(item.proposalId, acknowledgeTruncation);
+      setItems((current) => current.map((candidate) =>
+        candidate.kind === "dashboard_preview" && candidate.id === item.id
+          ? { ...candidate, saved: true, saving: false }
+          : candidate,
+      ));
+      toast.success(result.alreadyApplied
+        ? "A aplicação da proposta foi confirmada."
+        : result.mode === "create" ? "Dashboard criado." : "Alterações aplicadas ao dashboard.");
+      handleDashboardSaved(result.id, result.mode);
+    } catch (reason) {
+      const conflict = reason instanceof ApiError && reason.status === 409;
+      setItems((current) => current.map((candidate) =>
+        candidate.kind === "dashboard_preview" && candidate.id === item.id
+          ? { ...candidate, stale: conflict, saving: false }
+          : candidate,
+      ));
+      toast.error(reason instanceof Error ? reason.message : "Não foi possível aplicar a proposta.");
+    } finally {
+      dashboardSavePendingRef.current.delete(item.proposalId);
+      setItems((current) => current.map((candidate) =>
+        candidate.kind === "dashboard_preview" && candidate.id === item.id
+          ? { ...candidate, saving: false }
+          : candidate,
+      ));
+    }
+  }, [handleDashboardSaved]);
+
   const pageLabel = location.pathname.startsWith("/dashboards/")
     ? "Dashboard atual"
     : location.pathname.startsWith("/admin/sources")
@@ -1215,6 +1458,7 @@ export function AiChatDock({
       onClear={clear}
       onClose={() => onOpenChange(false)}
       onPreviewSaved={markQueryPreviewSaved}
+      onApplyDashboard={applyDashboard}
     />
   );
 

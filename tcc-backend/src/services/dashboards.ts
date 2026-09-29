@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, readdir, readFile, unlink, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve } from "node:path";
 import { and, eq, inArray, ne } from "drizzle-orm";
 import { db } from "../db/client.js";
@@ -12,9 +12,55 @@ import {
 export type DashboardDocument = ReturnType<
   typeof dashboardDocumentSchema.parse
 >;
+type DashboardDbExecutor = Pick<typeof db, "select" | "insert" | "delete">;
+
+async function unlinkIfExists(filePath: string): Promise<void> {
+  try {
+    await unlink(filePath);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+}
 
 export function validateDashboardDocument(value: unknown): DashboardDocument {
   return dashboardDocumentSchema.parse(value);
+}
+
+/** Atomically replaces a dashboard JSON file and returns a rollback for a DB commit failure. */
+export async function writeDashboardDocumentAtomically(
+  filePath: string,
+  value: unknown,
+): Promise<() => Promise<void>> {
+  const resolvedPath = resolve(filePath);
+  if (!isEditableDashboardFilePath(resolvedPath)) {
+    throw new Error("O dashboard só pode ser gravado dentro da pasta dashboards da aplicação.");
+  }
+  const dashboard = validateDashboardDocument(value);
+  const body = `${JSON.stringify(dashboard, null, 2)}\n`;
+  await mkdir(resolve(resolvedPath, ".."), { recursive: true });
+  let previous: Buffer | undefined;
+  try {
+    previous = await readFile(resolvedPath);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+  const temporaryPath = `${resolvedPath}.${randomUUID()}.tmp`;
+  await writeFile(temporaryPath, body, { encoding: "utf8", flag: "wx" });
+  try {
+    await rename(temporaryPath, resolvedPath);
+  } catch (error) {
+    await unlinkIfExists(temporaryPath);
+    throw error;
+  }
+  return async () => {
+    if (previous) {
+      const rollbackPath = `${resolvedPath}.${randomUUID()}.rollback`;
+      await writeFile(rollbackPath, previous, { flag: "wx" });
+      await rename(rollbackPath, resolvedPath);
+    } else {
+      await unlinkIfExists(resolvedPath);
+    }
+  };
 }
 
 function isPathInside(directory: string, filePath: string): boolean {
@@ -43,6 +89,7 @@ async function readDashboardFile(filePath: string): Promise<DashboardDocument> {
 
 export async function registerDashboardFile(
   filePath: string,
+  executor: DashboardDbExecutor = db,
 ): Promise<DashboardDocument> {
   const resolvedPath = resolve(filePath);
   if (!isEditableDashboardFilePath(resolvedPath)) {
@@ -53,7 +100,7 @@ export async function registerDashboardFile(
 
   const dashboard = await readDashboardFile(resolvedPath);
   const storedPath = relative(process.cwd(), resolvedPath);
-  await db
+  await executor
     .delete(dashboards)
     .where(
       and(
@@ -61,7 +108,7 @@ export async function registerDashboardFile(
         ne(dashboards.dashboardId, dashboard.id),
       ),
     );
-  await db
+  await executor
     .insert(dashboards)
     .values({ dashboardId: dashboard.id, filePath: storedPath })
     .onConflictDoUpdate({
@@ -73,6 +120,7 @@ export async function registerDashboardFile(
 
 export async function createDashboardFile(
   input: unknown,
+  executor: DashboardDbExecutor = db,
 ): Promise<DashboardDocument> {
   const metadata = dashboardCreateSchema.parse(input);
   const dashboard = validateDashboardDocument({
@@ -93,21 +141,23 @@ export async function createDashboardFile(
   });
 
   try {
-    await db
+    await executor
       .insert(dashboards)
       .values({
         dashboardId: dashboard.id,
         filePath: relative(process.cwd(), filePath),
       });
   } catch (error) {
-    await unlink(filePath).catch(() => undefined);
+    await unlinkIfExists(filePath);
     throw error;
   }
 
   return dashboard;
 }
 
-export async function syncDashboardDirectory(): Promise<{
+export async function syncDashboardDirectory(
+  executor: DashboardDbExecutor = db,
+): Promise<{
   dashboardIds: string[];
   synchronized: number;
   removedOrphans: number;
@@ -116,12 +166,12 @@ export async function syncDashboardDirectory(): Promise<{
   const registeredPaths: string[] = [];
   const dashboardIds: string[] = [];
   for (const { dashboard, filePath } of dashboardFiles) {
-    await registerDashboardFile(filePath);
+    await registerDashboardFile(filePath, executor);
     registeredPaths.push(relative(process.cwd(), filePath));
     dashboardIds.push(dashboard.id);
   }
 
-  const existing = await db
+  const existing = await executor
     .select({
       dashboardId: dashboards.dashboardId,
       filePath: dashboards.filePath,
@@ -131,7 +181,7 @@ export async function syncDashboardDirectory(): Promise<{
     .filter((row) => !registeredPaths.includes(row.filePath))
     .map((row) => row.dashboardId);
   if (orphanIds.length > 0)
-    await db
+    await executor
       .delete(dashboards)
       .where(inArray(dashboards.dashboardId, orphanIds));
 

@@ -113,6 +113,25 @@ export const queryTestRuns = pgTable("query_test_runs", {
   index("query_test_runs_expires_at_idx").on(table.expiresAt),
 ]);
 
+export const dashboardProposalReceipts = pgTable("dashboard_proposal_receipts", {
+  id: uuid("id").primaryKey(),
+  actorId: uuid("actor_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  mode: varchar("mode", { length: 8 }).notNull(),
+  dashboardId: uuid("dashboard_id").notNull(),
+  expectedDashboardFingerprint: varchar("expected_dashboard_fingerprint", { length: 64 }),
+  document: jsonb("document").notNull(),
+  documentFingerprint: varchar("document_fingerprint", { length: 64 }).notNull(),
+  referenceFingerprint: varchar("reference_fingerprint", { length: 64 }).notNull(),
+  hasTruncatedPreview: boolean("has_truncated_preview").notNull().default(false),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  consumedAt: timestamp("consumed_at", { withTimezone: true }),
+  createdAt,
+}, (table) => [
+  check("dashboard_proposal_receipts_mode_check", sql`${table.mode} IN ('create', 'update')`),
+  check("dashboard_proposal_receipts_target_check", sql`(${table.mode} = 'create' AND ${table.expectedDashboardFingerprint} IS NULL) OR (${table.mode} = 'update' AND ${table.expectedDashboardFingerprint} IS NOT NULL)`),
+  index("dashboard_proposal_receipts_expires_at_idx").on(table.expiresAt),
+]);
+
 export const dashboardUsers = pgTable("dashboard_users", {
   dashboardId: uuid("dashboard_id").notNull().references(() => dashboards.dashboardId, { onDelete: "cascade" }),
   userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),

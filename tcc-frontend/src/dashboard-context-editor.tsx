@@ -247,6 +247,7 @@ export function DashboardContextEditor({
   onBack: () => void;
 }) {
   const [dashboard, setDashboard] = useState<DashboardDocument>();
+  const [revision, setRevision] = useState<string>();
   const [queries, setQueries] = useState<QuerySummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
@@ -262,7 +263,8 @@ export function DashboardContextEditor({
     setDashboard(undefined);
     Promise.all([api.dashboardContext(dashboardId), api.queries()]).then(([result, queryCatalog]) => {
       if (active) {
-        setDashboard(result);
+        setDashboard(result.document);
+        setRevision(result.revision);
         setQueries(queryCatalog);
       }
     }).catch((reason: Error) => {
@@ -346,7 +348,7 @@ export function DashboardContextEditor({
 
   const submit = async (candidate?: DashboardDocument): Promise<boolean> => {
     const sourceDashboard = candidate ?? dashboard;
-    if (!sourceDashboard) return false;
+    if (!sourceDashboard || !revision) return false;
     setSaving(true);
     try {
       const availableQueryIds = new Set(queries.map((query) => query.id));
@@ -385,8 +387,9 @@ export function DashboardContextEditor({
         ui: { ...sourceDashboard.ui, components: sanitizedComponents },
         queryBindings: sourceDashboard.queryBindings.filter((binding) => referenceIds.has(binding.queryUuid) && availableQueryIds.has(binding.queryUuid)),
       };
-      await api.updateDashboardContext(nextDashboard.id, nextDashboard);
+      const result = await api.updateDashboardContext(nextDashboard.id, nextDashboard, revision);
       setDashboard(nextDashboard);
+      setRevision(result.revision);
       const remainingIssues = dashboardValidationIssues(nextDashboard, queries);
       toast.success(remainingIssues.length
         ? `Dashboard salvo com ${remainingIssues.length} erro(s). Revise os avisos antes de disponibilizá-lo.`

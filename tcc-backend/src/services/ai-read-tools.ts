@@ -66,6 +66,30 @@ export type AiToolProgressEvent =
       bytes: number;
       truncated: boolean;
       truncationReason: "row_limit" | "byte_limit" | null;
+    }
+  | {
+      type: "dashboard_preview";
+      toolCallId: string;
+      proposalId: string;
+      expiresAt: string;
+      canCommit: boolean;
+      issues: string[];
+      requiresTruncationAcknowledgement: boolean;
+      mode: "create" | "update";
+      dashboardId: string;
+      expectedDashboardFingerprint: string | null;
+      document: import("./dashboards.js").DashboardDocument;
+      definition: import("../lib/contracts.js").DashboardDefinition;
+      changeSummary: string[];
+      queries: Record<string, {
+        rows: Record<string, unknown>[];
+        rowLimit: number;
+        byteLimit: number;
+        bytes: number;
+        truncated: boolean;
+        truncationReason: "row_limit" | "byte_limit" | null;
+        error?: string;
+      }>;
     };
 
 export interface CreateAiReadToolsOptions {

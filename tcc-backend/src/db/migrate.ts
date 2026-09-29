@@ -11,6 +11,10 @@ const migrations = [
     id: "0001_query_test_runs",
     path: fileURLToPath(new URL("./migrations/0001_query_test_runs.sql", import.meta.url)),
   },
+  {
+    id: "0002_dashboard_proposal_receipts",
+    path: fileURLToPath(new URL("./migrations/0002_dashboard_proposal_receipts.sql", import.meta.url)),
+  },
 ];
 
 const client = await pool.connect();

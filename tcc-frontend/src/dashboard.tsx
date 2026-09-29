@@ -33,6 +33,7 @@ import { api } from "@/api";
 import type {
   Dashboard,
   DashboardComponent,
+  DashboardDefinition,
   DashboardSummary,
   DashboardArgument,
   DashboardUser,
@@ -258,6 +259,20 @@ function DashboardComponentView({
   if (state.error && state.rows === undefined)
     return <ComponentError component={component} message={state.error} />;
   const rows = state.rows ?? [];
+  if (rows.length === 0) {
+    return (
+      <Card className={colClass(component)}>
+        <CardHeader>
+          <CardTitle>{component.title}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="py-6 text-center text-xs text-muted-foreground">
+            Nenhum dado retornado.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
   if (component.type === "stat_card") {
     const field =
       propertyString(component, "field") ?? Object.keys(rows[0] ?? {})[0];
@@ -410,6 +425,31 @@ function DashboardComponentView({
         )}
       </CardContent>
     </Card>
+  );
+}
+
+export function DashboardProposalCanvas({
+  definition,
+  rowsByQuery,
+}: {
+  definition: DashboardDefinition;
+  rowsByQuery: Record<string, { rows: Record<string, unknown>[]; error?: string }>;
+}) {
+  const gridGap = gapClass[definition.layout.gap] ?? "gap-4";
+  return (
+    <div className={`grid grid-cols-12 ${gridGap}`}>
+      {definition.components.map((component) => (
+        <DashboardComponentView
+          key={component.id}
+          component={component}
+          state={{
+            loading: false,
+            rows: rowsByQuery[component.queryUuid]?.rows ?? [],
+            ...(rowsByQuery[component.queryUuid]?.error ? { error: rowsByQuery[component.queryUuid].error } : {}),
+          }}
+        />
+      ))}
+    </div>
   );
 }
 function DashboardFilters({
@@ -787,7 +827,10 @@ function DashboardPage({
   const querySequenceRef = useRef(0);
   const refreshData = useCallback(() => {
     setDataRefreshVersion((version) => version + 1);
-  }, []);
+    api.dashboard(dashboardId)
+      .then(setDashboard)
+      .catch((reason: Error) => setError(reason.message));
+  }, [dashboardId]);
   useRegisterCurrentViewRefresh(refreshData);
 
   useEffect(() => {

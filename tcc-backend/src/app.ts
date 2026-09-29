@@ -5,7 +5,7 @@ import { and, asc, count, eq, gt, inArray, isNull, sql } from "drizzle-orm";
 import { ZodError, z } from "zod";
 import { getEnvironment } from "./config.js";
 import { db } from "./db/client.js";
-import { dashboardUsers, dataSources, dataSourceTables, permissions, queryTestRuns, savedQueries, userPermissions, users } from "./db/schema.js";
+import { dashboardProposalReceipts, dashboardUsers, dashboards, dataSources, dataSourceTables, permissions, queryTestRuns, savedQueries, userPermissions, users } from "./db/schema.js";
 import {
   passwordSchema,
   permissionKeySchema,
@@ -26,7 +26,7 @@ import { hashPassword, verifyPassword } from "./lib/passwords.js";
 import { findUnsafeAiColumnTypes, getPostgresTableColumns, inspectReadOnlyPostgres, listPostgresBaseTables, runBoundedReadOnlyQueryWithRetry, runReadOnlyQuery, type ExternalPostgresConfig } from "./services/external-postgres.js";
 import { createSession, findAuthenticatedUser, hasPermission, revokeSession, SESSION_COOKIE, type AuthenticatedUser } from "./services/auth.js";
 import { assignPermissionKeys } from "./services/permissions.js";
-import { createDashboardFile, getDashboardFileById, getDashboardFiles, getRegisteredDashboards, saveDashboardFile, syncDashboardDirectory } from "./services/dashboards.js";
+import { createDashboardFile, getDashboardFileById, getDashboardFiles, getRegisteredDashboardFiles, getRegisteredDashboards, isEditableDashboardFilePath, syncDashboardDirectory, writeDashboardDocumentAtomically } from "./services/dashboards.js";
 import { buildDashboardDefinitionFromDocument, dashboardQueryReferences } from "./services/dashboard-sync.js";
 import { canAccessDashboard, canExecuteQuery } from "./services/dashboard-access.js";
 import { assertParameterDefinitions, assertReadOnlySql, assertSqlParameters, bindQueryParameters } from "./services/query-security.js";
@@ -36,6 +36,11 @@ import { createAiQueryTestTools } from "./services/ai-query-tools.js";
 import { DataSourceCatalogSnapshotChangedError, hasDataSourceTargetChanged, MAX_DATA_SOURCE_CATALOG_TABLES, reconcileDataSourceCatalog, type CatalogSourceSnapshot, type CatalogSourceUpdate } from "./services/data-source-catalog.js";
 import { DataSourceContextSourceNotFoundError, DataSourceContextVersionConflictError, updateTableContextIfSourceVersionMatches } from "./services/data-source-context.js";
 import { issueQueryTestReceipt, QueryLifecycleError, queryDraftFingerprint, querySourceTargetHash, saveQueryWithTestReceipt, type QueryLifecycleQuery, type QueryLifecycleRepository, type QueryLifecycleTransaction, type QuerySaveMode, type QueryTestReceipt } from "./services/query-lifecycle.js";
+import { createAiDashboardTools, type AiDashboardQuery, type AiDashboardQueryDefinition, type AiDashboardToolsRepository } from "./services/ai-dashboard-tools.js";
+import { dashboardDocumentFingerprint, dashboardReferenceFingerprint } from "./services/ai-dashboard-proposals.js";
+import { assertDashboardPreviewAcknowledged, assertDashboardProposalFresh, assertDashboardProposalUsable, isDashboardProposalAlreadyApplied } from "./services/dashboard-proposal-lifecycle.js";
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 
 type AppVariables = { currentUser: AuthenticatedUser };
 type AppContext = Context<{ Variables: AppVariables }>;
@@ -73,11 +78,17 @@ app.onError((error, context) => {
 app.get("/api/health", (context) => context.json({ status: "ok", timestamp: new Date().toISOString() }));
 
 app.post("/api/admin/ai/chat", authentication, adminRequired, createAiChatHandler({
-  createTools: ({ currentUser, onToolEvent }) => {
+  createTools: ({ currentUser, pageContext, onToolEvent }) => {
     const repository = createAiReadToolsRepository();
     return [
       ...createAiReadTools({ currentUser, onToolEvent, repository }),
       ...createAiQueryTestTools({ currentUser, onToolEvent, repository }),
+      ...createAiDashboardTools({
+        currentUser,
+        pageDashboardId: pageContext?.dashboardId,
+        onToolEvent,
+        repository: createAiDashboardToolsRepository(),
+      }),
     ];
   },
 }));
@@ -121,6 +132,13 @@ function sourceConnection(source: typeof dataSources.$inferSelect): ExternalPost
     user: source.username,
     password: decryptCredential(source.encryptedPassword, environment.CREDENTIAL_ENCRYPTION_KEY),
   };
+}
+
+async function syncDashboardDirectoryLocked() {
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('tcc-app:dashboard-files'))`);
+    return syncDashboardDirectory(tx);
+  });
 }
 
 function aiReadSource(source: typeof dataSources.$inferSelect): AiReadSource {
@@ -319,6 +337,106 @@ function createQueryLifecycleRepository(): QueryLifecycleRepository {
   };
 }
 
+function createAiDashboardToolsRepository(): AiDashboardToolsRepository {
+  return {
+    async listSavedQueries(): Promise<AiDashboardQuery[]> {
+      const rows = await db.select({
+        id: savedQueries.id,
+        name: savedQueries.name,
+        dataSourceId: savedQueries.dataSourceId,
+        parameters: savedQueries.parameters,
+        updatedAt: savedQueries.updatedAt,
+        sourceUpdatedAt: dataSources.updatedAt,
+        sourceHost: dataSources.host,
+        sourcePort: dataSources.port,
+        sourceDatabase: dataSources.databaseName,
+        sourceUsername: dataSources.username,
+        sourcePassword: dataSources.encryptedPassword,
+      }).from(savedQueries).innerJoin(dataSources, eq(savedQueries.dataSourceId, dataSources.id))
+        .orderBy(asc(savedQueries.name)).limit(201);
+      return rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        dataSourceId: row.dataSourceId,
+        parameters: row.parameters,
+        updatedAt: row.updatedAt,
+        sourceUpdatedAt: row.sourceUpdatedAt,
+        sourceTargetHash: querySourceTargetHash({
+          id: row.dataSourceId,
+          updatedAt: row.sourceUpdatedAt,
+          host: row.sourceHost,
+          port: row.sourcePort,
+          databaseName: row.sourceDatabase,
+          username: row.sourceUsername,
+          encryptedPassword: row.sourcePassword,
+        }),
+      }));
+    },
+    async findSavedQueries(ids: string[]): Promise<AiDashboardQueryDefinition[]> {
+      if (ids.length === 0) return [];
+      const rows = await db.select({
+        id: savedQueries.id,
+        name: savedQueries.name,
+        dataSourceId: savedQueries.dataSourceId,
+        sqlText: savedQueries.sqlText,
+        parameters: savedQueries.parameters,
+        updatedAt: savedQueries.updatedAt,
+        source: dataSources,
+      }).from(savedQueries).innerJoin(dataSources, eq(savedQueries.dataSourceId, dataSources.id))
+        .where(inArray(savedQueries.id, ids));
+      return rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        dataSourceId: row.dataSourceId,
+        sqlText: row.sqlText,
+        parameters: row.parameters,
+        updatedAt: row.updatedAt,
+        sourceUpdatedAt: row.source.updatedAt,
+        sourceTargetHash: querySourceTargetHash(row.source),
+        connection: sourceConnection(row.source),
+      }));
+    },
+    async findDashboard(id: string) {
+      const match = (await getRegisteredDashboardFiles()).find((item) => item.dashboard.id === id.toLowerCase());
+      return match ? {
+        document: match.dashboard,
+        fingerprint: dashboardDocumentFingerprint(match.dashboard),
+      } : undefined;
+    },
+    async runPreview(query, values) {
+      const parameters = z.array(parameterDefinitionSchema).parse(query.parameters);
+      assertParameterDefinitions(parameters);
+      assertSqlParameters(query.sqlText, parameters);
+      const bound = bindQueryParameters(query.sqlText, parameters, values);
+      const result = await runBoundedReadOnlyQueryWithRetry(
+        query.connection as ExternalPostgresConfig,
+        bound.sqlText,
+        bound.values,
+        {
+          rowLimit: 50,
+          byteLimit: 48_000,
+          preserveConfiguredSearchPath: true,
+          allowGeneralReadOnlySql: true,
+        },
+      );
+      return result;
+    },
+    async issueReceipt(input) {
+      await db.transaction(async (tx) => {
+        await tx.execute(sql`DELETE FROM dashboard_proposal_receipts
+          WHERE id IN (
+            SELECT id FROM dashboard_proposal_receipts
+            WHERE expires_at <= now()
+              OR (consumed_at IS NOT NULL AND consumed_at < now() - interval '1 day')
+            ORDER BY expires_at ASC
+            LIMIT 200
+          )`);
+        await tx.insert(dashboardProposalReceipts).values(input);
+      });
+    },
+  };
+}
+
 function queryLifecycleApiError(error: unknown): never {
   if (!(error instanceof QueryLifecycleError)) throw error;
   switch (error.code) {
@@ -475,33 +593,230 @@ app.get("/api/permissions", authentication, permissionRequired("permissions:read
 });
 
 app.post("/api/dashboards/sync", authentication, adminRequired, async (context) => {
-  return context.json(await syncDashboardDirectory());
+  return context.json(await syncDashboardDirectoryLocked());
 });
 
 app.post("/api/admin/dashboards", authentication, adminRequired, async (context) => {
   const input = await jsonBody(context, dashboardCreateSchema);
-  const dashboard = await createDashboardFile(input);
+  const dashboard = await db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('tcc-app:dashboard-files'))`);
+    return createDashboardFile(input, tx);
+  });
   return context.json({ id: dashboard.id }, 201);
+});
+
+app.post("/api/admin/ai/dashboard-proposals/:id/commit", authentication, adminRequired, async (context) => {
+  const currentUser = context.get("currentUser");
+  const receiptId = z.string().uuid().parse(context.req.param("id"));
+  const confirmation = await jsonBody(context, z.object({
+    acknowledgeTruncation: z.boolean().default(false),
+  }).strict());
+  let rollbackFile: (() => Promise<void>) | undefined;
+  try {
+    const committed = await db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('tcc-app:dashboard-files'))`);
+      const receipt = (await tx.select().from(dashboardProposalReceipts)
+        .where(eq(dashboardProposalReceipts.id, receiptId))
+        .for("update").limit(1))[0];
+      const now = new Date();
+      if (!receipt) {
+        throw new ApiError(409, "A proposta expirou, já foi aplicada ou pertence a outra sessão. Gere uma nova prévia.");
+      }
+      if (receipt.actorId !== currentUser.id) {
+        throw new ApiError(409, "A proposta pertence a outra sessão. Gere uma nova prévia nesta sessão.");
+      }
+      if (receipt.consumedAt) {
+        const current = (await tx.select().from(dashboards)
+          .where(eq(dashboards.dashboardId, receipt.dashboardId))
+          .for("update").limit(1))[0];
+        if (current) {
+          try {
+            const persisted = dashboardDocumentSchema.parse(JSON.parse(await readFile(resolve(process.cwd(), current.filePath), "utf8")) as unknown);
+            const persistedFingerprint = persisted.id === receipt.dashboardId
+              ? dashboardDocumentFingerprint(persisted)
+              : null;
+            if (isDashboardProposalAlreadyApplied(receipt, currentUser.id, persistedFingerprint)) {
+              return { id: receipt.dashboardId, mode: receipt.mode as "create" | "update", alreadyApplied: true };
+            }
+          } catch {
+            // The receipt is only idempotent while its exact document is still persisted.
+          }
+        }
+        throw new ApiError(409, "A proposta já foi consumida, mas o dashboard mudou desde a aplicação. Recarregue a tela.");
+      }
+      try {
+        assertDashboardProposalUsable({ ...receipt, mode: receipt.mode as "create" | "update" }, currentUser.id, now);
+      } catch {
+        throw new ApiError(409, "A proposta expirou, já foi aplicada ou pertence a outra sessão. Gere uma nova prévia.");
+      }
+      try {
+        assertDashboardPreviewAcknowledged(receipt.hasTruncatedPreview, confirmation.acknowledgeTruncation);
+      } catch {
+        throw new ApiError(400, "Confirme que revisou a prévia truncada antes de aplicar o dashboard.");
+      }
+      const document = dashboardDocumentSchema.parse(receipt.document);
+      if (document.id !== receipt.dashboardId) {
+        throw new ApiError(409, "O conteúdo da proposta não corresponde ao recibo. Gere uma nova prévia.");
+      }
+      const referenceIds = [...dashboardQueryReferences(document)];
+      if (referenceIds.length === 0) throw new ApiError(409, "A proposta não possui queries salvas.");
+      const queryRows = await tx.select({ query: savedQueries, source: dataSources })
+        .from(savedQueries)
+        .innerJoin(dataSources, eq(savedQueries.dataSourceId, dataSources.id))
+        .where(inArray(savedQueries.id, referenceIds))
+        .for("update");
+      if (queryRows.length !== referenceIds.length) {
+        throw new ApiError(409, "Uma query da proposta foi removida. Gere a prévia novamente.");
+      }
+      const referencesFingerprint = dashboardReferenceFingerprint(queryRows.map(({ query, source }) => ({
+        queryId: query.id,
+        queryUpdatedAt: query.updatedAt,
+        dataSourceId: query.dataSourceId,
+        sourceUpdatedAt: source.updatedAt,
+        sourceTargetHash: querySourceTargetHash(source),
+      })));
+      try {
+        buildDashboardDefinitionFromDocument(
+          document,
+          queryRows.map(({ query }): { id: string; parameters: unknown } => ({ id: query.id, parameters: query.parameters })),
+          { validateCatalog: true },
+        );
+      } catch (error) {
+        throw new ApiError(409, error instanceof Error ? error.message : "As referências do dashboard não são válidas.");
+      }
+
+      const target = (await tx.select().from(dashboards)
+        .where(eq(dashboards.dashboardId, receipt.dashboardId))
+        .for("update").limit(1))[0];
+      let filePath: string;
+      let currentDashboardFingerprint: string | null;
+      if (receipt.mode === "create") {
+        if (receipt.expectedDashboardFingerprint !== null || target) {
+          throw new ApiError(409, "O dashboard já existe. Gere uma proposta de edição para a versão atual.");
+        }
+        currentDashboardFingerprint = null;
+        filePath = resolve(process.cwd(), "dashboards", `${receipt.dashboardId}.json`);
+        try {
+          await readFile(filePath);
+          throw new ApiError(409, "Já existe um arquivo com o identificador proposto. Gere outra prévia.");
+        } catch (error) {
+          if (error instanceof ApiError) throw error;
+          if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+        }
+      } else {
+        if (!target || !receipt.expectedDashboardFingerprint) {
+          throw new ApiError(409, "O dashboard foi removido depois da prévia. Gere outra proposta.");
+        }
+        filePath = resolve(process.cwd(), target.filePath);
+        if (!isEditableDashboardFilePath(filePath)) throw new ApiError(409, "O arquivo do dashboard não está em um local editável.");
+        let currentDocument;
+        try {
+          currentDocument = dashboardDocumentSchema.parse(JSON.parse(await readFile(filePath, "utf8")) as unknown);
+        } catch {
+          throw new ApiError(409, "Não foi possível verificar a versão atual do dashboard.");
+        }
+        if (currentDocument.id !== receipt.dashboardId) {
+          throw new ApiError(409, "O dashboard foi editado depois da prévia. Recarregue-o e gere uma nova proposta.");
+        }
+        currentDashboardFingerprint = dashboardDocumentFingerprint(currentDocument);
+      }
+
+      try {
+        assertDashboardProposalFresh({ ...receipt, mode: receipt.mode as "create" | "update" }, {
+          documentFingerprint: dashboardDocumentFingerprint(document),
+          referenceFingerprint: referencesFingerprint,
+          dashboardFingerprint: currentDashboardFingerprint,
+        });
+      } catch {
+        throw new ApiError(409, "O dashboard, uma query ou servidor mudou desde a prévia. Gere uma nova proposta.");
+      }
+
+      rollbackFile = await writeDashboardDocumentAtomically(filePath, document);
+      if (receipt.mode === "create") {
+        const storedPath = filePath.slice(process.cwd().length + 1);
+        const inserted = await tx.insert(dashboards).values({
+          dashboardId: receipt.dashboardId,
+          filePath: storedPath,
+        }).onConflictDoUpdate({
+          target: dashboards.dashboardId,
+          set: { filePath: storedPath },
+          where: eq(dashboards.filePath, storedPath),
+        }).returning({ dashboardId: dashboards.dashboardId });
+        if (inserted.length === 0) throw new ApiError(409, "O identificador já está registrado por outro arquivo.");
+      }
+      await tx.update(dashboardProposalReceipts).set({ consumedAt: now })
+        .where(and(eq(dashboardProposalReceipts.id, receipt.id), isNull(dashboardProposalReceipts.consumedAt)));
+      return { id: receipt.dashboardId, mode: receipt.mode as "create" | "update", alreadyApplied: false };
+    });
+    rollbackFile = undefined;
+    return context.json(committed, committed.mode === "create" && !committed.alreadyApplied ? 201 : 200);
+  } catch (error) {
+    let rollbackError: unknown;
+    try {
+      await rollbackFile?.();
+    } catch (restoreError) {
+      rollbackError = restoreError;
+      console.error("[AI dashboard] file compensation failed after confirmation error", { error, restoreError });
+    }
+    if (rollbackError) {
+      throw new ApiError(500, "A aplicação falhou e a restauração do arquivo também falhou. O dashboard precisa de reconciliação administrativa.");
+    }
+    if (error instanceof ApiError) throw error;
+    console.error("[AI dashboard] confirmation failed", error);
+    throw new ApiError(500, "Não foi possível aplicar a proposta do dashboard. As alterações em arquivo foram compensadas quando necessário; gere uma nova prévia.");
+  }
 });
 
 app.get("/api/admin/dashboards/:id", authentication, adminRequired, async (context) => {
   const dashboardId = z.string().uuid().parse(context.req.param("id")).toLowerCase();
-  const dashboard = await getDashboardFileById(dashboardId);
-  if (!dashboard) throw new ApiError(404, "Dashboard não encontrado.");
-  return context.json(dashboard);
+  const entry = (await getRegisteredDashboardFiles()).find((item) => item.dashboard.id === dashboardId);
+  if (!entry) throw new ApiError(404, "Dashboard não encontrado.");
+  return context.json({ document: entry.dashboard, revision: dashboardDocumentFingerprint(entry.dashboard) });
 });
 
 app.put("/api/admin/dashboards/:id", authentication, adminRequired, async (context) => {
   const dashboardId = z.string().uuid().parse(context.req.param("id")).toLowerCase();
-  const input = await jsonBody(context, dashboardDocumentSchema);
-  if (input.id !== dashboardId) throw new ApiError(400, "O id do dashboard não pode ser alterado.");
-
+  const input = await jsonBody(context, z.object({
+    document: dashboardDocumentSchema,
+    expectedRevision: z.string().regex(/^[a-f0-9]{64}$/),
+  }).strict());
+  if (input.document.id !== dashboardId) throw new ApiError(400, "O id do dashboard não pode ser alterado.");
+  let rollbackFile: (() => Promise<void>) | undefined;
   try {
-    await saveDashboardFile(dashboardId, input);
+    await db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('tcc-app:dashboard-files'))`);
+      const target = (await tx.select().from(dashboards)
+        .where(eq(dashboards.dashboardId, dashboardId)).for("update").limit(1))[0];
+      if (!target) throw new ApiError(404, "Dashboard não encontrado.");
+      const filePath = resolve(process.cwd(), target.filePath);
+      if (!isEditableDashboardFilePath(filePath)) throw new ApiError(400, "O dashboard só pode ser gravado dentro da pasta dashboards da aplicação.");
+      let currentDocument;
+      try {
+        currentDocument = dashboardDocumentSchema.parse(JSON.parse(await readFile(filePath, "utf8")) as unknown);
+      } catch {
+        throw new ApiError(409, "Não foi possível verificar a versão atual do dashboard. Recarregue-o.");
+      }
+      if (dashboardDocumentFingerprint(currentDocument) !== input.expectedRevision) {
+        throw new ApiError(409, "O dashboard foi editado por outra sessão. Recarregue e aplique suas alterações novamente.");
+      }
+      rollbackFile = await writeDashboardDocumentAtomically(filePath, input.document);
+    });
   } catch (error) {
-    throw new ApiError(400, error instanceof Error ? error.message : "Não foi possível salvar o dashboard.");
+    let rollbackError: unknown;
+    try {
+      await rollbackFile?.();
+    } catch (restoreError) {
+      rollbackError = restoreError;
+      console.error("[dashboard] file compensation failed after context update error", { error, restoreError });
+    }
+    if (rollbackError) {
+      throw new ApiError(500, "A atualização falhou e a restauração do arquivo também falhou. O dashboard precisa de reconciliação administrativa.");
+    }
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(500, error instanceof Error ? error.message : "Não foi possível salvar o dashboard.");
   }
-  return context.json({ id: dashboardId, saved: true });
+  rollbackFile = undefined;
+  return context.json({ id: dashboardId, saved: true, revision: dashboardDocumentFingerprint(input.document) });
 });
 
 app.get("/api/admin/dashboards/:id/users", authentication, adminRequired, async (context) => {
@@ -908,7 +1223,7 @@ app.delete("/api/queries/:id", authentication, permissionRequired("queries:delet
 });
 
 app.get("/api/dashboards", authentication, async (context: AppContext) => {
-  await syncDashboardDirectory();
+  await syncDashboardDirectoryLocked();
   const currentUser = context.get("currentUser");
   const accessibleDashboards = await getAccessibleDashboards(currentUser);
   return context.json(accessibleDashboards.map((dashboard) => ({
