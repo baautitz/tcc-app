@@ -13,6 +13,94 @@ export interface DiscoveredTable {
   tableName: string;
 }
 
+export interface DiscoveredColumn {
+  columnName: string;
+  dataType: string;
+  udtName: string;
+  nullable: boolean;
+  ordinalPosition: number;
+}
+
+const METADATA_CONNECTION_TIMEOUT_MS = 5_000;
+const METADATA_STATEMENT_TIMEOUT_MS = 5_000;
+
+function createMetadataClient(config: ExternalPostgresConfig): Client {
+  return new Client({
+    host: config.host,
+    port: config.port,
+    database: config.database,
+    user: config.user,
+    password: config.password,
+    connectionTimeoutMillis: METADATA_CONNECTION_TIMEOUT_MS,
+    statement_timeout: METADATA_STATEMENT_TIMEOUT_MS,
+  });
+}
+
+/** Lists live base tables for catalog freshness checks without reading table rows. */
+export async function listPostgresBaseTables(
+  config: ExternalPostgresConfig,
+): Promise<DiscoveredTable[]> {
+  const client = createMetadataClient(config);
+  try {
+    await client.connect();
+    const result = await client.query<{ schema_name: string; table_name: string }>(`
+      SELECT table_schema AS schema_name, table_name
+      FROM information_schema.tables
+      WHERE table_type = 'BASE TABLE'
+        AND table_schema NOT LIKE 'pg_%'
+        AND table_schema <> 'information_schema'
+      ORDER BY table_schema, table_name
+      LIMIT 10001
+    `);
+    if (result.rows.length > 10_000) {
+      throw new Error("O catálogo do servidor excede o limite de tabelas para consulta assistida.");
+    }
+    return result.rows.map((row) => ({
+      schemaName: row.schema_name,
+      tableName: row.table_name,
+    }));
+  } finally {
+    await client.end().catch(() => undefined);
+  }
+}
+
+/** Reads only column names and public type metadata; values/defaults are excluded. */
+export async function getPostgresTableColumns(
+  config: ExternalPostgresConfig,
+  schemaName: string,
+  tableName: string,
+): Promise<DiscoveredColumn[]> {
+  const client = createMetadataClient(config);
+  try {
+    await client.connect();
+    const result = await client.query<{
+      column_name: string;
+      data_type: string;
+      udt_name: string;
+      is_nullable: "YES" | "NO";
+      ordinal_position: number;
+    }>(`
+      SELECT column_name, data_type, udt_name, is_nullable, ordinal_position
+      FROM information_schema.columns
+      WHERE table_schema = $1 AND table_name = $2
+      ORDER BY ordinal_position
+      LIMIT 1001
+    `, [schemaName, tableName]);
+    if (result.rows.length > 1_000) {
+      throw new Error("A tabela excede o limite de colunas para consulta assistida.");
+    }
+    return result.rows.map((row) => ({
+      columnName: row.column_name,
+      dataType: row.data_type,
+      udtName: row.udt_name,
+      nullable: row.is_nullable === "YES",
+      ordinalPosition: Number(row.ordinal_position),
+    }));
+  } finally {
+    await client.end().catch(() => undefined);
+  }
+}
+
 interface PrivilegeCheckRow extends QueryResultRow {
   is_superuser: boolean;
   bypass_rls: boolean;

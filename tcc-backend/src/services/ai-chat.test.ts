@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AIMessageChunk } from "@langchain/core/messages";
 import type { AuthenticatedUser } from "./auth.js";
+import type { AiToolProgressEvent } from "./ai-read-tools.js";
 import {
   createAiChatHandler,
   type AiSseEvent,
@@ -171,6 +172,49 @@ describe("rota de chat IA SSE", () => {
     expect(capturedPrompt).toContain("permissões");
     expect(capturedMessages).toEqual(defaultBody.messages);
     expect(capturedSignal).toBeInstanceOf(AbortSignal);
+  });
+
+  it("passa contexto e ferramentas por requisição e serializa progresso de tool no SSE", async () => {
+    let emitToolEvent: ((event: AiToolProgressEvent) => void | Promise<void>) | undefined;
+    let capturedTools: unknown;
+    let capturedContext: unknown;
+    const agent = makeAgent(async () => {
+      await emitToolEvent?.({ type: "tool_start", toolCallId: "call-read-1", toolName: "list_data_sources" });
+      await emitToolEvent?.({ type: "tool_result", toolCallId: "call-read-1", toolName: "list_data_sources", ok: true });
+      return (async function* () {
+        yield [{ content: "Encontrei um servidor." } as AIMessageChunk, { langgraph_node: "model" }] as AiAgentToken;
+      })();
+    });
+    const app = createTestApp(createAiChatHandler({
+      getConfiguration: () => enabledConfiguration,
+      createTools: ({ currentUser, onToolEvent }) => {
+        expect(currentUser.id).toBe("admin-id");
+        expect(currentUser.isAdmin).toBe(true);
+        emitToolEvent = onToolEvent;
+        return [{} as never];
+      },
+      createAgent: (options) => {
+        capturedTools = options.tools;
+        capturedContext = options.context;
+        return agent;
+      },
+    }));
+
+    const response = await postChat(app, defaultBody);
+    const events = parseEvents(await response.text());
+
+    expect(capturedTools).toHaveLength(1);
+    expect(capturedContext).toEqual({
+      currentUserId: "admin-id",
+      isAdmin: true,
+      pathname: "/admin/dashboards",
+      dashboardId: "00000000-0000-4000-8000-000000000001",
+    });
+    expect(events.map(({ event }) => event)).toEqual([
+      "start", "tool_start", "tool_result", "token", "done",
+    ]);
+    expect(events[1]?.data).toMatchObject({ toolCallId: "call-read-1", toolName: "list_data_sources" });
+    expect(events[2]?.data).toMatchObject({ toolCallId: "call-read-1", toolName: "list_data_sources", ok: true });
   });
 
   it("substitui detalhes do provedor por erro SSE sanitizado", async () => {

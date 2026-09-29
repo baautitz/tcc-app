@@ -1,7 +1,7 @@
 import { Hono, type Context, type Next } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { cors } from "hono/cors";
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, count, eq, inArray } from "drizzle-orm";
 import { ZodError, z } from "zod";
 import { getEnvironment } from "./config.js";
 import { db } from "./db/client.js";
@@ -20,7 +20,7 @@ import {
 } from "./lib/contracts.js";
 import { decryptCredential, encryptCredential } from "./lib/credentials.js";
 import { hashPassword, verifyPassword } from "./lib/passwords.js";
-import { inspectReadOnlyPostgres, runReadOnlyQuery, type ExternalPostgresConfig } from "./services/external-postgres.js";
+import { getPostgresTableColumns, inspectReadOnlyPostgres, listPostgresBaseTables, runReadOnlyQuery, type ExternalPostgresConfig } from "./services/external-postgres.js";
 import { createSession, findAuthenticatedUser, hasPermission, revokeSession, SESSION_COOKIE, type AuthenticatedUser } from "./services/auth.js";
 import { assignPermissionKeys } from "./services/permissions.js";
 import { createDashboardFile, getDashboardFileById, getDashboardFiles, getRegisteredDashboards, saveDashboardFile, syncDashboardDirectory } from "./services/dashboards.js";
@@ -28,6 +28,7 @@ import { buildDashboardDefinitionFromDocument, dashboardQueryReferences } from "
 import { canAccessDashboard, canExecuteQuery } from "./services/dashboard-access.js";
 import { assertParameterDefinitions, assertReadOnlySql, assertSqlParameters, bindQueryParameters } from "./services/query-security.js";
 import { createAiChatHandler } from "./services/ai-chat.js";
+import { createAiReadTools, type AiReadSource, type AiReadTable, type AiReadTableName } from "./services/ai-read-tools.js";
 
 type AppVariables = { currentUser: AuthenticatedUser };
 type AppContext = Context<{ Variables: AppVariables }>;
@@ -64,7 +65,13 @@ app.onError((error, context) => {
 
 app.get("/api/health", (context) => context.json({ status: "ok", timestamp: new Date().toISOString() }));
 
-app.post("/api/admin/ai/chat", authentication, adminRequired, createAiChatHandler());
+app.post("/api/admin/ai/chat", authentication, adminRequired, createAiChatHandler({
+  createTools: ({ currentUser, onToolEvent }) => createAiReadTools({
+    currentUser,
+    onToolEvent,
+    repository: createAiReadToolsRepository(),
+  }),
+}));
 
 async function jsonBody<Schema extends z.ZodTypeAny>(context: Context, schema: Schema): Promise<z.output<Schema>> {
   try {
@@ -104,6 +111,74 @@ function sourceConnection(source: typeof dataSources.$inferSelect): ExternalPost
     database: source.databaseName,
     user: source.username,
     password: decryptCredential(source.encryptedPassword, environment.CREDENTIAL_ENCRYPTION_KEY),
+  };
+}
+
+function aiReadSource(source: typeof dataSources.$inferSelect): AiReadSource {
+  return {
+    id: source.id,
+    name: source.name,
+    databaseName: source.databaseName,
+    context: source.context,
+    connection: sourceConnection(source),
+  };
+}
+
+function aiReadTable(table: typeof dataSourceTables.$inferSelect): AiReadTable {
+  return {
+    id: table.id,
+    dataSourceId: table.dataSourceId,
+    schemaName: table.schemaName,
+    tableName: table.tableName,
+    context: table.context,
+  };
+}
+
+function aiReadTableName(table: Pick<typeof dataSourceTables.$inferSelect, "id" | "dataSourceId" | "schemaName" | "tableName">): AiReadTableName {
+  return {
+    id: table.id,
+    dataSourceId: table.dataSourceId,
+    schemaName: table.schemaName,
+    tableName: table.tableName,
+  };
+}
+
+function createAiReadToolsRepository() {
+  return {
+    async listSources(offset: number, limit: number) {
+      const [sources, countResult] = await Promise.all([
+        db.select({ id: dataSources.id, name: dataSources.name })
+          .from(dataSources)
+          .orderBy(asc(dataSources.name))
+          .limit(limit)
+          .offset(offset),
+        db.select({ total: count() }).from(dataSources),
+      ]);
+      return { sources, total: Number(countResult[0]?.total ?? 0) };
+    },
+    async findSource(dataSourceId: string) {
+      const source = (await db.select().from(dataSources).where(eq(dataSources.id, dataSourceId)).limit(1))[0];
+      return source ? aiReadSource(source) : undefined;
+    },
+    async listCatalogTables(dataSourceId: string) {
+      const tables = await db.select({
+        id: dataSourceTables.id,
+        dataSourceId: dataSourceTables.dataSourceId,
+        schemaName: dataSourceTables.schemaName,
+        tableName: dataSourceTables.tableName,
+      }).from(dataSourceTables)
+        .where(eq(dataSourceTables.dataSourceId, dataSourceId))
+        .orderBy(asc(dataSourceTables.schemaName), asc(dataSourceTables.tableName));
+      return tables.map(aiReadTableName);
+    },
+    async findCatalogTable(dataSourceId: string, tableId: string) {
+      const table = (await db.select().from(dataSourceTables)
+        .where(and(eq(dataSourceTables.dataSourceId, dataSourceId), eq(dataSourceTables.id, tableId)))
+        .limit(1))[0];
+      return table ? aiReadTable(table) : undefined;
+    },
+    listLiveBaseTables: listPostgresBaseTables,
+    getLiveColumns: getPostgresTableColumns,
   };
 }
 

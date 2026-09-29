@@ -2,7 +2,9 @@ import { createAgent } from "langchain";
 import { ChatOpenAI } from "@langchain/openai";
 import type { AIMessageChunk } from "@langchain/core/messages";
 import type { RunnableConfig } from "@langchain/core/runnables";
+import type { StructuredToolInterface } from "@langchain/core/tools";
 import { getEnvironment, type Environment } from "../config.js";
+import { z } from "zod";
 
 type AiEnvironment = Pick<Environment, "AI_BASE_URL" | "AI_API_KEY" | "AI_MODEL" | "AI_REQUEST_TIMEOUT_MS">;
 
@@ -20,6 +22,20 @@ export type ResolvedAiConfiguration =
 
 export type AiChatRole = "user" | "assistant";
 
+export interface AiAgentContext {
+  currentUserId?: string;
+  isAdmin?: boolean;
+  pathname?: string;
+  dashboardId?: string;
+}
+
+const aiAgentContextSchema = z.object({
+  currentUserId: z.string().optional(),
+  isAdmin: z.boolean().optional(),
+  pathname: z.string().optional(),
+  dashboardId: z.string().optional(),
+});
+
 export type AiAgentToken = readonly [
   AIMessageChunk,
   { langgraph_node?: string; [key: string]: unknown },
@@ -28,7 +44,7 @@ export type AiAgentToken = readonly [
 export interface AiChatAgent {
   stream(
     input: { messages: Array<{ role: AiChatRole; content: string }> },
-    config: RunnableConfig & { streamMode: "messages" },
+    config: RunnableConfig & { streamMode: "messages"; context?: AiAgentContext },
   ): Promise<AsyncIterable<AiAgentToken>>;
 }
 
@@ -125,11 +141,14 @@ const DEFAULT_SYSTEM_PROMPT = [
 export function createAiAgent(options: {
   systemPrompt?: string;
   configuration?: ResolvedAiConfiguration;
+  tools?: StructuredToolInterface[];
+  context?: AiAgentContext;
 } = {}): AiChatAgent {
   const model = createAiModel(options.configuration);
   const agent = createAgent({
     model,
-    tools: [],
+    tools: options.tools ?? [],
+    contextSchema: aiAgentContextSchema,
     systemPrompt: options.systemPrompt ?? DEFAULT_SYSTEM_PROMPT,
   });
 
@@ -137,6 +156,7 @@ export function createAiAgent(options: {
     async stream(input, config) {
       const result = await agent.stream(input, {
         ...config,
+        context: options.context ?? {},
         recursionLimit: 8,
       });
       return result as AsyncIterable<AiAgentToken>;
