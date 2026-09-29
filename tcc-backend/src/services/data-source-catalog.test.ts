@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   MAX_DATA_SOURCE_CATALOG_TABLES,
+  DataSourceCatalogSnapshotChangedError,
   hasDataSourceTargetChanged,
   reconcileDataSourceCatalog,
   type CatalogIdentity,
   type DataSourceCatalogDatabase,
+  type CatalogSourceSnapshot,
   type DataSourceCatalogTransaction,
 } from "./data-source-catalog.js";
 import type { DiscoveredTable } from "./external-postgres.js";
@@ -17,23 +19,40 @@ interface CatalogRow extends CatalogIdentity {
 
 class FakeCatalogDatabase implements DataSourceCatalogDatabase {
   rows: CatalogRow[];
+  currentSourceSnapshot: CatalogSourceSnapshot | undefined;
   sourceUpdates: Array<{ dataSourceId: string; update: unknown }> = [];
   transactionCount = 0;
+  lockCount = 0;
   failUpsert = false;
 
-  constructor(rows: CatalogRow[]) {
+  constructor(rows: CatalogRow[], sourceSnapshot?: CatalogSourceSnapshot) {
     this.rows = rows;
+    this.currentSourceSnapshot = sourceSnapshot ?? {
+      name: "Analytics",
+      host: "db.internal",
+      port: 5432,
+      databaseName: "analytics",
+      username: "readonly",
+      encryptedPassword: "encrypted-v1",
+      context: "Analytics context",
+      updatedAt: new Date(0),
+    };
   }
 
   async transaction<T>(work: (tx: DataSourceCatalogTransaction) => Promise<T>): Promise<T> {
     this.transactionCount += 1;
     const workingRows = this.rows.map((row) => ({ ...row }));
     const workingSourceUpdates = [...this.sourceUpdates];
+    let workingSourceSnapshot = this.currentSourceSnapshot ? { ...this.currentSourceSnapshot } : undefined;
     let nextId = 1;
     const tx: DataSourceCatalogTransaction = {
-      lockDataSource: async () => undefined,
+      lockDataSource: async () => {
+        this.lockCount += 1;
+        return workingSourceSnapshot ? { ...workingSourceSnapshot } : undefined;
+      },
       updateDataSource: async (dataSourceId, update) => {
         workingSourceUpdates.push({ dataSourceId, update });
+        workingSourceSnapshot = { ...update };
       },
       listCatalogEntries: async (dataSourceId, limit) => workingRows
         .filter((row) => row.dataSourceId === dataSourceId)
@@ -71,6 +90,7 @@ class FakeCatalogDatabase implements DataSourceCatalogDatabase {
     const result = await work(tx);
     this.rows = workingRows;
     this.sourceUpdates = workingSourceUpdates;
+    this.currentSourceSnapshot = workingSourceSnapshot;
     return result;
   }
 }
@@ -155,6 +175,42 @@ describe("reconciliação do catálogo de servidor", () => {
     expect(database.transactionCount).toBe(1);
     expect(database.sourceUpdates).toEqual([{ dataSourceId: sourceId, update: sourceUpdate }]);
     expect(database.rows[0]).toMatchObject({ id: "same-name", context: "", discoveredAt });
+  });
+
+  it("descarta snapshot de refresh quando target ou versão mudou antes de adquirir o lock", async () => {
+    const oldSnapshot: CatalogSourceSnapshot = {
+      name: "Analytics",
+      host: "db.internal",
+      port: 5432,
+      databaseName: "analytics",
+      username: "readonly",
+      encryptedPassword: "encrypted-v1",
+      context: "Analytics context",
+      updatedAt: new Date(0),
+    };
+    const changedSnapshots = [
+      { ...oldSnapshot, host: "db-v2.internal", updatedAt: discoveredAt },
+      { ...oldSnapshot, updatedAt: discoveredAt },
+    ];
+
+    for (const changedSnapshot of changedSnapshots) {
+      const initialRows: CatalogRow[] = [
+        { id: "current-table", dataSourceId: sourceId, schemaName: "public", tableName: "orders", context: "Keep", discoveredAt: new Date(0) },
+      ];
+      const database = new FakeCatalogDatabase(initialRows, changedSnapshot);
+
+      await expect(reconcileDataSourceCatalog(
+        database,
+        sourceId,
+        [{ schemaName: "public", tableName: "old-snapshot-table" }],
+        discoveredAt,
+        { expectedSourceSnapshot: oldSnapshot },
+      )).rejects.toBeInstanceOf(DataSourceCatalogSnapshotChangedError);
+
+      expect(database.lockCount).toBe(1);
+      expect(database.rows).toEqual(initialRows);
+      expect(database.sourceUpdates).toEqual([]);
+    }
   });
 
   it("limita o snapshot e a leitura do catálogo existente a 10 mil sem mutação parcial", async () => {

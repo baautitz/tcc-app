@@ -9,7 +9,7 @@ export interface CatalogIdentity {
 }
 
 export interface DataSourceCatalogTransaction {
-  lockDataSource(dataSourceId: string): Promise<void>;
+  lockDataSource(dataSourceId: string): Promise<CatalogSourceSnapshot | undefined>;
   updateDataSource(dataSourceId: string, update: CatalogSourceUpdate): Promise<void>;
   listCatalogEntries(dataSourceId: string, limit: number): Promise<CatalogIdentity[]>;
   upsertCatalogEntries(
@@ -32,6 +32,15 @@ export interface CatalogSourceUpdate {
   updatedAt: Date;
 }
 
+export interface CatalogSourceSnapshot extends CatalogSourceUpdate {}
+
+export class DataSourceCatalogSnapshotChangedError extends Error {
+  constructor() {
+    super("O servidor foi alterado durante a operação do catálogo.");
+    this.name = "DataSourceCatalogSnapshotChangedError";
+  }
+}
+
 export interface DataSourceTarget {
   host: string;
   port: number;
@@ -42,6 +51,17 @@ export function hasDataSourceTargetChanged(current: DataSourceTarget, next: Data
   return current.host !== next.host
     || current.port !== next.port
     || current.databaseName !== next.databaseName;
+}
+
+function snapshotsMatch(left: CatalogSourceSnapshot, right: CatalogSourceSnapshot): boolean {
+  return left.name === right.name
+    && left.host === right.host
+    && left.port === right.port
+    && left.databaseName === right.databaseName
+    && left.username === right.username
+    && left.encryptedPassword === right.encryptedPassword
+    && left.context === right.context
+    && left.updatedAt.getTime() === right.updatedAt.getTime();
 }
 
 export interface DataSourceCatalogDatabase {
@@ -75,14 +95,24 @@ export async function reconcileDataSourceCatalog(
   dataSourceId: string,
   tables: DiscoveredTable[],
   discoveredAt = new Date(),
-  options: { sourceUpdate?: CatalogSourceUpdate; resetTableContexts?: boolean } = {},
+  options: {
+    sourceUpdate?: CatalogSourceUpdate;
+    expectedSourceSnapshot?: CatalogSourceSnapshot;
+    resetTableContexts?: boolean;
+  } = {},
 ): Promise<{ upserted: number; removed: number }> {
   validateSnapshot(tables);
   const desiredIdentities = new Set(tables.map(identityKey));
 
   return database.transaction(async (tx) => {
     // Serialize refreshes for the same source before taking the existing snapshot.
-    await tx.lockDataSource(dataSourceId);
+    const currentSource = await tx.lockDataSource(dataSourceId);
+    if (!currentSource) {
+      throw new Error("Servidor PostgreSQL não encontrado para atualizar o catálogo.");
+    }
+    if (options.expectedSourceSnapshot && !snapshotsMatch(currentSource, options.expectedSourceSnapshot)) {
+      throw new DataSourceCatalogSnapshotChangedError();
+    }
     if (options.sourceUpdate) {
       await tx.updateDataSource(dataSourceId, options.sourceUpdate);
     }

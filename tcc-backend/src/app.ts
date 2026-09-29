@@ -29,7 +29,7 @@ import { canAccessDashboard, canExecuteQuery } from "./services/dashboard-access
 import { assertParameterDefinitions, assertReadOnlySql, assertSqlParameters, bindQueryParameters } from "./services/query-security.js";
 import { createAiChatHandler } from "./services/ai-chat.js";
 import { createAiReadTools, type AiReadSource, type AiReadTable, type AiReadTableName } from "./services/ai-read-tools.js";
-import { hasDataSourceTargetChanged, MAX_DATA_SOURCE_CATALOG_TABLES, reconcileDataSourceCatalog, type CatalogSourceUpdate } from "./services/data-source-catalog.js";
+import { DataSourceCatalogSnapshotChangedError, hasDataSourceTargetChanged, MAX_DATA_SOURCE_CATALOG_TABLES, reconcileDataSourceCatalog, type CatalogSourceSnapshot, type CatalogSourceUpdate } from "./services/data-source-catalog.js";
 
 type AppVariables = { currentUser: AuthenticatedUser };
 type AppContext = Context<{ Variables: AppVariables }>;
@@ -122,6 +122,19 @@ function aiReadSource(source: typeof dataSources.$inferSelect): AiReadSource {
     databaseName: source.databaseName,
     context: source.context,
     connection: sourceConnection(source),
+  };
+}
+
+function catalogSourceSnapshot(source: typeof dataSources.$inferSelect): CatalogSourceSnapshot {
+  return {
+    name: source.name,
+    host: source.host,
+    port: source.port,
+    databaseName: source.databaseName,
+    username: source.username,
+    encryptedPassword: source.encryptedPassword,
+    context: source.context,
+    updatedAt: source.updatedAt,
   };
 }
 
@@ -426,17 +439,32 @@ app.put("/api/admin/dashboards/:id/users", authentication, adminRequired, async 
 async function catalogSourceTables(
   sourceId: string,
   tables: Awaited<ReturnType<typeof inspectReadOnlyPostgres>>,
-  options: { sourceUpdate?: CatalogSourceUpdate; resetTableContexts?: boolean } = {},
+  options: {
+    sourceUpdate?: CatalogSourceUpdate;
+    expectedSourceSnapshot?: CatalogSourceSnapshot;
+    resetTableContexts?: boolean;
+  } = {},
 ): Promise<void> {
-  await reconcileDataSourceCatalog({
-    transaction: (work) => db.transaction(async (tx) => work({
+  try {
+    await reconcileDataSourceCatalog({
+      transaction: (work) => db.transaction(async (tx) => work({
       async lockDataSource(dataSourceId) {
-        const row = (await tx.select({ id: dataSources.id })
+        const row = (await tx.select({
+          name: dataSources.name,
+          host: dataSources.host,
+          port: dataSources.port,
+          databaseName: dataSources.databaseName,
+          username: dataSources.username,
+          encryptedPassword: dataSources.encryptedPassword,
+          context: dataSources.context,
+          updatedAt: dataSources.updatedAt,
+        })
           .from(dataSources)
           .where(eq(dataSources.id, dataSourceId))
           .for("update")
           .limit(1))[0];
         if (!row) throw new ApiError(404, "Servidor PostgreSQL não encontrado para atualizar o catálogo.");
+        return row;
       },
       async updateDataSource(dataSourceId, update) {
         const row = (await tx.update(dataSources)
@@ -471,8 +499,14 @@ async function catalogSourceTables(
           inArray(dataSourceTables.id, tableIds),
         ));
       },
-    })),
-  }, sourceId, tables, new Date(), options);
+      })),
+    }, sourceId, tables, new Date(), options);
+  } catch (error) {
+    if (error instanceof DataSourceCatalogSnapshotChangedError) {
+      throw new ApiError(409, "O servidor foi alterado durante a operação. Tente atualizar o catálogo novamente.");
+    }
+    throw error;
+  }
 }
 
 app.get("/api/data-sources", authentication, permissionRequired("data-sources:read"), async (context) => {
@@ -520,6 +554,7 @@ app.patch("/api/data-sources/:id", authentication, permissionRequired("data-sour
   const sourceId = z.string().uuid().parse(context.req.param("id"));
   const input = await jsonBody(context, sourceUpdateInputSchema);
   const existing = await getSourceOrThrow(sourceId);
+  const expectedSourceSnapshot = catalogSourceSnapshot(existing);
   const password = input.password ?? sourceConnection(existing).password;
   const discovered = await inspectReadOnlyPostgres({ host: input.host, port: input.port, database: input.databaseName, user: input.username, password });
   const targetChanged = hasDataSourceTargetChanged(existing, input);
@@ -537,6 +572,7 @@ app.patch("/api/data-sources/:id", authentication, permissionRequired("data-sour
   // Clear table contexts together with the source update and catalog reconciliation.
   await catalogSourceTables(sourceId, discovered, {
     sourceUpdate,
+    expectedSourceSnapshot,
     resetTableContexts: targetChanged,
   });
   const source = await getSourceOrThrow(sourceId);
@@ -545,8 +581,9 @@ app.patch("/api/data-sources/:id", authentication, permissionRequired("data-sour
 
 app.post("/api/data-sources/:id/refresh", authentication, permissionRequired("data-sources:update"), async (context) => {
   const source = await getSourceOrThrow(z.string().uuid().parse(context.req.param("id")));
+  const expectedSourceSnapshot = catalogSourceSnapshot(source);
   const tables = await inspectReadOnlyPostgres(sourceConnection(source));
-  await catalogSourceTables(source.id, tables);
+  await catalogSourceTables(source.id, tables, { expectedSourceSnapshot });
   return context.json({ tables });
 });
 
