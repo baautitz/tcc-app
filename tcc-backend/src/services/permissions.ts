@@ -24,26 +24,53 @@ const API_PERMISSIONS = [
 type PermissionDefinition = { key: string; name: string; description?: string };
 
 export async function ensureSystemPermissions(): Promise<void> {
-  const definitions: PermissionDefinition[] = API_PERMISSIONS.map(([key, name]) => ({ key, name }));
+  const definitions: PermissionDefinition[] = API_PERMISSIONS.map(
+    ([key, name]) => ({ key, name }),
+  );
   const keys = definitions.map((permission) => permission.key);
 
   for (const definition of definitions) {
-    await db.insert(permissions).values({ ...definition, system: true }).onConflictDoUpdate({
-      target: permissions.key,
-      set: { name: definition.name, description: definition.description ?? null, system: true },
-    });
+    await db
+      .insert(permissions)
+      .values({ ...definition, system: true })
+      .onConflictDoUpdate({
+        target: permissions.key,
+        set: {
+          name: definition.name,
+          description: definition.description ?? null,
+          system: true,
+        },
+      });
   }
 
-  await db.delete(permissions).where(and(eq(permissions.system, true), notInArray(permissions.key, keys)));
+  await db
+    .delete(permissions)
+    .where(
+      and(eq(permissions.system, true), notInArray(permissions.key, keys)),
+    );
 }
 
-export async function assignPermissionKeys(userId: string, keys: string[]): Promise<void> {
-  const rows = keys.length === 0 ? [] : await db.select({ id: permissions.id }).from(permissions).where(inArray(permissions.key, keys));
+export async function assignPermissionKeys(
+  userId: string,
+  keys: string[],
+): Promise<void> {
+  const rows =
+    keys.length === 0
+      ? []
+      : await db
+          .select({ id: permissions.id })
+          .from(permissions)
+          .where(inArray(permissions.key, keys));
   if (rows.length !== keys.length) {
     throw new Error("Uma ou mais permissões informadas não existem.");
   }
   await db.delete(userPermissions).where(eq(userPermissions.userId, userId));
   if (rows.length > 0) {
-    await db.insert(userPermissions).values(rows.map((permission) => ({ userId, permissionId: permission.id }))).onConflictDoNothing();
+    await db
+      .insert(userPermissions)
+      .values(
+        rows.map((permission) => ({ userId, permissionId: permission.id })),
+      )
+      .onConflictDoNothing();
   }
 }

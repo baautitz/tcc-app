@@ -13,6 +13,8 @@ describe("credential encryption", () => {
   });
 
   it("rejeita chave com tamanho incorreto", () => {
-    expect(() => encryptCredential("senha", Buffer.alloc(16).toString("base64"))).toThrow("32 bytes");
+    expect(() =>
+      encryptCredential("senha", Buffer.alloc(16).toString("base64")),
+    ).toThrow("32 bytes");
   });
 });

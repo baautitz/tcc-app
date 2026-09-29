@@ -9,7 +9,10 @@ export function hashPassword(password: string): string {
   });
 }
 
-export function verifyPassword(password: string, passwordHash: string): boolean {
+export function verifyPassword(
+  password: string,
+  passwordHash: string,
+): boolean {
   try {
     return verifySync(passwordHash, password);
   } catch {

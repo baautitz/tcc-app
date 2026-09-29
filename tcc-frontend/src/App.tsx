@@ -1,5 +1,12 @@
 import { useEffect, useState } from "react";
-import { BrowserRouter, Navigate, Route, Routes, useNavigate, useParams } from "react-router-dom";
+import {
+  BrowserRouter,
+  Navigate,
+  Route,
+  Routes,
+  useNavigate,
+  useParams,
+} from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -56,7 +63,9 @@ function LoginPage() {
       await login(values.email, values.password);
       toast.success("Login realizado com sucesso.");
     } catch (reason) {
-      toast.error(reason instanceof Error ? reason.message : "Não foi possível entrar.");
+      toast.error(
+        reason instanceof Error ? reason.message : "Não foi possível entrar.",
+      );
     }
   };
 
@@ -137,7 +146,9 @@ function HomeRoute() {
       })
       .catch((reason: Error) => {
         if (active) {
-          toast.error(reason.message || "Não foi possível carregar os dashboards.");
+          toast.error(
+            reason.message || "Não foi possível carregar os dashboards.",
+          );
         }
       })
       .finally(() => {
@@ -149,12 +160,14 @@ function HomeRoute() {
     };
   }, []);
 
-  return <DashboardListPage
-    dashboards={dashboards}
-    loading={loading}
-    canCreate={Boolean(user?.isAdmin)}
-    onOpen={(id) => navigate(`/dashboards/${id}`)}
-  />;
+  return (
+    <DashboardListPage
+      dashboards={dashboards}
+      loading={loading}
+      canCreate={Boolean(user?.isAdmin)}
+      onOpen={(id) => navigate(`/dashboards/${id}`)}
+    />
+  );
 }
 
 function DashboardRoute() {
@@ -162,7 +175,10 @@ function DashboardRoute() {
   const navigate = useNavigate();
 
   return id ? (
-    <DashboardPage dashboardId={id} onEditContext={() => navigate(`/admin/dashboards/${id}/context`)} />
+    <DashboardPage
+      dashboardId={id}
+      onEditContext={() => navigate(`/admin/dashboards/${id}/context`)}
+    />
   ) : (
     <Navigate to="/" replace />
   );
@@ -173,7 +189,10 @@ function DashboardContextEditorRoute() {
   const navigate = useNavigate();
 
   return id ? (
-    <DashboardContextEditor dashboardId={id} onBack={() => navigate(`/dashboards/${id}`)} />
+    <DashboardContextEditor
+      dashboardId={id}
+      onBack={() => navigate(`/dashboards/${id}`)}
+    />
   ) : (
     <Navigate to="/" replace />
   );
@@ -200,11 +219,26 @@ function ProtectedApp() {
         <Route path="/" element={<HomeRoute />} />
         <Route path="/dashboards/:id" element={<DashboardRoute />} />
         <Route path="/admin" element={<Navigate to="/admin/users" replace />} />
-        <Route path="/admin/users" element={<AdminSectionPage section="users" />} />
-        <Route path="/admin/permissions" element={<AdminSectionPage section="permissions" />} />
-        <Route path="/admin/sources" element={<AdminSectionPage section="sources" />} />
-        <Route path="/admin/dashboards/:id/context" element={<DashboardContextEditorRoute />} />
-        <Route path="/admin/queries" element={<AdminSectionPage section="queries" />} />
+        <Route
+          path="/admin/users"
+          element={<AdminSectionPage section="users" />}
+        />
+        <Route
+          path="/admin/permissions"
+          element={<AdminSectionPage section="permissions" />}
+        />
+        <Route
+          path="/admin/sources"
+          element={<AdminSectionPage section="sources" />}
+        />
+        <Route
+          path="/admin/dashboards/:id/context"
+          element={<DashboardContextEditorRoute />}
+        />
+        <Route
+          path="/admin/queries"
+          element={<AdminSectionPage section="queries" />}
+        />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

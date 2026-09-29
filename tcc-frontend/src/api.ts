@@ -1,9 +1,26 @@
-import type { CurrentUser, Dashboard, DashboardDocument, DashboardSummary, DashboardUser, DataSource, DataSourceTable, Permission, QuerySummary, SavedQuery, User } from "./types";
+import type {
+  CurrentUser,
+  Dashboard,
+  DashboardDocument,
+  DashboardSummary,
+  DashboardUser,
+  DataSource,
+  DataSourceTable,
+  Permission,
+  QuerySummary,
+  SavedQuery,
+  User,
+} from "./types";
 
-const baseUrl = (import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000").replace(/\/$/, "");
+const baseUrl = (
+  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000"
+).replace(/\/$/, "");
 
 export class ApiError extends Error {
-  constructor(message: string, public readonly status: number) {
+  constructor(
+    message: string,
+    public readonly status: number,
+  ) {
     super(message);
   }
 }
@@ -17,46 +34,131 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   if (response.status === 204) return undefined as T;
   const body: unknown = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const message = typeof body === "object" && body !== null && "error" in body && typeof body.error === "string"
-      ? body.error
-      : "A requisição falhou.";
+    const message =
+      typeof body === "object" &&
+      body !== null &&
+      "error" in body &&
+      typeof body.error === "string"
+        ? body.error
+        : "A requisição falhou.";
     throw new ApiError(message, response.status);
   }
   return body as T;
 }
 
 export const api = {
-  login: (email: string, password: string) => request<{ user: CurrentUser }>("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }),
+  login: (email: string, password: string) =>
+    request<{ user: CurrentUser }>("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+    }),
   logout: () => request<void>("/api/auth/logout", { method: "POST" }),
   me: () => request<{ user: CurrentUser }>("/api/auth/me"),
   dashboards: () => request<DashboardSummary[]>("/api/dashboards"),
   dashboard: (id: string) => request<Dashboard>(`/api/dashboards/${id}`),
-  query: (id: string, params: URLSearchParams) => request<{ rows: Record<string, unknown>[] }>(`/query/${id}?${params.toString()}`),
+  query: (id: string, params: URLSearchParams) =>
+    request<{ rows: Record<string, unknown>[] }>(
+      `/query/${id}?${params.toString()}`,
+    ),
   users: () => request<User[]>("/api/users"),
-  createUser: (body: unknown) => request<{ id: string }>("/api/users", { method: "POST", body: JSON.stringify(body) }),
-  updateUser: (id: string, body: unknown) => request<{ id: string }>(`/api/users/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
-  deleteUser: (id: string) => request<void>(`/api/users/${id}`, { method: "DELETE" }),
+  createUser: (body: unknown) =>
+    request<{ id: string }>("/api/users", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  updateUser: (id: string, body: unknown) =>
+    request<{ id: string }>(`/api/users/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+  deleteUser: (id: string) =>
+    request<void>(`/api/users/${id}`, { method: "DELETE" }),
   permissions: () => request<Permission[]>("/api/permissions"),
-  syncDashboards: () => request<{ dashboardIds: string[]; synchronized: number; removedOrphans: number }>("/api/dashboards/sync", { method: "POST" }),
-  createDashboard: (body: { name: string; description: string }) => request<{ id: string }>("/api/admin/dashboards", { method: "POST", body: JSON.stringify(body) }),
-  dashboardContext: (id: string) => request<DashboardDocument>(`/api/admin/dashboards/${encodeURIComponent(id)}`),
-  updateDashboardContext: (id: string, body: DashboardDocument) => request<{ id: string; saved: boolean }>(`/api/admin/dashboards/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(body) }),
-  dashboardUsers: (id: string) => request<{ users: DashboardUser[]; userIds: string[] }>(`/api/admin/dashboards/${encodeURIComponent(id)}/users`),
-  updateDashboardUsers: (id: string, userIds: string[]) => request<{ dashboardId: string; userIds: string[] }>(`/api/admin/dashboards/${encodeURIComponent(id)}/users`, { method: "PUT", body: JSON.stringify({ userIds }) }),
-  createPermission: (body: unknown) => request<Permission>("/api/permissions", { method: "POST", body: JSON.stringify(body) }),
-  updatePermission: (id: string, body: unknown) => request<Permission>(`/api/permissions/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
-  deletePermission: (id: string) => request<void>(`/api/permissions/${id}`, { method: "DELETE" }),
+  syncDashboards: () =>
+    request<{
+      dashboardIds: string[];
+      synchronized: number;
+      removedOrphans: number;
+    }>("/api/dashboards/sync", { method: "POST" }),
+  createDashboard: (body: { name: string; description: string }) =>
+    request<{ id: string }>("/api/admin/dashboards", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  dashboardContext: (id: string) =>
+    request<DashboardDocument>(
+      `/api/admin/dashboards/${encodeURIComponent(id)}`,
+    ),
+  updateDashboardContext: (id: string, body: DashboardDocument) =>
+    request<{ id: string; saved: boolean }>(
+      `/api/admin/dashboards/${encodeURIComponent(id)}`,
+      { method: "PUT", body: JSON.stringify(body) },
+    ),
+  dashboardUsers: (id: string) =>
+    request<{ users: DashboardUser[]; userIds: string[] }>(
+      `/api/admin/dashboards/${encodeURIComponent(id)}/users`,
+    ),
+  updateDashboardUsers: (id: string, userIds: string[]) =>
+    request<{ dashboardId: string; userIds: string[] }>(
+      `/api/admin/dashboards/${encodeURIComponent(id)}/users`,
+      { method: "PUT", body: JSON.stringify({ userIds }) },
+    ),
+  createPermission: (body: unknown) =>
+    request<Permission>("/api/permissions", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  updatePermission: (id: string, body: unknown) =>
+    request<Permission>(`/api/permissions/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+  deletePermission: (id: string) =>
+    request<void>(`/api/permissions/${id}`, { method: "DELETE" }),
   dataSources: () => request<DataSource[]>("/api/data-sources"),
-  dataSource: (id: string) => request<DataSource & { tables: DataSourceTable[] }>(`/api/data-sources/${id}`),
-  createDataSource: (body: unknown) => request<DataSource>("/api/data-sources", { method: "POST", body: JSON.stringify(body) }),
-  updateDataSource: (id: string, body: unknown) => request<DataSource>(`/api/data-sources/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
-  deleteDataSource: (id: string) => request<void>(`/api/data-sources/${id}`, { method: "DELETE" }),
-  updateTableContext: (sourceId: string, tableId: string, context: string) => request<DataSourceTable>(`/api/data-sources/${sourceId}/tables/${tableId}`, { method: "PATCH", body: JSON.stringify({ context }) }),
+  dataSource: (id: string) =>
+    request<DataSource & { tables: DataSourceTable[] }>(
+      `/api/data-sources/${id}`,
+    ),
+  createDataSource: (body: unknown) =>
+    request<DataSource>("/api/data-sources", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  updateDataSource: (id: string, body: unknown) =>
+    request<DataSource>(`/api/data-sources/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+  deleteDataSource: (id: string) =>
+    request<void>(`/api/data-sources/${id}`, { method: "DELETE" }),
+  updateTableContext: (sourceId: string, tableId: string, context: string) =>
+    request<DataSourceTable>(
+      `/api/data-sources/${sourceId}/tables/${tableId}`,
+      { method: "PATCH", body: JSON.stringify({ context }) },
+    ),
   queries: () => request<QuerySummary[]>("/api/queries"),
   savedQuery: (id: string) => request<SavedQuery>(`/api/queries/${id}`),
-  createQuery: (body: unknown) => request<SavedQuery>("/api/queries", { method: "POST", body: JSON.stringify(body) }),
-  updateQuery: (id: string, body: unknown) => request<SavedQuery>(`/api/queries/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
-  testQueryDraft: (body: unknown) => request<{ rows: Record<string, unknown>[] }>("/api/queries/test", { method: "POST", body: JSON.stringify(body) }),
-  deleteQuery: (id: string) => request<void>(`/api/queries/${id}`, { method: "DELETE" }),
-  testQuery: (id: string, parameters: Record<string, string>) => request<{ rows: Record<string, unknown>[] }>(`/api/queries/${id}/test`, { method: "POST", body: JSON.stringify({ parameters }) }),
+  createQuery: (body: unknown) =>
+    request<SavedQuery>("/api/queries", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  updateQuery: (id: string, body: unknown) =>
+    request<SavedQuery>(`/api/queries/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+  testQueryDraft: (body: unknown) =>
+    request<{ rows: Record<string, unknown>[] }>("/api/queries/test", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  deleteQuery: (id: string) =>
+    request<void>(`/api/queries/${id}`, { method: "DELETE" }),
+  testQuery: (id: string, parameters: Record<string, string>) =>
+    request<{ rows: Record<string, unknown>[] }>(`/api/queries/${id}/test`, {
+      method: "POST",
+      body: JSON.stringify({ parameters }),
+    }),
 };

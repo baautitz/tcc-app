@@ -1,8 +1,85 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-type ConfirmOptions = { title: string; description: string; confirmLabel?: string; destructive?: boolean };
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+type ConfirmOptions = {
+  title: string;
+  description: string;
+  confirmLabel?: string;
+  destructive?: boolean;
+};
 type ContextValue = { confirm: (options: ConfirmOptions) => Promise<boolean> };
 const ImperativeUIContext = createContext<ContextValue | null>(null);
-function ImperativeUIProvider({ children }: { children: ReactNode }) { const [state, setState] = useState<{ options: ConfirmOptions; resolve: (confirmed: boolean) => void }>(); const confirm = useCallback((options: ConfirmOptions) => new Promise<boolean>((resolve) => setState({ options, resolve })), []); const close = useCallback((confirmed: boolean) => { state?.resolve(confirmed); setState(undefined); }, [state]); const value = useMemo(() => ({ confirm }), [confirm]); return <ImperativeUIContext.Provider value={value}>{children}<AlertDialog open={Boolean(state)} onOpenChange={(open) => { if (!open) close(false); }}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{state?.options.title}</AlertDialogTitle><AlertDialogDescription>{state?.options.description}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel onClick={() => close(false)}>Cancelar</AlertDialogCancel><AlertDialogAction variant={state?.options.destructive ? "destructive" : "default"} onClick={() => close(true)}>{state?.options.confirmLabel ?? "Confirmar"}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></ImperativeUIContext.Provider>; }
-function useImperativeUI(): ContextValue { const context = useContext(ImperativeUIContext); if (!context) throw new Error("useImperativeUI deve ser usado dentro de ImperativeUIProvider."); return context; }
+function ImperativeUIProvider({ children }: { children: ReactNode }) {
+  const [state, setState] = useState<{
+    options: ConfirmOptions;
+    resolve: (confirmed: boolean) => void;
+  }>();
+  const confirm = useCallback(
+    (options: ConfirmOptions) =>
+      new Promise<boolean>((resolve) => setState({ options, resolve })),
+    [],
+  );
+  const close = useCallback(
+    (confirmed: boolean) => {
+      state?.resolve(confirmed);
+      setState(undefined);
+    },
+    [state],
+  );
+  const value = useMemo(() => ({ confirm }), [confirm]);
+  return (
+    <ImperativeUIContext.Provider value={value}>
+      {children}
+      <AlertDialog
+        open={Boolean(state)}
+        onOpenChange={(open) => {
+          if (!open) close(false);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{state?.options.title}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {state?.options.description}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => close(false)}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              variant={state?.options.destructive ? "destructive" : "default"}
+              onClick={() => close(true)}
+            >
+              {state?.options.confirmLabel ?? "Confirmar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </ImperativeUIContext.Provider>
+  );
+}
+function useImperativeUI(): ContextValue {
+  const context = useContext(ImperativeUIContext);
+  if (!context)
+    throw new Error(
+      "useImperativeUI deve ser usado dentro de ImperativeUIProvider.",
+    );
+  return context;
+}
 export { ImperativeUIProvider, useImperativeUI };

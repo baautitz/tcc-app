@@ -263,7 +263,9 @@ function DashboardComponentView({
         </CardHeader>
         <CardContent>
           <p className="text-3xl font-semibold tracking-tight">
-            {format === "currency" ? formatCurrencyValue(value) : formatValue(value)}
+            {format === "currency"
+              ? formatCurrencyValue(value)
+              : formatValue(value)}
           </p>
         </CardContent>
       </Card>

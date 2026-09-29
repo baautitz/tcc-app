@@ -18,31 +18,49 @@ export function hashSessionToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 
-export async function createSession(userId: string): Promise<{ token: string; expiresAt: Date }> {
+export async function createSession(
+  userId: string,
+): Promise<{ token: string; expiresAt: Date }> {
   const environment = getEnvironment();
   const token = randomBytes(32).toString("base64url");
-  const expiresAt = new Date(Date.now() + environment.SESSION_TTL_DAYS * 24 * 60 * 60 * 1000);
-  await db.insert(sessions).values({ userId, tokenHash: hashSessionToken(token), expiresAt });
+  const expiresAt = new Date(
+    Date.now() + environment.SESSION_TTL_DAYS * 24 * 60 * 60 * 1000,
+  );
+  await db
+    .insert(sessions)
+    .values({ userId, tokenHash: hashSessionToken(token), expiresAt });
   return { token, expiresAt };
 }
 
 export async function revokeSession(token: string | undefined): Promise<void> {
   if (!token) return;
-  await db.update(sessions).set({ revokedAt: new Date() }).where(and(eq(sessions.tokenHash, hashSessionToken(token)), isNull(sessions.revokedAt)));
+  await db
+    .update(sessions)
+    .set({ revokedAt: new Date() })
+    .where(
+      and(
+        eq(sessions.tokenHash, hashSessionToken(token)),
+        isNull(sessions.revokedAt),
+      ),
+    );
 }
 
-export async function findAuthenticatedUser(token: string | undefined): Promise<AuthenticatedUser | null> {
+export async function findAuthenticatedUser(
+  token: string | undefined,
+): Promise<AuthenticatedUser | null> {
   if (!token) return null;
   const session = await db
     .select({ user: users })
     .from(sessions)
     .innerJoin(users, eq(sessions.userId, users.id))
-    .where(and(
-      eq(sessions.tokenHash, hashSessionToken(token)),
-      isNull(sessions.revokedAt),
-      gt(sessions.expiresAt, new Date()),
-      eq(users.active, true),
-    ))
+    .where(
+      and(
+        eq(sessions.tokenHash, hashSessionToken(token)),
+        isNull(sessions.revokedAt),
+        gt(sessions.expiresAt, new Date()),
+        eq(users.active, true),
+      ),
+    )
     .limit(1);
   const row = session[0];
   if (!row) return null;

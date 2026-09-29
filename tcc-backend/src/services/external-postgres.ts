@@ -22,7 +22,9 @@ interface PrivilegeCheckRow extends QueryResultRow {
   can_write_table: boolean;
 }
 
-export async function inspectReadOnlyPostgres(config: ExternalPostgresConfig): Promise<DiscoveredTable[]> {
+export async function inspectReadOnlyPostgres(
+  config: ExternalPostgresConfig,
+): Promise<DiscoveredTable[]> {
   const client = new Client({
     host: config.host,
     port: config.port,
@@ -64,9 +66,14 @@ export async function inspectReadOnlyPostgres(config: ExternalPostgresConfig): P
         ) AS can_write_table
     `);
     const privilege = privilegeResult.rows[0];
-    if (!privilege) throw new Error("Não foi possível verificar os privilégios do usuário externo.");
+    if (!privilege)
+      throw new Error(
+        "Não foi possível verificar os privilégios do usuário externo.",
+      );
     if (Object.values(privilege).some((value) => value === true)) {
-      throw new Error("O usuário PostgreSQL precisa possuir somente acesso de leitura (SELECT), sem superusuário, escrita, DDL ou TEMP.");
+      throw new Error(
+        "O usuário PostgreSQL precisa possuir somente acesso de leitura (SELECT), sem superusuário, escrita, DDL ou TEMP.",
+      );
     }
 
     const tableResult = await client.query<{
@@ -80,7 +87,10 @@ export async function inspectReadOnlyPostgres(config: ExternalPostgresConfig): P
         AND table_schema <> 'information_schema'
       ORDER BY table_schema, table_name
     `);
-    return tableResult.rows.map((table) => ({ schemaName: table.schema_name, tableName: table.table_name }));
+    return tableResult.rows.map((table) => ({
+      schemaName: table.schema_name,
+      tableName: table.table_name,
+    }));
   } finally {
     await client.end().catch(() => undefined);
   }
