@@ -1,17 +1,20 @@
 import { Hono, type Context, type Next } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { cors } from "hono/cors";
-import { and, asc, count, eq, inArray } from "drizzle-orm";
+import { and, asc, count, eq, gt, inArray, isNull, sql } from "drizzle-orm";
 import { ZodError, z } from "zod";
 import { getEnvironment } from "./config.js";
 import { db } from "./db/client.js";
-import { dashboardUsers, dataSources, dataSourceTables, permissions, savedQueries, userPermissions, users } from "./db/schema.js";
+import { dashboardUsers, dataSources, dataSourceTables, permissions, queryTestRuns, savedQueries, userPermissions, users } from "./db/schema.js";
 import {
   passwordSchema,
   permissionKeySchema,
   parameterDefinitionSchema,
   queryInputSchema,
+  queryCreateInputSchema,
+  queryPreviewInputSchema,
   queryTestInputSchema,
+  queryUpdateInputSchema,
   dashboardCreateSchema,
   dashboardDocumentSchema,
   sourceInputSchema,
@@ -20,7 +23,7 @@ import {
 } from "./lib/contracts.js";
 import { decryptCredential, encryptCredential } from "./lib/credentials.js";
 import { hashPassword, verifyPassword } from "./lib/passwords.js";
-import { findUnsafeAiColumnTypes, getPostgresTableColumns, inspectReadOnlyPostgres, listPostgresBaseTables, runReadOnlyQuery, type ExternalPostgresConfig } from "./services/external-postgres.js";
+import { findUnsafeAiColumnTypes, getPostgresTableColumns, inspectReadOnlyPostgres, listPostgresBaseTables, runBoundedReadOnlyQuery, runReadOnlyQuery, type ExternalPostgresConfig } from "./services/external-postgres.js";
 import { createSession, findAuthenticatedUser, hasPermission, revokeSession, SESSION_COOKIE, type AuthenticatedUser } from "./services/auth.js";
 import { assignPermissionKeys } from "./services/permissions.js";
 import { createDashboardFile, getDashboardFileById, getDashboardFiles, getRegisteredDashboards, saveDashboardFile, syncDashboardDirectory } from "./services/dashboards.js";
@@ -32,6 +35,7 @@ import { createAiReadTools, type AiReadSource, type AiReadTable, type AiReadTabl
 import { createAiQueryTestTools } from "./services/ai-query-tools.js";
 import { DataSourceCatalogSnapshotChangedError, hasDataSourceTargetChanged, MAX_DATA_SOURCE_CATALOG_TABLES, reconcileDataSourceCatalog, type CatalogSourceSnapshot, type CatalogSourceUpdate } from "./services/data-source-catalog.js";
 import { DataSourceContextSourceNotFoundError, DataSourceContextVersionConflictError, updateTableContextIfSourceVersionMatches } from "./services/data-source-context.js";
+import { issueQueryTestReceipt, QueryLifecycleError, queryDraftFingerprint, querySourceTargetHash, saveQueryWithTestReceipt, type QueryLifecycleQuery, type QueryLifecycleRepository, type QueryLifecycleTransaction, type QuerySaveMode, type QueryTestReceipt } from "./services/query-lifecycle.js";
 
 type AppVariables = { currentUser: AuthenticatedUser };
 type AppContext = Context<{ Variables: AppVariables }>;
@@ -178,6 +182,22 @@ function createAiReadToolsRepository() {
       const source = (await db.select().from(dataSources).where(eq(dataSources.id, dataSourceId)).limit(1))[0];
       return source ? aiReadSource(source) : undefined;
     },
+    async findSourceVersion(dataSourceId: string) {
+      const source = (await db.select().from(dataSources).where(eq(dataSources.id, dataSourceId)).limit(1))[0];
+      return source ? { updatedAt: source.updatedAt, targetHash: querySourceTargetHash(source) } : undefined;
+    },
+    async findQueryTarget(queryId: string) {
+      const query = (await db.select({
+        id: savedQueries.id,
+        dataSourceId: savedQueries.dataSourceId,
+        name: savedQueries.name,
+        updatedAt: savedQueries.updatedAt,
+      }).from(savedQueries).where(eq(savedQueries.id, queryId)).limit(1))[0];
+      return query;
+    },
+    createTestReceipt(input: Parameters<typeof issueQueryTestReceipt>[1]) {
+      return issueQueryTestReceipt(createQueryLifecycleRepository(), input);
+    },
     async listCatalogTables(dataSourceId: string) {
       const tables = await db.select({
         id: dataSourceTables.id,
@@ -214,7 +234,7 @@ function parseParameters(value: unknown): ParameterDefinition[] {
   return z.array(parameterDefinitionSchema).parse(value);
 }
 
-function validateQueryInput(input: z.infer<typeof queryInputSchema>): void {
+function validateQueryInput(input: Pick<z.infer<typeof queryInputSchema>, "dataSourceId" | "sqlText" | "parameters">): void {
   try {
     assertReadOnlySql(input.sqlText);
     assertParameterDefinitions(input.parameters);
@@ -240,6 +260,78 @@ async function getQueryOrThrow(queryId: string) {
   const query = (await db.select().from(savedQueries).where(eq(savedQueries.id, queryId)).limit(1))[0];
   if (!query) throw new ApiError(404, "Query não encontrada.");
   return query;
+}
+
+function createQueryLifecycleRepository(): QueryLifecycleRepository {
+  return {
+    transaction<T>(operation: (tx: QueryLifecycleTransaction) => Promise<T>) {
+      return db.transaction(async (tx) => operation({
+        async lockSource(dataSourceId) {
+          return (await tx.select().from(dataSources)
+            .where(eq(dataSources.id, dataSourceId))
+            .for("update")
+            .limit(1))[0];
+        },
+        async lockQuery(queryId) {
+          return (await tx.select().from(savedQueries)
+            .where(eq(savedQueries.id, queryId))
+            .for("update")
+            .limit(1))[0];
+        },
+        async insertReceipt(receipt) {
+          await tx.execute(sql`DELETE FROM query_test_runs
+            WHERE id IN (
+              SELECT id FROM query_test_runs
+              WHERE expires_at <= now()
+                OR (consumed_at IS NOT NULL AND consumed_at < now() - interval '1 day')
+              ORDER BY expires_at ASC
+              LIMIT 500
+            )`);
+          const inserted = (await tx.insert(queryTestRuns).values(receipt).returning())[0];
+          if (!inserted) throw new ApiError(500, "Não foi possível registrar a prévia.");
+          return { ...inserted, mode: inserted.mode as QuerySaveMode };
+        },
+        async consumeReceipt(receiptId, actorId, now) {
+          const consumed = (await tx.update(queryTestRuns)
+            .set({ consumedAt: now })
+            .where(and(
+              eq(queryTestRuns.id, receiptId),
+              eq(queryTestRuns.actorId, actorId),
+              isNull(queryTestRuns.consumedAt),
+              gt(queryTestRuns.expiresAt, now),
+            ))
+            .returning())[0];
+          return consumed ? { ...consumed, mode: consumed.mode as QuerySaveMode } : undefined;
+        },
+        async insertQuery(query) {
+          const inserted = (await tx.insert(savedQueries).values(query).returning())[0];
+          if (!inserted) throw new ApiError(500, "Não foi possível criar a query.");
+          return inserted;
+        },
+        async updateQuery(queryId, update) {
+          return (await tx.update(savedQueries)
+            .set(update)
+            .where(eq(savedQueries.id, queryId))
+            .returning())[0];
+        },
+      }));
+    },
+  };
+}
+
+function queryLifecycleApiError(error: unknown): never {
+  if (!(error instanceof QueryLifecycleError)) throw error;
+  switch (error.code) {
+    case "SOURCE_NOT_FOUND":
+      throw new ApiError(404, "Servidor PostgreSQL não encontrado.");
+    case "QUERY_NOT_FOUND":
+      throw new ApiError(404, "Query não encontrada no servidor selecionado.");
+    case "QUERY_VERSION_CONFLICT":
+      throw new ApiError(409, "A query foi alterada desde a prévia. Recarregue-a e teste novamente.");
+    case "RECEIPT_INVALID":
+    case "RECEIPT_STALE":
+      throw new ApiError(409, "A prévia expirou, já foi usada ou não corresponde ao rascunho. Teste novamente antes de salvar.");
+  }
 }
 
 async function getAccessibleDashboards(currentUser: AuthenticatedUser) {
@@ -664,26 +756,133 @@ app.post("/api/queries/test", authentication, async (context: AppContext) => {
   if (!hasPermission(currentUser, "queries:create") && !hasPermission(currentUser, "queries:update")) {
     throw new ApiError(403, "A permissão 'queries:create' ou 'queries:update' é necessária para testar uma query.");
   }
-  const input = await jsonBody(context, queryTestInputSchema);
-  return context.json({ rows: await runQueryDefinition(input) });
+  const input = await jsonBody(context, queryPreviewInputSchema);
+  const requiredPermission = input.mode === "create" ? "queries:create" : "queries:update";
+  if (!hasPermission(currentUser, requiredPermission)) {
+    throw new ApiError(403, `A permissão '${requiredPermission}' é necessária para pré-visualizar esta ação.`);
+  }
+  validateQueryInput(input);
+
+  const source = await getSourceOrThrow(input.dataSourceId);
+  const sourceUpdatedAt = source.updatedAt;
+  const sourceTargetHash = querySourceTargetHash(source);
+  let queryTarget: typeof savedQueries.$inferSelect | undefined;
+  if (input.mode === "update") {
+    queryTarget = (await db.select().from(savedQueries)
+      .where(eq(savedQueries.id, input.queryId!))
+      .limit(1))[0];
+    if (!queryTarget || queryTarget.dataSourceId !== source.id) {
+      throw new ApiError(404, "A query para edição não existe neste servidor.");
+    }
+    if (!input.expectedUpdatedAt || queryTarget.updatedAt.getTime() !== input.expectedUpdatedAt.getTime()) {
+      throw new ApiError(409, "A query foi alterada desde que foi aberta. Recarregue-a e teste novamente.");
+    }
+  }
+
+  let preview;
+  try {
+    const bound = bindQueryParameters(input.sqlText, input.parameters, input.values);
+    preview = await runBoundedReadOnlyQuery(sourceConnection(source), bound.sqlText, bound.values, {
+      preserveConfiguredSearchPath: true,
+      allowGeneralReadOnlySql: true,
+    });
+  } catch (error) {
+    throw new ApiError(400, error instanceof Error ? error.message : "Não foi possível testar a query.");
+  }
+
+  const latestSource = await getSourceOrThrow(source.id);
+  if (
+    latestSource.updatedAt.getTime() !== sourceUpdatedAt.getTime() ||
+    querySourceTargetHash(latestSource) !== sourceTargetHash
+  ) {
+    throw new ApiError(409, "O servidor foi alterado durante o teste. Gere uma nova prévia.");
+  }
+  if (queryTarget) {
+    const latestQuery = await getQueryOrThrow(queryTarget.id);
+    if (latestQuery.updatedAt.getTime() !== queryTarget.updatedAt.getTime()) {
+      throw new ApiError(409, "A query foi alterada durante o teste. Recarregue-a e teste novamente.");
+    }
+  }
+
+  let testRunId: string;
+  try {
+    testRunId = await issueQueryTestReceipt(createQueryLifecycleRepository(), {
+      actorId: currentUser.id,
+      dataSourceId: source.id,
+      sourceUpdatedAt,
+      sourceTargetHash,
+      draftFingerprint: queryDraftFingerprint(input),
+      mode: input.mode,
+      queryId: queryTarget?.id,
+      queryUpdatedAt: queryTarget?.updatedAt,
+    });
+  } catch (error) {
+    queryLifecycleApiError(error);
+  }
+
+  return context.json({
+    ...preview,
+    testRunId,
+    dataSource: { id: source.id, name: source.name },
+    intent: {
+      mode: input.mode,
+      queryName: queryTarget?.name ?? "Nova query",
+      ...(queryTarget ? {
+        queryId: queryTarget.id,
+        queryUpdatedAt: queryTarget.updatedAt.toISOString(),
+      } : {}),
+    },
+    sqlText: input.sqlText,
+    parameters: input.parameters,
+    testValues: input.values,
+    rowCount: preview.rows.length,
+  });
 });
 
 app.post("/api/queries", authentication, permissionRequired("queries:create"), async (context: AppContext) => {
-  const input = await jsonBody(context, queryInputSchema);
+  const input = await jsonBody(context, queryCreateInputSchema);
   validateQueryInput(input);
-  await getSourceOrThrow(input.dataSourceId);
-  const query = (await db.insert(savedQueries).values({ ...input, createdBy: context.get("currentUser").id }).returning())[0];
-  if (!query) throw new ApiError(500, "Não foi possível criar a query.");
+  const currentUser = context.get("currentUser");
+  let query: QueryLifecycleQuery;
+  try {
+    query = await saveQueryWithTestReceipt(createQueryLifecycleRepository(), {
+      receiptId: input.testRunId,
+      actorId: currentUser.id,
+      mode: "create",
+      dataSourceId: input.dataSourceId,
+      name: input.name,
+      sqlText: input.sqlText,
+      parameters: input.parameters,
+      createdBy: currentUser.id,
+    });
+  } catch (error) {
+    queryLifecycleApiError(error);
+  }
   return context.json(query, 201);
 });
 
 app.patch("/api/queries/:id", authentication, permissionRequired("queries:update"), async (context) => {
   const queryId = z.string().uuid().parse(context.req.param("id"));
-  const input = await jsonBody(context, queryInputSchema);
+  const input = await jsonBody(context, queryUpdateInputSchema);
   validateQueryInput(input);
-  await getSourceOrThrow(input.dataSourceId);
-  const query = (await db.update(savedQueries).set({ ...input, updatedAt: new Date() }).where(eq(savedQueries.id, queryId)).returning())[0];
-  if (!query) throw new ApiError(404, "Query não encontrada.");
+  const currentUser = context.get("currentUser");
+  let query: QueryLifecycleQuery;
+  try {
+    query = await saveQueryWithTestReceipt(createQueryLifecycleRepository(), {
+      receiptId: input.testRunId,
+      actorId: currentUser.id,
+      mode: "update",
+      queryId,
+      expectedUpdatedAt: input.expectedUpdatedAt,
+      dataSourceId: input.dataSourceId,
+      name: input.name,
+      sqlText: input.sqlText,
+      parameters: input.parameters,
+      createdBy: currentUser.id,
+    });
+  } catch (error) {
+    queryLifecycleApiError(error);
+  }
   return context.json(query);
 });
 

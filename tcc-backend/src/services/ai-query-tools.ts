@@ -25,6 +25,8 @@ import {
   assertAiCatalogTableReferences,
   type AiCatalogTableReference,
 } from "./query-security.js";
+import { queryDraftFingerprint } from "./query-lifecycle.js";
+import type { QueryLifecycleQuery } from "./query-lifecycle.js";
 
 const MAX_SQL_DRAFT_CHARACTERS = 20_000;
 const MAX_SQL_DRAFTS = 3;
@@ -38,6 +40,15 @@ const inputSchema = z
       .describe(
         "ID de um servidor PostgreSQL cadastrado, obtido pela ferramenta list_data_sources.",
       ),
+    mode: z.enum(["create", "update"]).default("create").describe(
+      "A intenção da revisão: create para salvar nova query ou update para editar uma query existente.",
+    ),
+    queryId: z.string().uuid().optional().describe(
+      "ID da query existente que será editada; obrigatório quando mode=update. Nunca invente este ID.",
+    ),
+    queryName: z.string().trim().min(2).max(160).optional().describe(
+      "Nome proposto para a query; em edição, omitido mantém o nome salvo atual.",
+    ),
     sqlText: z
       .string()
       .trim()
@@ -66,6 +77,20 @@ const inputSchema = z
   })
   .strict()
   .superRefine((input, context) => {
+    if (input.mode === "update" && !input.queryId) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["queryId"],
+        message: "Informe o ID da query que será editada.",
+      });
+    }
+    if (input.mode === "create" && input.queryId) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["queryId"],
+        message: "Uma nova query não pode apontar para uma query existente.",
+      });
+    }
     if (Object.keys(input.values).length > 50)
       context.addIssue({
         code: z.ZodIssueCode.custom,
@@ -84,6 +109,20 @@ export interface AiQueryTestRepository {
     connection: AiReadSource["connection"],
     tables: AiCatalogTableReference[],
   ): Promise<UnsafeAiColumnType[]>;
+  findSourceVersion(
+    dataSourceId: string,
+  ): Promise<{ updatedAt: Date; targetHash: string } | undefined>;
+  findQueryTarget(queryId: string): Promise<Pick<QueryLifecycleQuery, "id" | "dataSourceId" | "name" | "updatedAt"> | undefined>;
+  createTestReceipt(input: {
+    actorId: string;
+    dataSourceId: string;
+    sourceUpdatedAt: Date;
+    sourceTargetHash: string;
+    draftFingerprint: string;
+    mode: "create" | "update";
+    queryId?: string;
+    queryUpdatedAt?: Date;
+  }): Promise<string>;
 }
 
 export interface AiQueryTestResult {
@@ -118,7 +157,7 @@ function throwIfAborted(signal?: AbortSignal): void {
 async function withToolEvents<T>(
   runtime: RuntimeWithToolCallId,
   onToolEvent: CreateAiQueryTestToolsOptions["onToolEvent"],
-  execute: () => Promise<T>,
+  execute: (emit: (event: AiToolProgressEvent) => Promise<void>, toolCallId: string) => Promise<T>,
 ): Promise<T> {
   const toolCallId = runtime.toolCallId ?? crypto.randomUUID();
   const emit = async (event: AiToolProgressEvent) => {
@@ -131,7 +170,7 @@ async function withToolEvents<T>(
   await emit({ type: "tool_start", toolCallId, toolName: "test_query" });
   let ok = false;
   try {
-    const result = await execute();
+    const result = await execute(emit, toolCallId);
     ok = !(
       result &&
       typeof result === "object" &&
@@ -143,10 +182,6 @@ async function withToolEvents<T>(
     if (!runtime.signal?.aborted)
       await emit({ type: "tool_result", toolCallId, toolName: "test_query", ok });
   }
-}
-
-function draftFingerprint(sqlText: string): string {
-  return sqlText.trim().replace(/\s+/g, " ").toLocaleLowerCase("en-US");
 }
 
 function sameSourceTarget(left: AiReadSource, right: AiReadSource): boolean {
@@ -209,9 +244,9 @@ export function createAiQueryTestTools({
       withToolEvents(
         runtime as RuntimeWithToolCallId,
         onToolEvent,
-        async () => {
+        async (emit, toolCallId) => {
           throwIfAborted(runtime.signal);
-          const fingerprint = draftFingerprint(input.sqlText);
+          const fingerprint = queryDraftFingerprint(input);
           if (
             draftAttempts >= MAX_SQL_DRAFTS ||
             (!sqlDrafts.has(fingerprint) && sqlDrafts.size >= MAX_SQL_DRAFTS)
@@ -279,6 +314,49 @@ export function createAiQueryTestTools({
               message: "Servidor PostgreSQL não encontrado.",
               retryable: false,
             };
+
+          let sourceVersion: { updatedAt: Date; targetHash: string } | undefined;
+          try {
+            sourceVersion = await repository.findSourceVersion(source.id);
+          } catch {
+            return {
+              ok: false,
+              code: "DATA_SOURCE_LOOKUP_FAILED",
+              message: "Não foi possível validar a versão do servidor.",
+              retryable: false,
+            };
+          }
+          if (!sourceVersion) {
+            return {
+              ok: false,
+              code: "DATA_SOURCE_NOT_FOUND",
+              message: "Servidor PostgreSQL não encontrado.",
+              retryable: false,
+            };
+          }
+
+          let queryTarget: Pick<QueryLifecycleQuery, "id" | "dataSourceId" | "name" | "updatedAt"> | undefined;
+          if (input.mode === "update") {
+            try {
+              queryTarget = await repository.findQueryTarget(input.queryId!);
+            } catch {
+              return {
+                ok: false,
+                code: "QUERY_LOOKUP_FAILED",
+                message: "Não foi possível localizar a query selecionada para edição.",
+                retryable: false,
+              };
+            }
+            if (!queryTarget || queryTarget.dataSourceId !== source.id) {
+              return {
+                ok: false,
+                code: "QUERY_NOT_FOUND",
+                message: "A query para edição não existe neste servidor.",
+                retryable: false,
+                askUser: true,
+              };
+            }
+          }
 
           let catalogTables: AiReadTableName[];
           let liveTables: Array<{ schemaName: string; tableName: string }>;
@@ -378,6 +456,54 @@ export function createAiQueryTestTools({
             };
           }
 
+          let currentSourceVersion: { updatedAt: Date; targetHash: string } | undefined;
+          try {
+            currentSourceVersion = await repository.findSourceVersion(source.id);
+          } catch {
+            return {
+              ok: false,
+              code: "DATA_SOURCE_CHANGED",
+              message: "Não foi possível confirmar a versão do servidor antes da consulta.",
+              retryable: false,
+            };
+          }
+          if (
+            !currentSourceVersion ||
+            currentSourceVersion.updatedAt.getTime() !== sourceVersion.updatedAt.getTime() ||
+            currentSourceVersion.targetHash !== sourceVersion.targetHash
+          ) {
+            return {
+              ok: false,
+              code: "DATA_SOURCE_CHANGED",
+              message: "O servidor foi alterado durante a validação. Gere uma nova prévia.",
+              retryable: false,
+              askUser: true,
+            };
+          }
+
+          if (queryTarget) {
+            let currentQuery: Awaited<ReturnType<typeof repository.findQueryTarget>>;
+            try {
+              currentQuery = await repository.findQueryTarget(queryTarget.id);
+            } catch {
+              return {
+                ok: false,
+                code: "QUERY_CHANGED",
+                message: "Não foi possível confirmar a versão da query editada.",
+                retryable: false,
+              };
+            }
+            if (!currentQuery || currentQuery.updatedAt.getTime() !== queryTarget.updatedAt.getTime()) {
+              return {
+                ok: false,
+                code: "QUERY_CHANGED",
+                message: "A query mudou durante a validação. Leia a versão atual e gere uma nova prévia.",
+                retryable: false,
+                askUser: true,
+              };
+            }
+          }
+
           throwIfAborted(runtime.signal);
           try {
             const result = await runQuery(
@@ -413,8 +539,90 @@ export function createAiQueryTestTools({
                 retryable: false,
               };
             }
+            const finalSourceVersion = await repository.findSourceVersion(source.id);
+            if (
+              !finalSourceVersion ||
+              finalSourceVersion.updatedAt.getTime() !== sourceVersion.updatedAt.getTime() ||
+              finalSourceVersion.targetHash !== sourceVersion.targetHash
+            ) {
+              return {
+                ok: false,
+                code: "DATA_SOURCE_CHANGED",
+                message: "O servidor mudou durante a consulta. Descartei a amostra; gere uma nova prévia.",
+                retryable: false,
+              };
+            }
+
+            let finalQueryTarget: typeof queryTarget = queryTarget;
+            if (queryTarget) {
+              finalQueryTarget = await repository.findQueryTarget(queryTarget.id);
+              if (!finalQueryTarget || finalQueryTarget.updatedAt.getTime() !== queryTarget.updatedAt.getTime()) {
+                return {
+                  ok: false,
+                  code: "QUERY_CHANGED",
+                  message: "A query mudou durante a consulta. Descartei a amostra; leia a versão atual e gere uma nova prévia.",
+                  retryable: false,
+                };
+              }
+            }
+
+            let testRunId: string;
+            try {
+              testRunId = await repository.createTestReceipt({
+                actorId: currentUser.id,
+                dataSourceId: source.id,
+                sourceUpdatedAt: sourceVersion.updatedAt,
+                sourceTargetHash: sourceVersion.targetHash,
+                draftFingerprint: fingerprint,
+                mode: input.mode,
+                queryId: queryTarget?.id,
+                queryUpdatedAt: queryTarget?.updatedAt,
+              });
+            } catch {
+              return {
+                ok: false,
+                code: "PREVIEW_STALE",
+                message: "O servidor ou a query mudou no fim do teste. A amostra foi descartada; gere uma nova prévia.",
+                retryable: false,
+                askUser: true,
+              };
+            }
+            const intent = {
+              mode: input.mode,
+              ...(finalQueryTarget ? {
+                queryId: finalQueryTarget.id,
+                queryName: input.queryName ?? finalQueryTarget.name,
+                queryUpdatedAt: finalQueryTarget.updatedAt.toISOString(),
+              } : {
+                queryName: input.queryName ?? "Consulta gerada pela IA",
+              }),
+            };
+            const previewEvent: AiToolProgressEvent = {
+              type: "query_preview",
+              toolCallId,
+              testRunId,
+              dataSource: { id: source.id, name: source.name },
+              intent,
+              sqlText: input.sqlText,
+              parameters: input.parameters,
+              testValues: input.values,
+              rows: result.rows,
+              rowCount: result.rows.length,
+              rowLimit: result.rowLimit,
+              byteLimit: result.byteLimit,
+              bytes: result.bytes,
+              truncated: result.truncated,
+              truncationReason: result.truncationReason,
+            };
+            await emit(previewEvent);
             return {
               ok: true,
+              testRunId,
+              dataSource: { id: source.id, name: source.name },
+              intent,
+              sqlText: input.sqlText,
+              parameters: input.parameters,
+              testValues: input.values,
               rowCount: result.rows.length,
               rows: result.rows,
               rowLimit: result.rowLimit,
@@ -424,7 +632,7 @@ export function createAiQueryTestTools({
               truncationReason: result.truncationReason,
               instruction: result.truncated
                 ? "A amostra foi limitada no servidor. Use a estrutura e as linhas retornadas para avaliar o rascunho; reduza colunas ou filtro se precisar de outra amostra."
-                : "Esta é uma amostra limitada de leitura. Os valores numéricos são texto para preservar precisão. Não salve a query; apresente o SQL e os resultados para revisão do administrador.",
+                : "Esta é uma amostra limitada de leitura. Os valores numéricos são texto para preservar precisão. Apresente a prévia estruturada e aguarde a confirmação humana antes de salvar.",
             };
           } catch (error) {
             if (runtime.signal?.aborted)
@@ -468,7 +676,7 @@ export function createAiQueryTestTools({
     {
       name: "test_query",
       description:
-        "Testa um rascunho SQL PostgreSQL em um servidor cadastrado usando apenas leitura, parâmetros vinculados e uma amostra com limites de tempo, linhas e bytes. Só aceita tabelas base do catálogo atualizado, relações com colunas de tipos built-in e funções built-in aprovadas; não aceita views, UDFs, extensões nem colunas de tipos customizados. Não salva query nem altera dados. Máximo de 3 chamadas de teste SQL e 6 tentativas de execução do rascunho ao banco por execução de chat. Quando um parâmetro obrigatório faltar, pergunte o valor ao administrador em vez de inventá-lo.",
+        "Testa um rascunho SQL PostgreSQL em um servidor cadastrado usando apenas leitura, parâmetros vinculados e uma amostra com limites de tempo, linhas e bytes. Só aceita tabelas base do catálogo atualizado, relações com colunas de tipos built-in e funções built-in aprovadas; não aceita views, UDFs, extensões nem colunas de tipos customizados. Após sucesso emite uma prévia estruturada e recibo curto de uso único; nunca salva sem confirmação explícita do administrador. Para editar, use mode=update e um queryId existente; nunca invente IDs. Máximo de 3 chamadas de teste SQL e 6 tentativas de execução do rascunho ao banco por execução de chat. Quando um parâmetro obrigatório faltar, pergunte ao administrador em vez de inventá-lo.",
       schema: inputSchema,
     },
   );

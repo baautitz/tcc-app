@@ -64,9 +64,75 @@ export const dashboardCreateSchema = z
   })
   .strict();
 
-export const queryTestInputSchema = queryDraftSchema
+const testParameterValueSchema = z.union([
+  z.string().max(2_048),
+  z.array(z.string().max(2_048)).max(50),
+]);
+
+const queryTestDraftSchema = queryDraftSchema
   .extend({
-    values: z.record(z.union([z.string(), z.array(z.string())])).default({}),
+    values: z.record(z.string().max(80), testParameterValueSchema).default({}),
+  })
+  .strict();
+
+function validateTestParameterValues(
+  input: { values: Record<string, unknown> },
+  context: z.RefinementCtx,
+): void {
+  if (Object.keys(input.values).length > 50) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["values"],
+      message: "O máximo é 50 valores de parâmetros.",
+    });
+  }
+}
+
+export const queryTestInputSchema = queryTestDraftSchema
+  .superRefine((input, context) => {
+    validateTestParameterValues(input, context);
+  });
+
+export const queryPreviewInputSchema = queryTestDraftSchema
+  .extend({
+    mode: z.enum(["create", "update"]).default("create"),
+    queryId: z.string().uuid().optional(),
+    expectedUpdatedAt: z.string().datetime().transform((value) => new Date(value)).optional(),
+  })
+  .strict()
+  .superRefine((input, context) => {
+    validateTestParameterValues(input, context);
+    if (input.mode === "update" && !input.queryId) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["queryId"],
+        message: "Informe a query que será editada.",
+      });
+    }
+    if (input.mode === "update" && !input.expectedUpdatedAt) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["expectedUpdatedAt"],
+        message: "Informe a versão da query aberta para edição.",
+      });
+    }
+    if (input.mode === "create" && (input.queryId || input.expectedUpdatedAt)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["mode"],
+        message: "Uma prévia de criação não pode apontar para uma query existente.",
+      });
+    }
+  });
+
+export const queryCreateInputSchema = queryInputSchema.extend({
+  testRunId: z.string().uuid(),
+}).strict();
+
+export const queryUpdateInputSchema = queryInputSchema
+  .extend({
+    testRunId: z.string().uuid(),
+    expectedUpdatedAt: z.string().datetime().transform((value) => new Date(value)),
   })
   .strict();
 

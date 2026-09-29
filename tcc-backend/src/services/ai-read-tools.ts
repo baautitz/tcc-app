@@ -1,5 +1,6 @@
 import { tool, type StructuredToolInterface, type ToolRuntime } from "@langchain/core/tools";
 import { z } from "zod";
+import { parameterDefinitionSchema } from "../lib/contracts.js";
 import type { AuthenticatedUser } from "./auth.js";
 import type { DiscoveredColumn, DiscoveredTable, ExternalPostgresConfig } from "./external-postgres.js";
 import { MAX_DATA_SOURCE_CATALOG_TABLES } from "./data-source-catalog.js";
@@ -43,7 +44,29 @@ export interface AiReadToolsRepository {
 
 export type AiToolProgressEvent =
   | { type: "tool_start"; toolCallId: string; toolName: string }
-  | { type: "tool_result"; toolCallId: string; toolName: string; ok: boolean };
+  | { type: "tool_result"; toolCallId: string; toolName: string; ok: boolean }
+  | {
+      type: "query_preview";
+      toolCallId: string;
+      testRunId: string;
+      dataSource: { id: string; name: string };
+      intent: {
+        mode: "create" | "update";
+        queryId?: string;
+        queryName: string;
+        queryUpdatedAt?: string;
+      };
+      sqlText: string;
+      parameters: z.infer<typeof parameterDefinitionSchema>[];
+      testValues: Record<string, string | string[]>;
+      rows: Record<string, unknown>[];
+      rowCount: number;
+      rowLimit: number;
+      byteLimit: number;
+      bytes: number;
+      truncated: boolean;
+      truncationReason: "row_limit" | "byte_limit" | null;
+    };
 
 export interface CreateAiReadToolsOptions {
   currentUser: AuthenticatedUser;

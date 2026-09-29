@@ -1265,6 +1265,15 @@ function isAliasColumnList(tokens: Token[], nameIndex: number): boolean {
 
 export function normalizeReadOnlySql(sqlText: string): string {
   assertAiReadOnlySql(sqlText);
+  return stripFinalTerminator(sqlText);
+}
+
+export function normalizeGeneralReadOnlySql(sqlText: string): string {
+  assertReadOnlySql(sqlText);
+  return stripFinalTerminator(sqlText);
+}
+
+function stripFinalTerminator(sqlText: string): string {
   const finalTerminator = tokenizeSql(sqlText).find(
     (token) => token.kind === "semicolon",
   );

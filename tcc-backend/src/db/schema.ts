@@ -1,6 +1,8 @@
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  check,
+  index,
   integer,
   jsonb,
   pgTable,
@@ -88,6 +90,28 @@ export const savedQueries = pgTable("saved_queries", {
   createdAt,
   updatedAt,
 });
+
+export const queryTestRuns = pgTable("query_test_runs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  actorId: uuid("actor_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  dataSourceId: uuid("data_source_id").notNull().references(() => dataSources.id, { onDelete: "cascade" }),
+  sourceUpdatedAt: timestamp("source_updated_at", { withTimezone: true }).notNull(),
+  sourceTargetHash: varchar("source_target_hash", { length: 64 }).notNull(),
+  draftFingerprint: varchar("draft_fingerprint", { length: 64 }).notNull(),
+  mode: varchar("mode", { length: 8 }).notNull(),
+  queryId: uuid("query_id").references(() => savedQueries.id, { onDelete: "cascade" }),
+  queryUpdatedAt: timestamp("query_updated_at", { withTimezone: true }),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  consumedAt: timestamp("consumed_at", { withTimezone: true }),
+  createdAt,
+}, (table) => [
+  check("query_test_runs_mode_check", sql`${table.mode} IN ('create', 'update')`),
+  check(
+    "query_test_runs_target_check",
+    sql`(${table.mode} = 'create' AND ${table.queryId} IS NULL AND ${table.queryUpdatedAt} IS NULL) OR (${table.mode} = 'update' AND ${table.queryId} IS NOT NULL AND ${table.queryUpdatedAt} IS NOT NULL)`,
+  ),
+  index("query_test_runs_expires_at_idx").on(table.expiresAt),
+]);
 
 export const dashboardUsers = pgTable("dashboard_users", {
   dashboardId: uuid("dashboard_id").notNull().references(() => dashboards.dashboardId, { onDelete: "cascade" }),

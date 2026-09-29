@@ -180,6 +180,23 @@ describe("rota de chat IA SSE", () => {
     let capturedContext: unknown;
     const agent = makeAgent(async () => {
       await emitToolEvent?.({ type: "tool_start", toolCallId: "call-read-1", toolName: "list_data_sources" });
+      await emitToolEvent?.({
+        type: "query_preview",
+        toolCallId: "call-query-1",
+        testRunId: "00000000-0000-4000-8000-000000000010",
+        dataSource: { id: "00000000-0000-4000-8000-000000000011", name: "Analytics" },
+        intent: { mode: "create", queryName: "Pedidos" },
+        sqlText: "SELECT count(*) FROM public.orders WHERE order_date >= {{start}}",
+        parameters: [{ name: "start", label: "Início", type: "date", required: true }],
+        testValues: { start: "2026-09-01" },
+        rows: [{ total: "2" }],
+        rowCount: 1,
+        rowLimit: 50,
+        byteLimit: 48_000,
+        bytes: 13,
+        truncated: false,
+        truncationReason: null,
+      });
       await emitToolEvent?.({ type: "tool_result", toolCallId: "call-read-1", toolName: "list_data_sources", ok: true });
       return (async function* () {
         yield [{ content: "Encontrei um servidor." } as AIMessageChunk, { langgraph_node: "model" }] as AiAgentToken;
@@ -211,10 +228,11 @@ describe("rota de chat IA SSE", () => {
       dashboardId: "00000000-0000-4000-8000-000000000001",
     });
     expect(events.map(({ event }) => event)).toEqual([
-      "start", "tool_start", "tool_result", "token", "done",
+      "start", "tool_start", "query_preview", "tool_result", "token", "done",
     ]);
     expect(events[1]?.data).toMatchObject({ toolCallId: "call-read-1", toolName: "list_data_sources" });
-    expect(events[2]?.data).toMatchObject({ toolCallId: "call-read-1", toolName: "list_data_sources", ok: true });
+    expect(events[2]?.data).toMatchObject({ type: "query_preview", toolCallId: "call-query-1", testRunId: "00000000-0000-4000-8000-000000000010", testValues: { start: "2026-09-01" }, rowCount: 1 });
+    expect(events[3]?.data).toMatchObject({ toolCallId: "call-read-1", toolName: "list_data_sources", ok: true });
   });
 
   it("substitui detalhes do provedor por erro SSE sanitizado", async () => {

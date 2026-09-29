@@ -2,6 +2,7 @@ import { Client, type QueryResultRow } from "pg";
 import Cursor from "pg-cursor";
 import { MAX_DATA_SOURCE_CATALOG_TABLES } from "./data-source-catalog.js";
 import {
+  normalizeGeneralReadOnlySql,
   normalizeReadOnlySql,
   type AiCatalogTableReference,
 } from "./query-security.js";
@@ -65,6 +66,8 @@ interface BoundedReadOnlyClient {
 export interface BoundedReadOnlyQueryOptions {
   rowLimit?: number;
   byteLimit?: number;
+  preserveConfiguredSearchPath?: boolean;
+  allowGeneralReadOnlySql?: boolean;
   retrySignal?: AbortSignal;
   createClient?: (config: ExternalPostgresConfig) => BoundedReadOnlyClient;
   createCursor?: (sqlText: string, values: unknown[]) => CursorQuery;
@@ -164,7 +167,9 @@ export async function runBoundedReadOnlyQuery(
     byteLimit > AI_QUERY_MAX_BYTES
   )
     throw new Error("Limite de bytes inválido.");
-  const safeSql = normalizeReadOnlySql(sqlText);
+  const safeSql = options.allowGeneralReadOnlySql
+    ? normalizeGeneralReadOnlySql(sqlText)
+    : normalizeReadOnlySql(sqlText);
   const boundedSql = `
     SELECT
       CASE WHEN octet_length(encoded.row_json) <= ${byteLimit} THEN encoded.row_json ELSE NULL END AS "__ai_row_json",
@@ -189,8 +194,10 @@ export async function runBoundedReadOnlyQuery(
     await client.query(
       `SET LOCAL statement_timeout = '${AI_QUERY_STATEMENT_TIMEOUT_MS}ms'`,
     );
-    // Only pg_catalog functions/operators are resolvable implicitly. User tables must be schema-qualified.
-    await client.query("SET LOCAL search_path = pg_catalog");
+    if (!options.preserveConfiguredSearchPath) {
+      // Only pg_catalog functions/operators are resolvable implicitly. User tables must be schema-qualified.
+      await client.query("SET LOCAL search_path = pg_catalog");
+    }
     // pg-cursor has no stable AbortSignal cancellation API. An active fetch remains
     // bounded by statement_timeout; the caller discards its result after an abort.
     cursor = createCursor(boundedSql, values);

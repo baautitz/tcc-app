@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { AuthenticatedUser } from "./auth.js";
 import {
   createAiReadTools,
+  type AiToolProgressEvent,
   type AiReadSource,
   type AiReadTable,
   type AiReadToolsRepository,
@@ -220,7 +221,7 @@ describe("ferramentas de leitura de contexto e esquema da IA", () => {
   });
 
   it("emite eventos de progresso por chamada e marca falhas", async () => {
-    const events: Array<{ type: string; toolCallId: string; toolName: string; ok?: boolean }> = [];
+    const events: AiToolProgressEvent[] = [];
     const tools = makeTools({
       onToolEvent: (event) => { events.push(event); },
       repo: { findSource: async () => undefined },
@@ -233,7 +234,7 @@ describe("ferramentas de leitura de contexto e esquema da IA", () => {
     await expect(result).rejects.toThrow("Servidor PostgreSQL não encontrado.");
     expect(events.map(({ type }) => type)).toEqual(["tool_start", "tool_result"]);
     expect(events[0]?.toolCallId).toBe(events[1]?.toolCallId);
-    expect(events.every(({ toolName }) => toolName === "list_data_source_tables")).toBe(true);
-    expect(events[1]?.ok).toBe(false);
+    expect(events.every((event) => event.type !== "query_preview" && event.toolName === "list_data_source_tables")).toBe(true);
+    expect(events[1] && "ok" in events[1] ? events[1].ok : undefined).toBe(false);
   });
 });
