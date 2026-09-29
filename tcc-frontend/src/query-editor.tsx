@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Clipboard, FileCode2, Save } from "lucide-react";
 import { api } from "@/api";
-import type { DataSource, QueryParameter, SavedQuery } from "@/types";
+import type { DataSource, QueryParameter, QueryPreview, SavedQuery } from "@/types";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -41,6 +41,8 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
+import { ApiError } from "@/api";
+import { useAuth } from "@/context/AuthContext";
 
 const parameterSchema = z.object({
   name: z.string().trim().min(1),
@@ -60,6 +62,7 @@ const queryFormSchema = z.object({
 });
 
 type QueryForm = z.infer<typeof queryFormSchema>;
+type ReviewedQueryPreview = QueryPreview & { draftKey: string };
 
 function parseParameters(raw: string): QueryParameter[] {
   let parsed: unknown;
@@ -102,7 +105,9 @@ export function QueryEditor({
   onSaved: () => Promise<void>;
 }) {
   const [createdQuery, setCreatedQuery] = useState<SavedQuery>();
-  const activeQuery = query ?? createdQuery;
+  const [reloadedQuery, setReloadedQuery] = useState<SavedQuery>();
+  const activeQuery = reloadedQuery ?? query ?? createdQuery;
+  const { hasPermission } = useAuth();
   const form = useForm<QueryForm>({
     resolver: zodResolver(queryFormSchema),
     defaultValues: {
@@ -113,11 +118,26 @@ export function QueryEditor({
     },
   });
   const [testValues, setTestValues] = useState("{}");
-  const [testResult, setTestResult] = useState("");
+  const [preview, setPreview] = useState<ReviewedQueryPreview>();
   const [testing, setTesting] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const savePendingRef = useRef(false);
+  const watchedSourceId = form.watch("dataSourceId");
+  const watchedSqlText = form.watch("sqlText");
+  const watchedParameters = form.watch("parameters");
+  const watchedName = form.watch("name");
+  const currentDraftKey = JSON.stringify({
+    dataSourceId: watchedSourceId,
+    sqlText: watchedSqlText.trim(),
+    parameters: watchedParameters,
+    testValues,
+    queryId: activeQuery?.id ?? null,
+    queryUpdatedAt: activeQuery?.updatedAt ?? null,
+  });
 
   useEffect(() => {
     setCreatedQuery(undefined);
+    setReloadedQuery(undefined);
     form.reset({
       dataSourceId: query?.dataSourceId ?? "",
       name: query?.name ?? "",
@@ -125,19 +145,44 @@ export function QueryEditor({
       parameters: JSON.stringify(query?.parameters ?? [], null, 2),
     });
     setTestValues("{}");
-    setTestResult("");
+    setPreview(undefined);
   }, [query, form, open]);
 
+  useEffect(() => {
+    setPreview((current) => current?.draftKey === currentDraftKey ? current : undefined);
+  }, [currentDraftKey]);
+
   const submit = async (values: QueryForm) => {
+    if (savePendingRef.current || saving || testing) return;
+    if (!preview || preview.draftKey !== currentDraftKey) {
+      toast.error("Teste a definição atual e revise a prévia antes de salvar.");
+      return;
+    }
+    const canSave = activeQuery
+      ? hasPermission("queries:update")
+      : hasPermission("queries:create");
+    if (!canSave) {
+      toast.error("Você não tem permissão para salvar esta query.");
+      return;
+    }
+    savePendingRef.current = true;
+    setSaving(true);
     try {
       const body = {
         ...values,
         parameters: parseParameters(values.parameters),
+        testRunId: preview.testRunId,
       };
       const saved = activeQuery
-        ? await api.updateQuery(activeQuery.id, body)
+        ? await api.updateQuery(activeQuery.id, {
+            ...body,
+            expectedUpdatedAt:
+              preview.intent.queryUpdatedAt ?? activeQuery.updatedAt,
+          })
         : await api.createQuery(body);
       setCreatedQuery(saved);
+      setReloadedQuery(undefined);
+      setPreview(undefined);
       toast.success(
         activeQuery
           ? "Query atualizada."
@@ -146,7 +191,31 @@ export function QueryEditor({
       await onSaved();
       if (query) onOpenChange(false);
     } catch (reason) {
-      toast.error(errorMessage(reason));
+      if (reason instanceof ApiError && reason.status === 409) {
+        if (activeQuery) {
+          try {
+            const latest = await api.savedQuery(activeQuery.id);
+            setReloadedQuery(latest);
+            form.reset({
+              dataSourceId: latest.dataSourceId,
+              name: latest.name,
+              sqlText: latest.sqlText,
+              parameters: JSON.stringify(latest.parameters, null, 2),
+            });
+          } catch {
+            // Keep the conflict response actionable even if refreshing also fails.
+          }
+        }
+        setPreview(undefined);
+        toast.error(activeQuery
+          ? "A query mudou desde a prévia. Recarreguei a versão atual; revise e teste novamente."
+          : "A prévia expirou ou o servidor mudou. Teste novamente antes de salvar.");
+      } else {
+        toast.error(errorMessage(reason));
+      }
+    } finally {
+      savePendingRef.current = false;
+      setSaving(false);
     }
   };
 
@@ -160,17 +229,24 @@ export function QueryEditor({
           parameters: z.string().min(2, "Informe um array JSON de parâmetros."),
         })
         .parse(form.getValues());
+      const parameters = parseParameters(values.parameters);
+      const testValueRecord = parseTestValues(testValues);
       const result = await api.testQueryDraft({
         dataSourceId: values.dataSourceId,
         sqlText: values.sqlText,
-        parameters: parseParameters(values.parameters),
-        values: parseTestValues(testValues),
+        parameters,
+        values: testValueRecord,
+        mode: activeQuery ? "update" : "create",
+        ...(activeQuery ? {
+          queryId: activeQuery.id,
+          expectedUpdatedAt: activeQuery.updatedAt,
+        } : {}),
       });
-      setTestResult(JSON.stringify(result.rows, null, 2));
+      setPreview({ ...result, draftKey: currentDraftKey });
       toast.success("Query executada com sucesso.");
     } catch (reason) {
       const text = errorMessage(reason);
-      setTestResult(text);
+      setPreview(undefined);
       toast.error(text);
     } finally {
       setTesting(false);
@@ -188,7 +264,7 @@ export function QueryEditor({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(nextOpen) => { if (!saving) onOpenChange(nextOpen); }}>
       <DialogContent className="flex h-[90vh] max-h-[900px] w-[calc(100%-2rem)] max-w-none flex-col gap-0 overflow-hidden p-0 sm:max-w-6xl">
         <DialogHeader className="border-b p-6">
           <DialogTitle>
@@ -223,7 +299,7 @@ export function QueryEditor({
                           name={field.name}
                           onValueChange={(value) => field.onChange(value ?? "")}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger disabled={saving}>
                             <SelectValue placeholder="Selecione" />
                           </SelectTrigger>
                           <SelectContent>
@@ -246,7 +322,7 @@ export function QueryEditor({
                     <FormItem>
                       <FormLabel>Nome</FormLabel>
                       <FormControl>
-                        <Input {...field} />
+                        <Input {...field} disabled={saving} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -263,6 +339,7 @@ export function QueryEditor({
                           {...field}
                           className="min-h-48"
                           spellCheck={false}
+                          disabled={saving}
                         />
                       </FormControl>
                       <p className="text-xs text-muted-foreground">
@@ -284,6 +361,7 @@ export function QueryEditor({
                           {...field}
                           className="min-h-36 font-mono text-xs"
                           spellCheck={false}
+                          disabled={saving}
                         />
                       </FormControl>
                       <p className="text-xs text-muted-foreground">
@@ -309,13 +387,14 @@ export function QueryEditor({
                     onChange={(event) => setTestValues(event.target.value)}
                     spellCheck={false}
                     aria-label="Valores para teste em JSON"
+                    disabled={saving}
                   />
                   <div>
                     <Button
                       type="button"
                       variant="outline"
                       onClick={() => void test()}
-                      disabled={testing}
+                      disabled={testing || saving}
                     >
                       {testing ? (
                         "Testando…"
@@ -326,10 +405,40 @@ export function QueryEditor({
                       )}
                     </Button>
                   </div>
-                  {testResult && (
-                    <pre className="max-h-60 overflow-auto border bg-muted p-3 text-xs">
-                      {testResult}
-                    </pre>
+                  {preview && preview.draftKey === currentDraftKey && (
+                    <div className="flex flex-col gap-3 border bg-muted/40 p-3 text-xs">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="font-medium">
+                          Prévia de {preview.intent.mode === "update" ? "edição" : "nova query"} · {sources.find((source) => source.id === preview.dataSource.id)?.name ?? preview.dataSource.name}
+                        </p>
+                        <span className="text-muted-foreground">
+                          {preview.rowCount}/{preview.rowLimit} linhas · {preview.bytes}/{preview.byteLimit} bytes
+                          {preview.truncated ? ` · truncada (${preview.truncationReason})` : ""}
+                        </span>
+                      </div>
+                      <p><strong>Nome:</strong> {watchedName}</p>
+                      <div>
+                        <p className="mb-1 font-medium">SQL testado</p>
+                        <pre className="max-h-40 overflow-auto border bg-background p-2 font-mono">{preview.sqlText}</pre>
+                      </div>
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <div>
+                          <p className="mb-1 font-medium">Parâmetros</p>
+                          <pre className="max-h-28 overflow-auto border bg-background p-2">{JSON.stringify(preview.parameters, null, 2)}</pre>
+                        </div>
+                        <div>
+                          <p className="mb-1 font-medium">Valores usados no teste</p>
+                          <pre className="max-h-28 overflow-auto border bg-background p-2">{JSON.stringify(preview.testValues, null, 2)}</pre>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="mb-1 font-medium">Amostra retornada</p>
+                        <pre className="max-h-48 overflow-auto border bg-background p-2">{JSON.stringify(preview.rows, null, 2)}</pre>
+                      </div>
+                      <p className="text-muted-foreground">
+                        O teste não salva valores dos parâmetros. Confirme esta definição para gravar a query.
+                      </p>
+                    </div>
                   )}
                 </CardContent>
               </Card>
@@ -364,12 +473,17 @@ export function QueryEditor({
           <Button
             variant="outline"
             type="button"
-            onClick={() => onOpenChange(false)}
+            onClick={() => { if (!saving) onOpenChange(false); }}
+            disabled={saving}
           >
             Fechar
           </Button>
-          <Button form="query-form" type="submit">
-            <Save /> Salvar query
+          <Button
+            form="query-form"
+            type="submit"
+            disabled={saving || testing || !preview || preview.draftKey !== currentDraftKey || (activeQuery ? !hasPermission("queries:update") : !hasPermission("queries:create"))}
+          >
+            {saving ? "Salvando…" : <><Save /> {activeQuery ? "Aplicar edição" : "Salvar nova query"}</>}
           </Button>
         </DialogFooter>
       </DialogContent>

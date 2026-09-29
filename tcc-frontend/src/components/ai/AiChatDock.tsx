@@ -5,6 +5,7 @@ import {
   useState,
   type KeyboardEvent,
 } from "react";
+import { api, ApiError } from "@/api";
 import {
   Bot,
   Check,
@@ -21,7 +22,16 @@ import {
 } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Sheet,
   SheetContent,
@@ -45,8 +55,11 @@ import {
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
 import { Marker, MarkerContent, MarkerIcon } from "@/components/ui/marker";
 import { useCurrentViewRefresh } from "@/context/CurrentViewRefreshContext";
+import { useAuth } from "@/context/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
+import { toast } from "@/components/ui/toast";
+import type { QueryPreview } from "@/types";
 
 type ChatMessage = {
   id: string;
@@ -77,7 +90,13 @@ type ErrorMessage = {
   assistantId: string;
   retryable: boolean;
 };
-type ChatItem = ChatMessage | ToolMessage | ProposalMessage | ErrorMessage;
+type QueryPreviewItem = QueryPreview & {
+  id: string;
+  kind: "query_preview";
+  savedQueryId?: string;
+  stale?: boolean;
+};
+type ChatItem = ChatMessage | ToolMessage | ProposalMessage | ErrorMessage | QueryPreviewItem;
 type ChatRoleMessage = { role: "user" | "assistant"; content: string };
 
 type ChatEvent =
@@ -91,6 +110,7 @@ type ChatEvent =
       toolName: string;
       ok: boolean;
     }
+  | ({ version: 1; type: "query_preview"; toolCallId: string } & QueryPreview)
   | {
       version: 1;
       type: "proposal";
@@ -210,6 +230,40 @@ function decodeEvent(eventName: string, data: string): ChatEvent | undefined {
       )
         return normalizedPayload as ChatEvent;
       throw new Error("O resultado da ferramenta da IA está malformado.");
+    case "query_preview": {
+      const dataSource = payload.dataSource;
+      const intent = payload.intent;
+      const parameters = payload.parameters;
+      const rows = payload.rows;
+      const testValues = payload.testValues;
+      const validParameters = Array.isArray(parameters) && parameters.every((parameter) =>
+        isRecord(parameter) &&
+        typeof parameter.name === "string" &&
+        typeof parameter.label === "string" &&
+        ["text", "number", "date", "boolean", "multi_select"].includes(String(parameter.type)) &&
+        typeof parameter.required === "boolean",
+      );
+      const validValues = isRecord(testValues) && Object.values(testValues).every((value) =>
+        typeof value === "string" ||
+        (Array.isArray(value) && value.every((entry) => typeof entry === "string")),
+      );
+      if (
+        typeof payload.toolCallId === "string" &&
+        typeof payload.testRunId === "string" &&
+        isRecord(dataSource) && typeof dataSource.id === "string" && typeof dataSource.name === "string" &&
+        isRecord(intent) && ["create", "update"].includes(String(intent.mode)) && typeof intent.queryName === "string" &&
+        (intent.queryId === undefined || typeof intent.queryId === "string") &&
+        (intent.queryUpdatedAt === undefined || typeof intent.queryUpdatedAt === "string") &&
+        (intent.mode !== "update" || (typeof intent.queryId === "string" && typeof intent.queryUpdatedAt === "string")) &&
+        typeof payload.sqlText === "string" && validParameters && validValues &&
+        Array.isArray(rows) && rows.every(isRecord) &&
+        Number.isSafeInteger(payload.rowCount) && (payload.rowCount as number) === rows.length &&
+        Number.isSafeInteger(payload.rowLimit) && Number.isSafeInteger(payload.byteLimit) && Number.isSafeInteger(payload.bytes) &&
+        typeof payload.truncated === "boolean" &&
+        (payload.truncationReason === null || ["row_limit", "byte_limit"].includes(String(payload.truncationReason)) )
+      ) return normalizedPayload as ChatEvent;
+      throw new Error("A prévia da query está malformada.");
+    }
     case "proposal":
       if (
         typeof payload.proposalId === "string" &&
@@ -335,10 +389,12 @@ function ChatItemView({
   item,
   busy,
   onRetry,
+  onReviewPreview,
 }: {
   item: ChatItem;
   busy: boolean;
   onRetry: () => void;
+  onReviewPreview: (item: QueryPreviewItem) => void;
 }) {
   if (item.kind === "tool") {
     const success = item.status === "success";
@@ -359,6 +415,31 @@ function ChatItemView({
           {running ? "…" : success ? " · concluído" : " · falhou"}
         </MarkerContent>
       </Marker>
+    );
+  }
+
+  if (item.kind === "query_preview") {
+    return (
+      <div className="mx-4 border border-primary/30 bg-primary/5 p-3 text-sm">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="font-medium">Prévia de {item.intent.mode === "update" ? "edição" : "nova query"}</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {item.dataSource.name} · {item.intent.queryName} · {item.rowCount}/{item.rowLimit} linhas · {item.bytes}/{item.byteLimit} bytes
+              {item.truncated ? ` · amostra truncada (${item.truncationReason})` : ""}
+            </p>
+          </div>
+          {item.savedQueryId ? (
+            <span className="shrink-0 text-xs text-muted-foreground">Salva · {item.savedQueryId}</span>
+          ) : item.stale ? (
+            <span className="shrink-0 text-xs text-muted-foreground">Prévia substituída · teste novamente</span>
+          ) : (
+            <Button variant="outline" size="sm" onClick={() => onReviewPreview(item)}>
+              Revisar e confirmar
+            </Button>
+          )}
+        </div>
+      </div>
     );
   }
 
@@ -448,6 +529,7 @@ function ChatWindow({
   onStop,
   onClear,
   onClose,
+  onPreviewSaved,
 }: {
   items: ChatItem[];
   busy: boolean;
@@ -459,8 +541,83 @@ function ChatWindow({
   onStop: () => void;
   onClear: () => void;
   onClose: () => void;
+  onPreviewSaved: (testRunId: string, queryId: string) => void;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [reviewPreview, setReviewPreview] = useState<QueryPreviewItem>();
+  const [reviewName, setReviewName] = useState("");
+  const [savingPreview, setSavingPreview] = useState(false);
+  const [stalePreview, setStalePreview] = useState(false);
+  const [reloadedQuery, setReloadedQuery] = useState<{ name: string; sqlText: string }>();
+  const savePendingRef = useRef(false);
+  const { hasPermission } = useAuth();
+
+  useEffect(() => {
+    setReviewName(reviewPreview?.intent.queryName ?? "");
+    setStalePreview(false);
+    setReloadedQuery(undefined);
+  }, [reviewPreview?.id]);
+
+  useEffect(() => {
+    if (reviewPreview && items.some((item) => item.kind === "query_preview" && item.testRunId === reviewPreview.testRunId && item.stale)) {
+      setStalePreview(true);
+    }
+  }, [items, reviewPreview]);
+
+  const canSavePreview = reviewPreview
+    ? reviewPreview.intent.mode === "create"
+      ? hasPermission("queries:create")
+      : hasPermission("queries:update")
+    : false;
+
+  const savePreview = async () => {
+    if (!reviewPreview || savePendingRef.current || stalePreview) return;
+    if (!canSavePreview) {
+      toast.error("Você não tem permissão para salvar esta ação.");
+      return;
+    }
+    if (reviewName.trim().length < 2) {
+      toast.error("Informe um nome com pelo menos 2 caracteres.");
+      return;
+    }
+    savePendingRef.current = true;
+    setSavingPreview(true);
+    try {
+      const body = {
+        dataSourceId: reviewPreview.dataSource.id,
+        name: reviewName.trim(),
+        sqlText: reviewPreview.sqlText,
+        parameters: reviewPreview.parameters,
+        testRunId: reviewPreview.testRunId,
+      };
+      const saved = reviewPreview.intent.mode === "update"
+        ? await api.updateQuery(reviewPreview.intent.queryId!, {
+            ...body,
+            expectedUpdatedAt: reviewPreview.intent.queryUpdatedAt!,
+          })
+        : await api.createQuery(body);
+      onPreviewSaved(reviewPreview.testRunId, saved.id);
+      window.dispatchEvent(new Event("queries:saved"));
+      toast.success(reviewPreview.intent.mode === "update" ? "Edição da query aplicada." : "Nova query salva.");
+      setReviewPreview(undefined);
+    } catch (reason) {
+      setStalePreview(true);
+      if (reason instanceof ApiError && reason.status === 409 && reviewPreview.intent.queryId) {
+        try {
+          const latest = await api.savedQuery(reviewPreview.intent.queryId);
+          setReloadedQuery({ name: latest.name, sqlText: latest.sqlText });
+        } catch {
+          setReloadedQuery(undefined);
+        }
+        toast.error("A query mudou depois do teste. Recarreguei a versão atual; peça ao assistente para testar novamente.");
+      } else {
+        toast.error(reason instanceof Error ? reason.message : "Não foi possível salvar a query. Gere uma nova prévia.");
+      }
+    } finally {
+      savePendingRef.current = false;
+      setSavingPreview(false);
+    }
+  };
 
   useEffect(() => {
     const textarea = textareaRef.current;
@@ -538,7 +695,12 @@ function ChatWindow({
                         item.kind === "message" && item.role === "user"
                       }
                     >
-                      <ChatItemView item={item} busy={busy} onRetry={onRetry} />
+                      <ChatItemView
+                        item={item}
+                        busy={busy}
+                        onRetry={onRetry}
+                        onReviewPreview={setReviewPreview}
+                      />
                     </MessageScrollerItem>
                   ))}
                   {busy &&
@@ -604,6 +766,65 @@ function ChatWindow({
           Enter envia · Shift+Enter quebra linha
         </p>
       </div>
+      <Dialog open={Boolean(reviewPreview)} onOpenChange={(open) => { if (!open && !savingPreview) setReviewPreview(undefined); }}>
+        <DialogContent className="flex max-h-[90vh] w-[calc(100%-2rem)] max-w-3xl flex-col overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>Revisar prévia da query</DialogTitle>
+            <DialogDescription>
+              Confirme o servidor, a ação, os valores usados e a amostra antes de salvar. A resposta em texto da IA não confirma nenhuma alteração.
+            </DialogDescription>
+          </DialogHeader>
+          {reviewPreview && (
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-2 text-sm">
+              <div className="grid gap-2 sm:grid-cols-2">
+                <p><strong>Servidor:</strong> {reviewPreview.dataSource.name}</p>
+                <p><strong>Ação:</strong> {reviewPreview.intent.mode === "update" ? `Editar ${reviewPreview.intent.queryId}` : "Criar query"}</p>
+              </div>
+              <label className="flex flex-col gap-2 text-sm font-medium">
+                Nome da query
+                <Input value={reviewName} maxLength={160} minLength={2} onChange={(event) => setReviewName(event.target.value)} disabled={savingPreview} />
+              </label>
+              <div className="rounded border bg-muted/40 p-3">
+                <p className="font-medium">SQL testado</p>
+                <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-all font-mono text-xs">{reviewPreview.sqlText}</pre>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="rounded border p-3">
+                  <p className="font-medium">Definições dos parâmetros</p>
+                  <pre className="mt-2 max-h-36 overflow-auto text-xs">{JSON.stringify(reviewPreview.parameters, null, 2)}</pre>
+                </div>
+                <div className="rounded border p-3">
+                  <p className="font-medium">Valores usados no teste</p>
+                  <pre className="mt-2 max-h-36 overflow-auto text-xs">{JSON.stringify(reviewPreview.testValues, null, 2)}</pre>
+                </div>
+              </div>
+              <div className="rounded border p-3">
+                <div className="flex flex-wrap justify-between gap-2">
+                  <p className="font-medium">Amostra retornada · {reviewPreview.rowCount} linhas</p>
+                  <p className="text-xs text-muted-foreground">
+                    Limite {reviewPreview.rowLimit} linhas / {reviewPreview.byteLimit} bytes · {reviewPreview.bytes} bytes usados
+                    {reviewPreview.truncated ? ` · truncada (${reviewPreview.truncationReason})` : ""}
+                  </p>
+                </div>
+                <pre className="mt-2 max-h-56 overflow-auto text-xs">{JSON.stringify(reviewPreview.rows, null, 2)}</pre>
+              </div>
+              {stalePreview && (
+                <div role="alert" className="rounded border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+                  Esta prévia não pode mais ser usada. Teste novamente antes de salvar.
+                  {reloadedQuery && <><p className="mt-2 font-medium">Versão atual recarregada: {reloadedQuery.name}</p><pre className="mt-1 max-h-24 overflow-auto text-xs">{reloadedQuery.sqlText}</pre></>}
+                </div>
+              )}
+              {!canSavePreview && <p className="text-xs text-muted-foreground">Sua conta não tem a permissão necessária para salvar esta query.</p>}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReviewPreview(undefined)} disabled={savingPreview}>Cancelar</Button>
+            <Button onClick={() => void savePreview()} disabled={!reviewPreview || savingPreview || stalePreview || !canSavePreview || reviewName.trim().length < 2}>
+              {savingPreview ? "Salvando…" : reviewPreview?.intent.mode === "update" ? "Aplicar edição" : "Salvar nova query"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -733,6 +954,36 @@ export function AiChatDock({
             refreshedToolCallsRef.current.add(event.toolCallId);
             refreshCurrentView();
           }
+          return;
+        case "query_preview":
+          setItems((current) => current.map((item) => {
+            if (item.kind !== "query_preview" || item.savedQueryId) return item;
+            const draftChanged =
+              item.dataSource.id !== event.dataSource.id ||
+              item.sqlText !== event.sqlText ||
+              JSON.stringify(item.parameters) !== JSON.stringify(event.parameters) ||
+              JSON.stringify(item.testValues) !== JSON.stringify(event.testValues) ||
+              item.intent.mode !== event.intent.mode ||
+              item.intent.queryId !== event.intent.queryId;
+            return draftChanged ? { ...item, stale: true } : item;
+          }));
+          insertBeforeAssistant(assistantId, {
+            id: event.testRunId,
+            kind: "query_preview",
+            testRunId: event.testRunId,
+            dataSource: event.dataSource,
+            intent: event.intent,
+            sqlText: event.sqlText,
+            parameters: event.parameters,
+            testValues: event.testValues,
+            rows: event.rows,
+            rowCount: event.rowCount,
+            rowLimit: event.rowLimit,
+            byteLimit: event.byteLimit,
+            bytes: event.bytes,
+            truncated: event.truncated,
+            truncationReason: event.truncationReason,
+          });
           return;
         case "proposal":
           insertBeforeAssistant(assistantId, {
@@ -935,6 +1186,14 @@ export function AiChatDock({
     refreshedToolCallsRef.current.clear();
   }, []);
 
+  const markQueryPreviewSaved = useCallback((testRunId: string, queryId: string) => {
+    setItems((current) => current.map((item) =>
+      item.kind === "query_preview" && item.testRunId === testRunId
+        ? { ...item, savedQueryId: queryId }
+        : item,
+    ));
+  }, []);
+
   const pageLabel = location.pathname.startsWith("/dashboards/")
     ? "Dashboard atual"
     : location.pathname.startsWith("/admin/sources")
@@ -955,6 +1214,7 @@ export function AiChatDock({
       onStop={stop}
       onClear={clear}
       onClose={() => onOpenChange(false)}
+      onPreviewSaved={markQueryPreviewSaved}
     />
   );
 

@@ -7,6 +7,8 @@ import type {
   DataSource,
   DataSourceTable,
   Permission,
+  QueryParameter,
+  QueryPreview,
   QuerySummary,
   SavedQuery,
   User,
@@ -147,18 +149,39 @@ export const api = {
     ),
   queries: () => request<QuerySummary[]>("/api/queries"),
   savedQuery: (id: string) => request<SavedQuery>(`/api/queries/${id}`),
-  createQuery: (body: unknown) =>
+  createQuery: (body: {
+    dataSourceId: string;
+    name: string;
+    sqlText: string;
+    parameters: QueryParameter[];
+    testRunId: string;
+  }) =>
     request<SavedQuery>("/api/queries", {
       method: "POST",
       body: JSON.stringify(body),
     }),
-  updateQuery: (id: string, body: unknown) =>
+  updateQuery: (id: string, body: {
+    dataSourceId: string;
+    name: string;
+    sqlText: string;
+    parameters: QueryParameter[];
+    testRunId: string;
+    expectedUpdatedAt: string;
+  }) =>
     request<SavedQuery>(`/api/queries/${id}`, {
       method: "PATCH",
       body: JSON.stringify(body),
     }),
-  testQueryDraft: (body: unknown) =>
-    request<{ rows: Record<string, unknown>[] }>("/api/queries/test", {
+  testQueryDraft: (body: {
+    dataSourceId: string;
+    sqlText: string;
+    parameters: QueryParameter[];
+    values: Record<string, string | string[]>;
+    mode: "create" | "update";
+    queryId?: string;
+    expectedUpdatedAt?: string;
+  }) =>
+    request<QueryPreview>("/api/queries/test", {
       method: "POST",
       body: JSON.stringify(body),
     }),

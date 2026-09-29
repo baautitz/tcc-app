@@ -1348,6 +1348,9 @@ function AdminSectionPage({ section }: { section: Section }) {
 
   useEffect(() => {
     void load();
+    const reloadQueries = () => void load();
+    window.addEventListener("queries:saved", reloadQueries);
+    return () => window.removeEventListener("queries:saved", reloadQueries);
   }, []);
 
   const remove = async (label: string, action: () => Promise<void>) => {
