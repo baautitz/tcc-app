@@ -26,6 +26,35 @@ export function validateDashboardDocument(value: unknown): DashboardDocument {
   return dashboardDocumentSchema.parse(value);
 }
 
+export class DashboardFileCompensationError extends Error {
+  constructor(
+    public readonly operationError: unknown,
+    public readonly compensationError: unknown,
+  ) {
+    super("The dashboard file could not be compensated after the database transaction failed.");
+    this.name = "DashboardFileCompensationError";
+  }
+}
+
+export async function withDashboardFileCompensation<T>(
+  operation: () => Promise<T>,
+  getRollback: () => (() => Promise<void>) | undefined,
+): Promise<T> {
+  try {
+    return await operation();
+  } catch (operationError) {
+    const rollback = getRollback();
+    if (rollback) {
+      try {
+        await rollback();
+      } catch (compensationError) {
+        throw new DashboardFileCompensationError(operationError, compensationError);
+      }
+    }
+    throw operationError;
+  }
+}
+
 /** Atomically replaces a dashboard JSON file and returns a rollback for a DB commit failure. */
 export async function writeDashboardDocumentAtomically(
   filePath: string,
@@ -121,7 +150,7 @@ export async function registerDashboardFile(
 export async function createDashboardFile(
   input: unknown,
   executor: DashboardDbExecutor = db,
-): Promise<DashboardDocument> {
+): Promise<{ dashboard: DashboardDocument; rollback: () => Promise<void> }> {
   const metadata = dashboardCreateSchema.parse(input);
   const dashboard = validateDashboardDocument({
     id: randomUUID(),
@@ -152,7 +181,7 @@ export async function createDashboardFile(
     throw error;
   }
 
-  return dashboard;
+  return { dashboard, rollback: () => unlinkIfExists(filePath) };
 }
 
 export async function syncDashboardDirectory(

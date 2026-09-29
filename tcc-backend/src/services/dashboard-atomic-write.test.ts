@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rm, unlink, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { writeDashboardDocumentAtomically } from "./dashboards.js";
+import { withDashboardFileCompensation, writeDashboardDocumentAtomically } from "./dashboards.js";
 
 const files: string[] = [];
 const dashboardFolder = resolve(process.cwd(), "dashboards");
@@ -55,5 +55,19 @@ describe("escrita atômica do documento do dashboard", () => {
     await mkdir(file);
     await writeFile(resolve(file, "keep"), "occupied");
     await expect(rollback()).rejects.toBeDefined();
+  });
+
+  it("remove o arquivo criado se o COMMIT externo falhar após o helper retornar", async () => {
+    await mkdir(dashboardFolder, { recursive: true });
+    const file = resolve(dashboardFolder, `tcc-ai-outer-commit-${randomUUID()}.json`);
+    files.push(file);
+    const created = await writeDashboardDocumentAtomically(file, document(randomUUID(), "Novo"));
+    let rollback: (() => Promise<void>) | undefined = created;
+    await expect(withDashboardFileCompensation(
+      async () => { throw new Error("simulated outer transaction COMMIT failure"); },
+      () => rollback,
+    )).rejects.toThrow("simulated outer transaction COMMIT failure");
+    rollback = undefined;
+    await expect(readFile(file)).rejects.toMatchObject({ code: "ENOENT" });
   });
 });

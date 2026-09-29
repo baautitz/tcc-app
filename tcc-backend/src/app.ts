@@ -26,7 +26,7 @@ import { hashPassword, verifyPassword } from "./lib/passwords.js";
 import { findUnsafeAiColumnTypes, getPostgresTableColumns, inspectReadOnlyPostgres, listPostgresBaseTables, runBoundedReadOnlyQueryWithRetry, runReadOnlyQuery, type ExternalPostgresConfig } from "./services/external-postgres.js";
 import { createSession, findAuthenticatedUser, hasPermission, revokeSession, SESSION_COOKIE, type AuthenticatedUser } from "./services/auth.js";
 import { assignPermissionKeys } from "./services/permissions.js";
-import { createDashboardFile, getDashboardFileById, getDashboardFiles, getRegisteredDashboardFiles, getRegisteredDashboards, isEditableDashboardFilePath, syncDashboardDirectory, writeDashboardDocumentAtomically } from "./services/dashboards.js";
+import { createDashboardFile, DashboardFileCompensationError, getDashboardFileById, getDashboardFiles, getRegisteredDashboardFiles, getRegisteredDashboards, isEditableDashboardFilePath, syncDashboardDirectory, withDashboardFileCompensation, writeDashboardDocumentAtomically } from "./services/dashboards.js";
 import { buildDashboardDefinitionFromDocument, dashboardQueryReferences } from "./services/dashboard-sync.js";
 import { canAccessDashboard, canExecuteQuery } from "./services/dashboard-access.js";
 import { assertParameterDefinitions, assertReadOnlySql, assertSqlParameters, bindQueryParameters } from "./services/query-security.js";
@@ -598,10 +598,29 @@ app.post("/api/dashboards/sync", authentication, adminRequired, async (context) 
 
 app.post("/api/admin/dashboards", authentication, adminRequired, async (context) => {
   const input = await jsonBody(context, dashboardCreateSchema);
-  const dashboard = await db.transaction(async (tx) => {
-    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('tcc-app:dashboard-files'))`);
-    return createDashboardFile(input, tx);
-  });
+  let rollbackFile: (() => Promise<void>) | undefined;
+  let dashboard: Awaited<ReturnType<typeof createDashboardFile>>["dashboard"];
+  try {
+    dashboard = await withDashboardFileCompensation(
+      () => db.transaction(async (tx) => {
+        await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('tcc-app:dashboard-files'))`);
+        const created = await createDashboardFile(input, tx);
+        rollbackFile = created.rollback;
+        return created.dashboard;
+      }),
+      () => rollbackFile,
+    );
+  } catch (error) {
+    if (error instanceof DashboardFileCompensationError) {
+      console.error("[dashboard] new-file compensation failed after transaction error", {
+        operationError: error.operationError,
+        compensationError: error.compensationError,
+      });
+      throw new ApiError(500, "O cadastro do dashboard falhou e a remoção do arquivo também falhou. É necessária reconciliação administrativa.");
+    }
+    throw error;
+  }
+  rollbackFile = undefined;
   return context.json({ id: dashboard.id }, 201);
 });
 
