@@ -198,35 +198,83 @@ export function createAiChatHandler(dependencies: {
 
     return streamSSE(context, async (stream) => {
       const abortController = new AbortController();
-      const abort = () => abortController.abort();
+      let clientDisconnected = false;
+      let resolveClientAbort!: () => void;
+      const clientAbort = new Promise<"client_abort">((resolve) => {
+        resolveClientAbort = () => resolve("client_abort");
+      });
+      const abort = () => {
+        clientDisconnected = true;
+        abortController.abort();
+        resolveClientAbort();
+      };
       stream.onAbort(abort);
       const requestSignal = context.req.raw.signal;
       if (requestSignal.aborted) abort();
       else requestSignal.addEventListener("abort", abort, { once: true });
 
       let finishReason: string | null = null;
-      let completed = false;
+      let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+      let resolveTimeout!: () => void;
+      const timeout = new Promise<"timeout">((resolve) => {
+        resolveTimeout = () => resolve("timeout");
+      });
       try {
         await stream.writeSSE(makeEvent({ version: 1, type: "start", requestId, messageId }));
-        const messages = parsedBody.messages as AiChatMessages;
-        const tokenStream = await agent.stream({ messages }, {
-          streamMode: "messages",
-          signal: abortController.signal,
-        });
+        timeoutHandle = setTimeout(() => {
+          abortController.abort();
+          resolveTimeout();
+        }, configuration.requestTimeoutMs);
 
-        for await (const [chunk] of tokenStream) {
-          if (abortController.signal.aborted) break;
-          const delta = extractText(chunk.content);
-          if (delta) {
-            await stream.writeSSE(makeEvent({ version: 1, type: "token", messageId, delta }));
+        const streamOperation = (async (): Promise<"done" | "provider_error" | "client_abort"> => {
+          try {
+            const messages = parsedBody.messages as AiChatMessages;
+            const tokenStream = await agent.stream({ messages }, {
+              streamMode: "messages",
+              signal: abortController.signal,
+            });
+
+            for await (const [chunk] of tokenStream) {
+              if (abortController.signal.aborted) return "client_abort";
+              const delta = extractText(chunk.content);
+              if (delta) {
+                await stream.writeSSE(makeEvent({ version: 1, type: "token", messageId, delta }));
+              }
+              const reason = chunk.response_metadata?.finish_reason;
+              if (typeof reason === "string") finishReason = reason;
+            }
+
+            return abortController.signal.aborted ? "client_abort" : "done";
+          } catch {
+            return clientDisconnected ? "client_abort" : "provider_error";
           }
-          const reason = chunk.response_metadata?.finish_reason;
-          if (typeof reason === "string") finishReason = reason;
+        })();
+        const outcome = await Promise.race([streamOperation, timeout, clientAbort]);
+        if (outcome === "client_abort" || clientDisconnected) return;
+        if (outcome === "timeout") {
+          console.error("[AI chat] provider stream timed out");
+          await stream.writeSSE(makeEvent({
+            version: 1,
+            type: "error",
+            code: "AI_TIMEOUT",
+            message: "A IA demorou além do limite de tempo. Tente novamente.",
+            retryable: true,
+          }));
+          return;
         }
-
-        completed = !abortController.signal.aborted;
+        if (outcome === "provider_error") {
+          console.error("[AI chat] provider stream failed");
+          await stream.writeSSE(makeEvent({
+            version: 1,
+            type: "error",
+            code: "AI_PROVIDER_ERROR",
+            message: safeProviderError,
+            retryable: true,
+          }));
+          return;
+        }
       } catch {
-        if (!abortController.signal.aborted) {
+        if (!clientDisconnected && !stream.aborted) {
           console.error("[AI chat] provider stream failed");
           try {
             await stream.writeSSE(makeEvent({
@@ -241,10 +289,11 @@ export function createAiChatHandler(dependencies: {
           }
         }
       } finally {
+        if (timeoutHandle !== undefined) clearTimeout(timeoutHandle);
         requestSignal.removeEventListener("abort", abort);
       }
 
-      if (completed && !abortController.signal.aborted) {
+      if (!clientDisconnected && !stream.aborted && !abortController.signal.aborted) {
         try {
           await stream.writeSSE(makeEvent({ version: 1, type: "done", messageId, finishReason }));
         } catch {

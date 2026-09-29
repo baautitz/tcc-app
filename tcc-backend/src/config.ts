@@ -17,6 +17,7 @@ const environmentSchema = z.object({
   AI_BASE_URL: z.string().optional(),
   AI_API_KEY: z.string().optional(),
   AI_MODEL: z.string().optional(),
+  AI_REQUEST_TIMEOUT_MS: z.string().optional(),
 });
 
 export type Environment = z.infer<typeof environmentSchema>;

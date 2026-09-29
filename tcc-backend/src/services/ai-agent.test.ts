@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { getEnvironment } from "../config.js";
 import {
   createAiAgent,
+  createAiModel,
+  DEFAULT_AI_REQUEST_TIMEOUT_MS,
   getAiAvailability,
   resolveAiConfiguration,
 } from "./ai-agent.js";
@@ -10,6 +12,7 @@ const configured = {
   AI_BASE_URL: "https://ai.example.test/v1",
   AI_API_KEY: "do-not-expose-this-key",
   AI_MODEL: "test-model",
+  AI_REQUEST_TIMEOUT_MS: String(DEFAULT_AI_REQUEST_TIMEOUT_MS),
 };
 
 describe("configuração e factory da IA", () => {
@@ -55,6 +58,7 @@ describe("configuração e factory da IA", () => {
       baseURL: configured.AI_BASE_URL,
       apiKey: configured.AI_API_KEY,
       model: configured.AI_MODEL,
+      requestTimeoutMs: DEFAULT_AI_REQUEST_TIMEOUT_MS,
     });
     expect(getAiAvailability(configured)).toEqual({
       enabled: true,
@@ -64,5 +68,23 @@ describe("configuração e factory da IA", () => {
 
     if (!configuration.enabled) throw new Error("A configuração do teste deveria estar habilitada.");
     expect(typeof createAiAgent({ configuration }).stream).toBe("function");
+    expect(createAiModel(configuration).maxTokens).toBe(2_048);
+  });
+
+  it("usa timeout padrão e valida o limite configurável sem derrubar a API", () => {
+    const defaultTimeoutConfiguration = resolveAiConfiguration({
+      AI_BASE_URL: configured.AI_BASE_URL,
+      AI_API_KEY: configured.AI_API_KEY,
+      AI_MODEL: configured.AI_MODEL,
+    });
+    expect(defaultTimeoutConfiguration).toMatchObject({ enabled: true, requestTimeoutMs: DEFAULT_AI_REQUEST_TIMEOUT_MS });
+    expect(resolveAiConfiguration({ ...configured, AI_REQUEST_TIMEOUT_MS: "45000" })).toMatchObject({
+      enabled: true,
+      requestTimeoutMs: 45_000,
+    });
+    expect(resolveAiConfiguration({ ...configured, AI_REQUEST_TIMEOUT_MS: "999999" })).toMatchObject({
+      enabled: false,
+      code: "AI_CONFIGURATION_INVALID",
+    });
   });
 });

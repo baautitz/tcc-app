@@ -13,6 +13,7 @@ const enabledConfiguration = {
   baseURL: "https://ai.example.test/v1",
   apiKey: "server-only-secret",
   model: "test-model",
+  requestTimeoutMs: 60_000,
 };
 
 const defaultBody = {
@@ -199,7 +200,47 @@ describe("rota de chat IA SSE", () => {
     expect(wire).not.toContain('"type":"done"');
   });
 
+  it("envia AI_TIMEOUT distinto de cancelamento e aborta o agente ao atingir o prazo", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const timeoutConfiguration = { ...enabledConfiguration, requestTimeoutMs: 15 };
+    let signal: AbortSignal | undefined;
+    let resolveIteratorEnded!: () => void;
+    const iteratorEnded = new Promise<void>((resolve) => { resolveIteratorEnded = resolve; });
+    const agent = makeAgent(async (_input, config) => {
+      signal = config.signal;
+      return (async function* () {
+        try {
+          await new Promise<void>((resolve) => {
+            config.signal?.addEventListener("abort", () => resolve(), { once: true });
+          });
+          throw new Error("provider request aborted");
+        } finally {
+          resolveIteratorEnded();
+        }
+      })();
+    });
+    const app = createTestApp(createAiChatHandler({
+      getConfiguration: () => timeoutConfiguration,
+      createAgent: () => agent,
+    }));
+
+    const response = await postChat(app, defaultBody);
+    const events = parseEvents(await response.text());
+
+    expect(events.map(({ event }) => event)).toEqual(["start", "error"]);
+    expect(events.at(-1)?.data).toEqual({
+      version: 1,
+      type: "error",
+      code: "AI_TIMEOUT",
+      message: "A IA demorou além do limite de tempo. Tente novamente.",
+      retryable: true,
+    });
+    expect(signal?.aborted).toBe(true);
+    await iteratorEnded;
+  });
+
   it("cancela a execução LangChain quando o consumidor fecha o SSE", async () => {
+    const providerLog = vi.spyOn(console, "error").mockImplementation(() => undefined);
     let signal: AbortSignal | undefined;
     let streamStarted!: () => void;
     const started = new Promise<void>((resolve) => { streamStarted = resolve; });
@@ -222,5 +263,6 @@ describe("rota de chat IA SSE", () => {
     await response.body?.cancel();
 
     expect(signal?.aborted).toBe(true);
+    expect(providerLog).not.toHaveBeenCalled();
   });
 });

@@ -4,14 +4,18 @@ import type { AIMessageChunk } from "@langchain/core/messages";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { getEnvironment, type Environment } from "../config.js";
 
-type AiEnvironment = Pick<Environment, "AI_BASE_URL" | "AI_API_KEY" | "AI_MODEL">;
+type AiEnvironment = Pick<Environment, "AI_BASE_URL" | "AI_API_KEY" | "AI_MODEL" | "AI_REQUEST_TIMEOUT_MS">;
+
+export const DEFAULT_AI_REQUEST_TIMEOUT_MS = 60_000;
+export const MIN_AI_REQUEST_TIMEOUT_MS = 1_000;
+export const MAX_AI_REQUEST_TIMEOUT_MS = 300_000;
 
 export type AiConfigurationIssue =
   | { enabled: false; code: "AI_NOT_CONFIGURED"; missing: string[] }
   | { enabled: false; code: "AI_CONFIGURATION_INVALID"; message: string };
 
 export type ResolvedAiConfiguration =
-  | { enabled: true; baseURL: string; apiKey: string; model: string }
+  | { enabled: true; baseURL: string; apiKey: string; model: string; requestTimeoutMs: number }
   | AiConfigurationIssue;
 
 export type AiChatRole = "user" | "assistant";
@@ -48,6 +52,7 @@ export function resolveAiConfiguration(
   const baseURL = clean(values.AI_BASE_URL);
   const apiKey = clean(values.AI_API_KEY);
   const model = clean(values.AI_MODEL);
+  const configuredTimeout = clean(values.AI_REQUEST_TIMEOUT_MS);
   const missing = [
     ["AI_BASE_URL", baseURL],
     ["AI_API_KEY", apiKey],
@@ -71,7 +76,22 @@ export function resolveAiConfiguration(
     };
   }
 
-  return { enabled: true, baseURL: baseURL!, apiKey: apiKey!, model: model! };
+  let requestTimeoutMs = DEFAULT_AI_REQUEST_TIMEOUT_MS;
+  if (configuredTimeout !== undefined) {
+    const parsedTimeout = Number(configuredTimeout);
+    if (!Number.isSafeInteger(parsedTimeout)
+      || parsedTimeout < MIN_AI_REQUEST_TIMEOUT_MS
+      || parsedTimeout > MAX_AI_REQUEST_TIMEOUT_MS) {
+      return {
+        enabled: false,
+        code: "AI_CONFIGURATION_INVALID",
+        message: `AI_REQUEST_TIMEOUT_MS deve ser um inteiro entre ${MIN_AI_REQUEST_TIMEOUT_MS} e ${MAX_AI_REQUEST_TIMEOUT_MS}.`,
+      };
+    }
+    requestTimeoutMs = parsedTimeout;
+  }
+
+  return { enabled: true, baseURL: baseURL!, apiKey: apiKey!, model: model!, requestTimeoutMs };
 }
 
 export function getAiAvailability(values: AiEnvironment = getEnvironment()):
@@ -88,6 +108,7 @@ export function createAiModel(configuration = resolveAiConfiguration()): ChatOpe
   return new ChatOpenAI({
     model: configuration.model,
     apiKey: configuration.apiKey,
+    maxTokens: 2_048,
     configuration: { baseURL: configuration.baseURL },
     // Some OpenAI-compatible providers reject stream_options.
     streamUsage: false,

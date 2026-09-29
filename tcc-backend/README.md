@@ -8,9 +8,9 @@ API Hono para dashboards com hidratação assíncrona de componentes. A platafor
 2. Gere uma chave segura: `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`.
 3. Execute `pnpm install`, `pnpm db:migrate`, `pnpm db:seed` e `pnpm dev`.
 
-O chat de IA é opcional. Para habilitá-lo, configure `AI_BASE_URL`, `AI_API_KEY` e `AI_MODEL` com um provedor compatível com a API de chat completions da OpenAI e streaming. A chave fica somente no backend. Se algum valor estiver ausente ou a URL for inválida, a API continua disponível e `POST /api/admin/ai/chat` retorna `503` com o código de configuração correspondente.
+O chat de IA é opcional. Para habilitá-lo, configure `AI_BASE_URL`, `AI_API_KEY` e `AI_MODEL` com um provedor compatível com a API de chat completions da OpenAI e streaming. `AI_REQUEST_TIMEOUT_MS` limita cada resposta (padrão: 60000 ms; permitido: 1000 a 300000 ms). A saída também fica limitada a 2048 tokens. A chave fica somente no backend. Se algum parâmetro estiver ausente ou inválido, a API continua disponível e `POST /api/admin/ai/chat` retorna `503` com o código de configuração correspondente.
 
-A rota de chat exige sessão de administrador e recebe `messages` contendo somente mensagens `user` e `assistant`; o histórico não é armazenado pelo backend. Ela envia eventos SSE v1 (`start`, `token`, `done` ou `error`), cada um com `version: 1`. A fundação atual ainda não tem ferramentas para executar queries ou alterar dashboards.
+A rota de chat exige sessão de administrador e recebe `messages` contendo somente mensagens `user` e `assistant`; o histórico não é armazenado pelo backend. Ela envia eventos SSE v1 (`start`, `token`, `done` ou `error`), cada um com `version: 1`. Ao exceder o prazo, retorna `error` com código `AI_TIMEOUT` e cancela o agente. A fundação atual ainda não tem ferramentas para executar queries ou alterar dashboards.
 
 O seed de desenvolvimento cria `admin@tcc.local` com senha `Admin@123`, cadastra a fonte local `Olist (teste local)` e adiciona as três queries usadas pelo dashboard de exemplo **Fechamento de Mês**. Troque ou remova esse acesso antes de expor a aplicação.
 
