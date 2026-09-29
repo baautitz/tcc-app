@@ -103,6 +103,10 @@ export function summarizeDashboardChanges(
   next: DashboardDocument,
   previous?: DashboardDocument,
 ): string[] {
+  const displayValue = (value: string) => {
+    const normalized = value.replace(/\s+/g, " ").trim() || "(vazio)";
+    return normalized.length > 120 ? `${normalized.slice(0, 117)}…` : normalized;
+  };
   const components = countChanges(
     previous?.ui.components ?? [],
     next.ui.components,
@@ -130,6 +134,9 @@ export function summarizeDashboardChanges(
     return `${label}: ${parts.length ? parts.join(" · ") : "sem alterações"}.`;
   };
   return [
+    `Nome do dashboard: ${previous ? `“${displayValue(previous.name)}”` : "(novo)"} → “${displayValue(next.name)}”.`,
+    `Descrição: ${previous ? `“${displayValue(previous.description ?? "")}”` : "(nova)"} → “${displayValue(next.description ?? "")}”.`,
+    `Espaçamento (gap): ${previous ? String(previous.ui.layout.gap) : "(novo)"} → ${String(next.ui.layout.gap)}.`,
     describe("Componentes", components),
     describe("Filtros do dashboard", params),
     describe("Mapeamentos de parâmetros das queries", bindings),

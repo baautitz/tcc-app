@@ -35,7 +35,8 @@ describe("contrato da proposta gerada pela IA", () => {
   it("cria documento compatível apenas com UUID de query e gap suportado", () => {
     const input = aiDashboardProposalInputSchema.parse({
       mode: "create",
-      name: "Vendas",
+      name: "Relatório antigo",
+      description: "Descrição antiga",
       workspace: { params: [] },
       queryBindings: [],
       components: [{
@@ -69,18 +70,24 @@ describe("contrato da proposta gerada pela IA", () => {
   it("resume componentes, filtros e mapeamentos que mudam", () => {
     const previous = dashboardDocumentSchema.parse({
       id: dashboardId,
-      name: "Vendas",
+      name: "Relatório antigo",
+      description: "Descrição antiga",
       workspace: { params: [{ name: "from", label: "Data inicial", type: "date", required: true }] },
       queryBindings: [{ queryUuid: queryId, parameters: { from: { source: "context", argument: "from" } } }],
       ui: { layout: { gap: 16 }, components: [{ id: "old", component: "stat_card", layoutProps: { colSpan: 3 }, props: { title: "Total anterior", queryUuid: queryId, field: "total" } }] },
     });
     const next = dashboardDocumentSchema.parse({
       ...previous,
+      name: "Relatório atual",
+      description: "Descrição nova",
       workspace: { params: [{ name: "period", label: "Período", type: "text", required: false }] },
       queryBindings: [{ queryUuid: queryId, parameters: { from: { source: "manual", value: "2026-01-01" } } }],
-      ui: { layout: { gap: 16 }, components: [{ id: "new", component: "bar_chart", layoutProps: { colSpan: 6 }, props: { title: "Vendas por mês", queryUuid: queryId, nameKey: "month", valueKey: "total" } }] },
+      ui: { layout: { gap: 24 }, components: [{ id: "new", component: "bar_chart", layoutProps: { colSpan: 6 }, props: { title: "Vendas por mês", queryUuid: queryId, nameKey: "month", valueKey: "total" } }] },
     });
     const summary = summarizeDashboardChanges(next, previous);
+    expect(summary.join("\n")).toContain("Nome do dashboard: “Relatório antigo” → “Relatório atual”.");
+    expect(summary.join("\n")).toContain("Descrição: “Descrição antiga” → “Descrição nova”.");
+    expect(summary.join("\n")).toContain("Espaçamento (gap): 16 → 24.");
     expect(summary.join("\n")).toContain("Filtros do dashboard: adicionados: Período (period, text) · removidos: Data inicial (from, date)");
     expect(summary.join("\n")).toContain("Mapeamentos de parâmetros das queries: alterados: 00000000… → from");
     expect(summary.join("\n")).toContain("Componentes: adicionados: Vendas por mês (bar_chart) · removidos: Total anterior (stat_card)");
