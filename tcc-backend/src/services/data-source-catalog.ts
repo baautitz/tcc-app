@@ -29,6 +29,7 @@ export interface CatalogSourceUpdate {
   username: string;
   encryptedPassword: string;
   context: string;
+  contextVersion?: number;
   updatedAt: Date;
 }
 

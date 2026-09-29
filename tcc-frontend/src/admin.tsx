@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -81,6 +81,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import { QueryEditor } from "@/query-editor";
+import { useRegisterCurrentViewRefresh } from "@/context/CurrentViewRefreshContext";
 
 type Section = "users" | "permissions" | "sources" | "queries";
 const sectionInfo: Record<Section, { title: string; description: string }> = {
@@ -734,6 +735,7 @@ function SourceSheet({
         table.id,
         context,
         sourceUpdatedAt,
+        table.contextVersion,
       );
       setTables((items) =>
         items.map((item) => (item.id === updated.id ? updated : item)),
@@ -745,9 +747,9 @@ function SourceSheet({
           const fresh = await api.dataSource(source.id);
           setSourceUpdatedAt(fresh.updatedAt);
           setTables(fresh.tables);
-          toast.error(
-            "O servidor mudou enquanto você editava. Os dados foram recarregados; revise o contexto antes de salvar novamente.",
-          );
+          toast.error(reason.message.includes("contexto da tabela")
+            ? "O contexto desta tabela mudou em outra edição. Os dados foram recarregados; revise antes de salvar novamente."
+            : "O servidor mudou enquanto você editava. Os dados foram recarregados; revise o contexto antes de salvar novamente.");
           return;
         } catch (reloadReason) {
           toast.error(
@@ -1324,7 +1326,7 @@ function AdminSectionPage({ section }: { section: Section }) {
     value?: SavedQuery;
   }>({ open: false });
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       setLoading(true);
       setError(undefined);
@@ -1338,13 +1340,17 @@ function AdminSectionPage({ section }: { section: Section }) {
       setUsers(nextUsers);
       setPermissions(nextPermissions);
       setSources(nextSources);
+      setSourceSheet((current) => current.value
+        ? { ...current, value: nextSources.find((source) => source.id === current.value?.id) ?? current.value }
+        : current);
       setQueries(nextQueries);
     } catch (reason) {
       setError(message(reason as Error));
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+  useRegisterCurrentViewRefresh(load);
 
   useEffect(() => {
     void load();

@@ -4,6 +4,7 @@ import { parameterDefinitionSchema } from "../lib/contracts.js";
 import type { AuthenticatedUser } from "./auth.js";
 import type { DiscoveredColumn, DiscoveredTable, ExternalPostgresConfig } from "./external-postgres.js";
 import { MAX_DATA_SOURCE_CATALOG_TABLES } from "./data-source-catalog.js";
+import type { ContextProposalProgressEvent } from "./ai-context-proposals.js";
 
 export interface AiReadSource {
   id: string;
@@ -90,7 +91,8 @@ export type AiToolProgressEvent =
         truncationReason: "row_limit" | "byte_limit" | null;
         error?: string;
       }>;
-    };
+    }
+  | ContextProposalProgressEvent;
 
 export interface CreateAiReadToolsOptions {
   currentUser: AuthenticatedUser;

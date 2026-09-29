@@ -10,7 +10,8 @@
     "db:migrate": "tsx src/db/migrate.ts",
     "db:seed": "tsx src/db/seed.ts",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "smoke:context-approvals": "bash scripts/smoke-context-approvals.sh"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.9",

@@ -66,6 +66,7 @@ export const dataSources = pgTable("data_sources", {
   username: varchar("username", { length: 255 }).notNull(),
   encryptedPassword: text("encrypted_password").notNull(),
   context: text("context").notNull().default(""),
+  contextVersion: integer("context_version").notNull().default(1),
   createdBy: uuid("created_by").notNull().references(() => users.id),
   createdAt,
   updatedAt,
@@ -77,6 +78,7 @@ export const dataSourceTables = pgTable("data_source_tables", {
   schemaName: varchar("schema_name", { length: 255 }).notNull(),
   tableName: varchar("table_name", { length: 255 }).notNull(),
   context: text("context").notNull().default(""),
+  contextVersion: integer("context_version").notNull().default(1),
   discoveredAt: timestamp("discovered_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [uniqueIndex("data_source_tables_unique").on(table.dataSourceId, table.schemaName, table.tableName)]);
 
@@ -130,6 +132,30 @@ export const dashboardProposalReceipts = pgTable("dashboard_proposal_receipts", 
   check("dashboard_proposal_receipts_mode_check", sql`${table.mode} IN ('create', 'update')`),
   check("dashboard_proposal_receipts_target_check", sql`(${table.mode} = 'create' AND ${table.expectedDashboardFingerprint} IS NULL) OR (${table.mode} = 'update' AND ${table.expectedDashboardFingerprint} IS NOT NULL)`),
   index("dashboard_proposal_receipts_expires_at_idx").on(table.expiresAt),
+]);
+
+export const aiContextProposals = pgTable("ai_context_proposals", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  actorId: uuid("actor_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  targetType: varchar("target_type", { length: 8 }).notNull(),
+  dataSourceId: uuid("data_source_id").notNull().references(() => dataSources.id, { onDelete: "cascade" }),
+  tableId: uuid("table_id").references(() => dataSourceTables.id, { onDelete: "cascade" }),
+  sourceName: varchar("source_name", { length: 160 }).notNull(),
+  schemaName: varchar("schema_name", { length: 255 }),
+  tableName: varchar("table_name", { length: 255 }),
+  baseContextVersion: integer("base_context_version").notNull(),
+  currentContext: text("current_context").notNull(),
+  proposedContext: text("proposed_context").notNull(),
+  reason: text("reason").notNull(),
+  status: varchar("status", { length: 10 }).notNull().default("pending"),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+  createdAt,
+}, (table) => [
+  check("ai_context_proposals_target_type_check", sql`${table.targetType} IN ('source', 'table')`),
+  check("ai_context_proposals_status_check", sql`${table.status} IN ('pending', 'approved', 'dismissed', 'stale', 'expired')`),
+  check("ai_context_proposals_target_check", sql`(${table.targetType} = 'source' AND ${table.tableId} IS NULL AND ${table.schemaName} IS NULL AND ${table.tableName} IS NULL) OR (${table.targetType} = 'table' AND ${table.tableId} IS NOT NULL AND ${table.schemaName} IS NOT NULL AND ${table.tableName} IS NOT NULL)`),
+  index("ai_context_proposals_actor_status_idx").on(table.actorId, table.status, table.expiresAt),
 ]);
 
 export const dashboardUsers = pgTable("dashboard_users", {

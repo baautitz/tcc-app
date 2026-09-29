@@ -4,6 +4,7 @@ export interface DataSourceContextTransaction {
     dataSourceId: string,
     tableId: string,
     context: string,
+    expectedContextVersion: number,
   ): Promise<unknown | undefined>;
 }
 
@@ -25,6 +26,27 @@ export class DataSourceContextVersionConflictError extends Error {
   }
 }
 
+export class DataSourceTableContextVersionConflictError extends Error {
+  constructor() {
+    super("O contexto da tabela mudou. Recarregue os dados antes de salvar novamente.");
+    this.name = "DataSourceTableContextVersionConflictError";
+  }
+}
+
+export function sourceContextRevisionChanged(
+  current: { name: string; host: string; port: number; databaseName: string; username: string; context: string },
+  next: { name: string; host: string; port: number; databaseName: string; username: string; context: string },
+  credentialChanged: boolean,
+): boolean {
+  return current.name !== next.name ||
+    current.host !== next.host ||
+    current.port !== next.port ||
+    current.databaseName !== next.databaseName ||
+    current.username !== next.username ||
+    current.context !== next.context ||
+    credentialChanged;
+}
+
 /**
  * Serialize manual context edits against source changes. The database adapter
  * must lock the source row before reading its version and updating the table,
@@ -37,6 +59,7 @@ export async function updateTableContextIfSourceVersionMatches<T>(
   tableId: string,
   context: string,
   expectedSourceUpdatedAt: string,
+  expectedContextVersion: number,
 ): Promise<T | undefined> {
   const expectedVersion = new Date(expectedSourceUpdatedAt).getTime();
 
@@ -47,6 +70,8 @@ export async function updateTableContextIfSourceVersionMatches<T>(
       throw new DataSourceContextVersionConflictError();
     }
 
-    return await tx.updateTableContext(dataSourceId, tableId, context) as T | undefined;
+    const updated = await tx.updateTableContext(dataSourceId, tableId, context, expectedContextVersion);
+    if (!updated) throw new DataSourceTableContextVersionConflictError();
+    return updated as T;
   });
 }

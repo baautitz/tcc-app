@@ -4,6 +4,7 @@ import type {
   DashboardDocument,
   DashboardSummary,
   DashboardUser,
+  AiContextProposal,
   DataSource,
   DataSourceTable,
   Permission,
@@ -144,14 +145,23 @@ export const api = {
     tableId: string,
     context: string,
     expectedSourceUpdatedAt: string,
+    expectedContextVersion: number,
   ) =>
     request<DataSourceTable>(
       `/api/data-sources/${sourceId}/tables/${tableId}`,
       {
         method: "PATCH",
-        body: JSON.stringify({ context, expectedSourceUpdatedAt }),
+        body: JSON.stringify({ context, expectedSourceUpdatedAt, expectedContextVersion }),
       },
     ),
+  pendingAiContextProposals: () =>
+    request<AiContextProposal[]>("/api/admin/ai/context-proposals"),
+  aiContextProposal: (id: string) =>
+    request<AiContextProposal>(`/api/admin/ai/context-proposals/${encodeURIComponent(id)}`),
+  approveAiContextProposal: (id: string) =>
+    request<AiContextProposal>(`/api/admin/ai/context-proposals/${encodeURIComponent(id)}/approve`, { method: "POST" }),
+  dismissAiContextProposal: (id: string) =>
+    request<AiContextProposal>(`/api/admin/ai/context-proposals/${encodeURIComponent(id)}/dismiss`, { method: "POST" }),
   queries: () => request<QuerySummary[]>("/api/queries"),
   savedQuery: (id: string) => request<SavedQuery>(`/api/queries/${id}`),
   createQuery: (body: {

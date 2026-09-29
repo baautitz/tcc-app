@@ -61,7 +61,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { toast } from "@/components/ui/toast";
-import type { QueryPreview } from "@/types";
+import type { AiContextProposal, QueryPreview } from "@/types";
 import type { DashboardDefinition, DashboardDocument } from "@/types";
 import { DashboardProposalCanvas } from "@/dashboard";
 
@@ -86,6 +86,7 @@ type ProposalMessage = {
   title: string;
   summary: string;
 };
+type ContextProposalMessage = { id: string; kind: "context_proposal"; proposal: AiContextProposal };
 
 type ErrorMessage = {
   id: string;
@@ -129,7 +130,7 @@ type DashboardPreviewItem = {
   stale?: boolean;
   saving?: boolean;
 };
-type ChatItem = ChatMessage | ToolMessage | ProposalMessage | ErrorMessage | QueryPreviewItem | DashboardPreviewItem;
+type ChatItem = ChatMessage | ToolMessage | ProposalMessage | ContextProposalMessage | ErrorMessage | QueryPreviewItem | DashboardPreviewItem;
 type ChatRoleMessage = { role: "user" | "assistant"; content: string };
 
 type ChatEvent =
@@ -153,6 +154,7 @@ type ChatEvent =
       title: string;
       summary: string;
     }
+  | { version: 1; type: "context_proposal"; toolCallId: string; proposal: AiContextProposal }
   | {
       version: 1;
       type: "error";
@@ -206,6 +208,26 @@ function completedConversation(items: ChatItem[]): ChatRoleMessage[] {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function isAiContextProposal(value: unknown): value is AiContextProposal {
+  if (!isRecord(value)) return false;
+  return typeof value.id === "string" &&
+    typeof value.actorId === "string" &&
+    ["source", "table"].includes(String(value.targetType)) &&
+    typeof value.dataSourceId === "string" &&
+    (value.tableId === null || typeof value.tableId === "string") &&
+    typeof value.sourceName === "string" &&
+    (value.schemaName === null || typeof value.schemaName === "string") &&
+    (value.tableName === null || typeof value.tableName === "string") &&
+    Number.isSafeInteger(value.baseContextVersion) &&
+    typeof value.currentContext === "string" &&
+    typeof value.proposedContext === "string" &&
+    typeof value.reason === "string" &&
+    ["pending", "approved", "dismissed", "stale", "expired"].includes(String(value.status)) &&
+    typeof value.expiresAt === "string" &&
+    typeof value.createdAt === "string" &&
+    (value.resolvedAt === null || typeof value.resolvedAt === "string");
 }
 
 function decodeEvent(eventName: string, data: string): ChatEvent | undefined {
@@ -307,6 +329,10 @@ function decodeEvent(eventName: string, data: string): ChatEvent | undefined {
       )
         return normalizedPayload as ChatEvent;
       throw new Error("A proposta da IA está malformada.");
+    case "context_proposal":
+      if (typeof payload.toolCallId === "string" && isAiContextProposal(payload.proposal))
+        return normalizedPayload as ChatEvent;
+      throw new Error("A proposta de contexto da IA está malformada.");
     case "dashboard_preview": {
       const document = payload.document;
       const definition = payload.definition;
@@ -550,12 +576,14 @@ function ChatItemView({
   onRetry,
   onReviewPreview,
   onApplyDashboard,
+  onReviewContext,
 }: {
   item: ChatItem;
   busy: boolean;
   onRetry: () => void;
   onReviewPreview: (item: QueryPreviewItem) => void;
   onApplyDashboard: (item: DashboardPreviewItem, acknowledgeTruncation: boolean) => void;
+  onReviewContext: (proposal: AiContextProposal) => void;
 }) {
   if (item.kind === "tool") {
     const success = item.status === "success";
@@ -631,6 +659,34 @@ function ChatItemView({
     );
   }
 
+  if (item.kind === "context_proposal") {
+    const target = item.proposal.targetType === "source"
+      ? item.proposal.sourceName
+      : `${item.proposal.sourceName} · ${item.proposal.schemaName}.${item.proposal.tableName}`;
+    const pending = item.proposal.status === "pending" && Date.parse(item.proposal.expiresAt) > Date.now();
+    const statusLabel = pending
+      ? "Aguardando confirmação"
+      : item.proposal.status === "approved"
+        ? "Contexto aprovado"
+        : item.proposal.status === "dismissed"
+          ? "Proposta descartada"
+          : item.proposal.status === "expired"
+            ? "Proposta expirada"
+            : "Proposta desatualizada";
+    return (
+      <div className="mx-4 border border-primary/30 bg-primary/5 p-3 text-sm">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="flex items-center gap-2 font-medium"><Sparkles className="size-4 shrink-0 text-primary" />Proposta de contexto</p>
+            <p className="mt-1 break-words text-xs text-muted-foreground">{target}</p>
+          </div>
+          {pending && <Button variant="outline" size="sm" onClick={() => onReviewContext(item.proposal)}>Revisar</Button>}
+        </div>
+        <p className="mt-3 border-t border-primary/15 pt-2 text-xs text-muted-foreground">{statusLabel}. Nenhuma alteração foi aplicada até a aprovação explícita.</p>
+      </div>
+    );
+  }
+
   if (item.kind === "error") {
     return (
       <div
@@ -702,6 +758,7 @@ function ChatWindow({
   onClose,
   onPreviewSaved,
   onApplyDashboard,
+  onContextProposalResolved,
 }: {
   items: ChatItem[];
   busy: boolean;
@@ -715,6 +772,7 @@ function ChatWindow({
   onClose: () => void;
   onPreviewSaved: (testRunId: string, queryId: string) => void;
   onApplyDashboard: (item: DashboardPreviewItem, acknowledgeTruncation: boolean) => void;
+  onContextProposalResolved: (proposalId: string, status: AiContextProposal["status"]) => void;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [reviewPreview, setReviewPreview] = useState<QueryPreviewItem>();
@@ -722,8 +780,11 @@ function ChatWindow({
   const [savingPreview, setSavingPreview] = useState(false);
   const [stalePreview, setStalePreview] = useState(false);
   const [reloadedQuery, setReloadedQuery] = useState<{ name: string; sqlText: string }>();
+  const [reviewContext, setReviewContext] = useState<AiContextProposal>();
+  const [resolvingContext, setResolvingContext] = useState(false);
   const savePendingRef = useRef(false);
   const { hasPermission } = useAuth();
+  const refreshCurrentView = useCurrentViewRefresh();
 
   useEffect(() => {
     setReviewName(reviewPreview?.intent.queryName ?? "");
@@ -789,6 +850,37 @@ function ChatWindow({
     } finally {
       savePendingRef.current = false;
       setSavingPreview(false);
+    }
+  };
+
+  const resolveContextProposal = async (action: "approve" | "dismiss") => {
+    if (!reviewContext || resolvingContext || reviewContext.status !== "pending") return;
+    setResolvingContext(true);
+    try {
+      const result = action === "approve"
+        ? await api.approveAiContextProposal(reviewContext.id)
+        : await api.dismissAiContextProposal(reviewContext.id);
+      onContextProposalResolved(result.id, result.status);
+      setReviewContext(undefined);
+      if (action === "approve") {
+        refreshCurrentView();
+        toast.success("Contexto aprovado e atualizado.");
+      } else {
+        toast.success("Proposta descartada sem alterar o contexto.");
+      }
+    } catch (reason) {
+      if (reason instanceof ApiError && reason.status === 409) {
+        try {
+          const latest = await api.aiContextProposal(reviewContext.id);
+          onContextProposalResolved(latest.id, latest.status);
+          setReviewContext(latest);
+        } catch {
+          // Keep the comparison available so the administrator can close it.
+        }
+      }
+      toast.error(reason instanceof Error ? reason.message : "Não foi possível resolver a proposta.");
+    } finally {
+      setResolvingContext(false);
     }
   };
 
@@ -874,6 +966,7 @@ function ChatWindow({
                         onRetry={onRetry}
                         onReviewPreview={setReviewPreview}
                         onApplyDashboard={onApplyDashboard}
+                        onReviewContext={setReviewContext}
                       />
                     </MessageScrollerItem>
                   ))}
@@ -999,6 +1092,44 @@ function ChatWindow({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <Dialog open={Boolean(reviewContext)} onOpenChange={(open) => { if (!open && !resolvingContext) setReviewContext(undefined); }}>
+        <DialogContent className="flex max-h-[90dvh] w-[calc(100%-1rem)] max-w-3xl flex-col overflow-hidden sm:w-[calc(100%-2rem)]">
+          <DialogHeader>
+            <DialogTitle>Revisar alteração de contexto</DialogTitle>
+            <DialogDescription>Fechar ou cancelar esta janela não aprova nem descarta a proposta.</DialogDescription>
+          </DialogHeader>
+          {reviewContext && (
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1 text-sm">
+              <dl className="grid gap-2 rounded border bg-muted/30 p-3 sm:grid-cols-2">
+                <div><dt className="font-medium">Servidor</dt><dd className="break-words text-muted-foreground">{reviewContext.sourceName}</dd></div>
+                <div><dt className="font-medium">Destino</dt><dd className="break-words text-muted-foreground">{reviewContext.targetType === "source" ? "Contexto geral do servidor" : `${reviewContext.schemaName}.${reviewContext.tableName}`}</dd></div>
+                <div className="sm:col-span-2"><dt className="font-medium">Motivo informado pela IA</dt><dd className="whitespace-pre-wrap break-words text-muted-foreground">{reviewContext.reason}</dd></div>
+              </dl>
+              <div className="rounded border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground">
+                Este contexto orienta as próximas consultas da IA para {reviewContext.targetType === "source" ? "este servidor" : "esta tabela"}. A aprovação altera somente o texto de contexto; não muda credenciais, conexão ou dados.
+              </div>
+              <div className="grid min-w-0 gap-3 md:grid-cols-2">
+                <section aria-labelledby="context-current-heading" className="min-w-0 rounded border p-3">
+                  <h3 id="context-current-heading" className="font-medium">Contexto atual</h3>
+                  <div className="mt-2 max-h-52 min-h-24 overflow-auto whitespace-pre-wrap break-words rounded bg-muted/40 p-3 text-sm">{reviewContext.currentContext || <span className="italic text-muted-foreground">Nenhum contexto cadastrado.</span>}</div>
+                </section>
+                <section aria-labelledby="context-proposed-heading" className="min-w-0 rounded border border-primary/30 p-3">
+                  <h3 id="context-proposed-heading" className="font-medium">Contexto proposto</h3>
+                  <div className="mt-2 max-h-52 min-h-24 overflow-auto whitespace-pre-wrap break-words rounded bg-primary/5 p-3 text-sm">{reviewContext.proposedContext || <span className="italic text-muted-foreground">O contexto será removido.</span>}</div>
+                </section>
+              </div>
+              {reviewContext.status !== "pending" && <p role="status" className="rounded border p-3 text-sm text-muted-foreground">Esta proposta já foi resolvida ({reviewContext.status}). Gere outra proposta se ainda precisar alterar o contexto.</p>}
+            </div>
+          )}
+          <DialogFooter className="flex-col-reverse gap-2 border-t pt-3 sm:flex-row">
+            <Button variant="outline" onClick={() => setReviewContext(undefined)} disabled={resolvingContext}>Cancelar</Button>
+            {reviewContext?.status === "pending" && Date.parse(reviewContext.expiresAt) > Date.now() && <>
+              <Button variant="outline" onClick={() => void resolveContextProposal("dismiss")} disabled={resolvingContext}>{resolvingContext ? "Salvando…" : "Descartar proposta"}</Button>
+              <Button onClick={() => void resolveContextProposal("approve")} disabled={resolvingContext}>{resolvingContext ? "Aprovando…" : "Aprovar contexto"}</Button>
+            </>}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -1013,6 +1144,7 @@ export function AiChatDock({
   const location = useLocation();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const { user } = useAuth();
   const refreshCurrentView = useCurrentViewRefresh();
   const [items, setItems] = useState<ChatItem[]>([]);
   const [draft, setDraft] = useState("");
@@ -1025,6 +1157,26 @@ export function AiChatDock({
   const refreshedToolCallsRef = useRef(new Set<string>());
   const dashboardSavePendingRef = useRef(new Set<string>());
   pathRef.current = location.pathname;
+
+  useEffect(() => {
+    if (!open || !user?.isAdmin) return;
+    let active = true;
+    api.pendingAiContextProposals().then((proposals) => {
+      if (!active) return;
+      setItems((current) => {
+        const pending = new Map(proposals.map((proposal) => [proposal.id, proposal]));
+        const existing = current.map((item) => {
+          if (item.kind !== "context_proposal") return item;
+          const latest = pending.get(item.id);
+          if (!latest) return item;
+          pending.delete(item.id);
+          return { ...item, proposal: latest };
+        });
+        return [...existing, ...[...pending.values()].map((proposal) => ({ id: proposal.id, kind: "context_proposal" as const, proposal }))];
+      });
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, [open, user?.id, user?.isAdmin]);
 
   useEffect(
     () => () => {
@@ -1167,6 +1319,16 @@ export function AiChatDock({
             kind: "proposal",
             title: event.title,
             summary: event.summary,
+          });
+          return;
+        case "context_proposal":
+          setItems((current) => {
+            const item: ContextProposalMessage = { id: event.proposal.id, kind: "context_proposal", proposal: event.proposal };
+            const existingIndex = current.findIndex((candidate) => candidate.kind === "context_proposal" && candidate.id === item.id);
+            if (existingIndex >= 0) return current.map((candidate, index) => index === existingIndex ? item : candidate);
+            const assistantIndex = current.findIndex((candidate) => candidate.kind === "message" && candidate.id === assistantId);
+            const index = assistantIndex < 0 ? current.length : assistantIndex;
+            return [...current.slice(0, index), item, ...current.slice(index)];
           });
           return;
         case "dashboard_preview":
@@ -1382,6 +1544,14 @@ export function AiChatDock({
     ));
   }, []);
 
+  const markContextProposalResolved = useCallback((proposalId: string, status: AiContextProposal["status"]) => {
+    setItems((current) => current.map((item) =>
+      item.kind === "context_proposal" && item.id === proposalId
+        ? { ...item, proposal: { ...item.proposal, status, resolvedAt: new Date().toISOString() } }
+        : item,
+    ));
+  }, []);
+
   const handleDashboardSaved = useCallback((dashboardId: string, mode: "create" | "update") => {
     const routeDashboardId = /^\/dashboards\/([^/]+)$/.exec(location.pathname)?.[1];
     if (mode === "create" || routeDashboardId?.toLowerCase() !== dashboardId.toLowerCase()) {
@@ -1458,6 +1628,7 @@ export function AiChatDock({
       onClear={clear}
       onClose={() => onOpenChange(false)}
       onPreviewSaved={markQueryPreviewSaved}
+      onContextProposalResolved={markContextProposalResolved}
       onApplyDashboard={applyDashboard}
     />
   );
