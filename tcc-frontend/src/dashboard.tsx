@@ -1,4 +1,10 @@
-import { useEffect, useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import {
   Bar,
   BarChart,
@@ -82,6 +88,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import { formatCurrencyValue, formatValue } from "@/lib/utils";
+import { useRegisterCurrentViewRefresh } from "@/context/CurrentViewRefreshContext";
 
 type QueryState = {
   loading: boolean;
@@ -246,9 +253,9 @@ function DashboardComponentView({
   component: DashboardComponent;
   state?: QueryState;
 }) {
-  if (!state || state.loading)
+  if (!state || (state.loading && state.rows === undefined))
     return <ComponentLoading component={component} />;
-  if (state.error)
+  if (state.error && state.rows === undefined)
     return <ComponentError component={component} message={state.error} />;
   const rows = state.rows ?? [];
   if (component.type === "stat_card") {
@@ -776,19 +783,35 @@ function DashboardPage({
   const [filters, setFilters] = useState<FilterValues>({});
   const [error, setError] = useState<string>();
   const [usersDialogOpen, setUsersDialogOpen] = useState(false);
-  const loadDashboard = () => {
+  const [dataRefreshVersion, setDataRefreshVersion] = useState(0);
+  const querySequenceRef = useRef(0);
+  const refreshData = useCallback(() => {
+    setDataRefreshVersion((version) => version + 1);
+  }, []);
+  useRegisterCurrentViewRefresh(refreshData);
+
+  useEffect(() => {
+    let active = true;
     setDashboard(undefined);
     setData({});
     setFilters({});
     setError(undefined);
     api
       .dashboard(dashboardId)
-      .then(setDashboard)
-      .catch((reason: Error) => setError(reason.message));
-  };
-  useEffect(loadDashboard, [dashboardId]);
+      .then((result) => {
+        if (active) setDashboard(result);
+      })
+      .catch((reason: Error) => {
+        if (active) setError(reason.message);
+      });
+    return () => {
+      active = false;
+    };
+  }, [dashboardId]);
+
   useEffect(() => {
     if (!dashboard) return;
+    const requestSequence = ++querySequenceRef.current;
     const lookupIds = dashboard.definition.workspace.params.flatMap(
       (parameter) => (parameter.lookup ? [parameter.lookup.queryUuid] : []),
     );
@@ -818,20 +841,34 @@ function DashboardPage({
     queryIds.forEach((queryId) => {
       api
         .query(queryId, queryArguments(dashboard, queryId, filters))
-        .then((result) =>
+        .then((result) => {
+          if (querySequenceRef.current !== requestSequence) return;
           setData((current) => ({
             ...current,
             [queryId]: { loading: false, rows: result.rows },
-          })),
-        )
-        .catch((reason: Error) =>
+          }));
+        })
+        .catch((reason: Error) => {
+          if (querySequenceRef.current !== requestSequence) return;
           setData((current) => ({
             ...current,
-            [queryId]: { loading: false, error: reason.message },
-          })),
-        );
+            [queryId]: {
+              loading: false,
+              error: reason.message,
+              ...(current[queryId]?.rows !== undefined
+                ? { rows: current[queryId].rows }
+                : {}),
+            },
+          }));
+        });
     });
-  }, [dashboard, filters]);
+    return () => {
+      if (querySequenceRef.current === requestSequence) {
+        querySequenceRef.current += 1;
+      }
+    };
+  }, [dashboard, filters, dataRefreshVersion]);
+
   if (error)
     return (
       <Alert variant="destructive">
@@ -853,6 +890,9 @@ function DashboardPage({
     );
   const parameters = collectArguments(dashboard);
   const gridGap = gapClass[dashboard.definition.layout.gap] ?? "gap-4";
+  const hasStaleDataErrors = Object.values(data).some(
+    (state) => state.error && state.rows !== undefined,
+  );
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-start gap-3">
@@ -893,10 +933,17 @@ function DashboardPage({
           <Button
             variant="outline"
             size="icon"
-            onClick={loadDashboard}
+            onClick={refreshData}
             aria-label="Atualizar dashboard"
+            title="Atualizar dados dos componentes"
           >
-            <RefreshCw />
+            <RefreshCw
+              className={
+                Object.values(data).some((state) => state.loading)
+                  ? "animate-spin"
+                  : undefined
+              }
+            />
           </Button>
         </div>
       </div>
@@ -906,6 +953,16 @@ function DashboardPage({
         appliedFilters={filters}
         onApply={setFilters}
       />
+      {hasStaleDataErrors && (
+        <Alert>
+          <AlertCircle />
+          <AlertTitle>Alguns dados não foram atualizados</AlertTitle>
+          <AlertDescription>
+            Os últimos resultados continuam visíveis. Revise as consultas com
+            erro ou tente atualizar novamente.
+          </AlertDescription>
+        </Alert>
+      )}
       <div className={`grid grid-cols-12 ${gridGap}`}>
         {dashboard.definition.components.map((component) => (
           <DashboardComponentView
@@ -927,7 +984,7 @@ function DashboardPage({
         dashboardId={dashboardId}
         open={usersDialogOpen}
         onOpenChange={setUsersDialogOpen}
-        onSaved={loadDashboard}
+        onSaved={refreshData}
       />
     </div>
   );
