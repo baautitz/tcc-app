@@ -8,6 +8,10 @@ API Hono para dashboards com hidratação assíncrona de componentes. A platafor
 2. Gere uma chave segura: `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`.
 3. Execute `pnpm install`, `pnpm db:migrate`, `pnpm db:seed` e `pnpm dev`.
 
+O chat de IA é opcional. Para habilitá-lo, configure `AI_BASE_URL`, `AI_API_KEY` e `AI_MODEL` com um provedor compatível com a API de chat completions da OpenAI e streaming. A chave fica somente no backend. Se algum valor estiver ausente ou a URL for inválida, a API continua disponível e `POST /api/admin/ai/chat` retorna `503` com o código de configuração correspondente.
+
+A rota de chat exige sessão de administrador e recebe `messages` contendo somente mensagens `user` e `assistant`; o histórico não é armazenado pelo backend. Ela envia eventos SSE v1 (`start`, `token`, `done` ou `error`), cada um com `version: 1`. A fundação atual ainda não tem ferramentas para executar queries ou alterar dashboards.
+
 O seed de desenvolvimento cria `admin@tcc.local` com senha `Admin@123`, cadastra a fonte local `Olist (teste local)` e adiciona as três queries usadas pelo dashboard de exemplo **Fechamento de Mês**. Troque ou remova esse acesso antes de expor a aplicação.
 
 Queries com os UUIDs de demonstração são inseridas somente quando ainda não existem. O seed sincroniza os dashboards JSON que já estiverem em `dashboards/` e não inclui nem cria uma cópia inicial do dashboard. As configurações da fonte Olist podem ser ajustadas pelas variáveis `OLIST_SOURCE_*` no `.env`; os valores padrão correspondem ao `olist/docker-compose.yml`. O seed não exige que essa fonte esteja ligada, mas os componentes só retornam dados quando o PostgreSQL analítico Olist estiver acessível e carregado com o conjunto de dados.

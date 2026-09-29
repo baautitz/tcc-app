@@ -12,6 +12,11 @@ const environmentSchema = z.object({
   FRONTEND_ORIGIN: z.string().url().default("http://localhost:5173"),
   CREDENTIAL_ENCRYPTION_KEY: z.string().min(1),
   SESSION_TTL_DAYS: z.coerce.number().int().positive().default(7),
+  // AI configuration is optional: a missing or invalid AI provider must not
+  // prevent the rest of the API from starting.
+  AI_BASE_URL: z.string().optional(),
+  AI_API_KEY: z.string().optional(),
+  AI_MODEL: z.string().optional(),
 });
 
 export type Environment = z.infer<typeof environmentSchema>;

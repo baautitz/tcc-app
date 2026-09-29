@@ -27,6 +27,7 @@ import { createDashboardFile, getDashboardFileById, getDashboardFiles, getRegist
 import { buildDashboardDefinitionFromDocument, dashboardQueryReferences } from "./services/dashboard-sync.js";
 import { canAccessDashboard, canExecuteQuery } from "./services/dashboard-access.js";
 import { assertParameterDefinitions, assertReadOnlySql, assertSqlParameters, bindQueryParameters } from "./services/query-security.js";
+import { createAiChatHandler } from "./services/ai-chat.js";
 
 type AppVariables = { currentUser: AuthenticatedUser };
 type AppContext = Context<{ Variables: AppVariables }>;
@@ -62,6 +63,8 @@ app.onError((error, context) => {
 });
 
 app.get("/api/health", (context) => context.json({ status: "ok", timestamp: new Date().toISOString() }));
+
+app.post("/api/admin/ai/chat", authentication, adminRequired, createAiChatHandler());
 
 async function jsonBody<Schema extends z.ZodTypeAny>(context: Context, schema: Schema): Promise<z.output<Schema>> {
   try {
