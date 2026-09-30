@@ -23,7 +23,7 @@ import {
 } from "./lib/contracts.js";
 import { decryptCredential, encryptCredential } from "./lib/credentials.js";
 import { hashPassword, verifyPassword } from "./lib/passwords.js";
-import { findUnsafeAiColumnTypes, getPostgresTableColumns, inspectReadOnlyPostgres, listPostgresBaseTables, runBoundedReadOnlyQueryWithRetry, runReadOnlyQuery, type ExternalPostgresConfig } from "./services/external-postgres.js";
+import { AI_QUERY_MAX_BYTES, AI_QUERY_MAX_ROWS, findUnsafeAiColumnTypes, getPostgresTableColumns, inspectReadOnlyPostgres, listPostgresBaseTables, runBoundedReadOnlyQueryWithRetry, runReadOnlyQuery, type ExternalPostgresConfig } from "./services/external-postgres.js";
 import { createSession, findAuthenticatedUser, hasPermission, revokeSession, SESSION_COOKIE, type AuthenticatedUser } from "./services/auth.js";
 import { assignPermissionKeys } from "./services/permissions.js";
 import { createDashboardFile, DashboardFileCompensationError, getDashboardFileById, getDashboardFiles, getRegisteredDashboardFiles, getRegisteredDashboards, isEditableDashboardFilePath, syncDashboardDirectory, withDashboardFileCompensation, writeDashboardDocumentAtomically } from "./services/dashboards.js";
@@ -33,11 +33,12 @@ import { assertParameterDefinitions, assertReadOnlySql, assertSqlParameters, bin
 import { createAiChatHandler } from "./services/ai-chat.js";
 import { createAiReadTools, type AiReadSource, type AiReadTable, type AiReadTableName } from "./services/ai-read-tools.js";
 import { createAiQueryTestTools } from "./services/ai-query-tools.js";
+import { createAiQuestionnaireTools } from "./services/ai-questionnaire.js";
 import { DataSourceCatalogSnapshotChangedError, hasDataSourceTargetChanged, MAX_DATA_SOURCE_CATALOG_TABLES, reconcileDataSourceCatalog, type CatalogSourceSnapshot, type CatalogSourceUpdate } from "./services/data-source-catalog.js";
 import { DataSourceContextSourceNotFoundError, DataSourceContextVersionConflictError, DataSourceTableContextVersionConflictError, sourceContextRevisionChanged, updateTableContextIfSourceVersionMatches } from "./services/data-source-context.js";
 import { issueQueryTestReceipt, QueryLifecycleError, queryDraftFingerprint, querySourceTargetHash, saveQueryWithTestReceipt, type QueryLifecycleQuery, type QueryLifecycleRepository, type QueryLifecycleTransaction, type QuerySaveMode, type QueryTestReceipt } from "./services/query-lifecycle.js";
 import { createAiDashboardTools, type AiDashboardQuery, type AiDashboardQueryDefinition, type AiDashboardToolsRepository } from "./services/ai-dashboard-tools.js";
-import { dashboardDocumentFingerprint, dashboardReferenceFingerprint } from "./services/ai-dashboard-proposals.js";
+import { dashboardDocumentFingerprint, dashboardProposalPreviewScope, dashboardReferenceFingerprint } from "./services/ai-dashboard-proposals.js";
 import { assertDashboardPreviewAcknowledged, assertDashboardProposalFresh, assertDashboardProposalUsable, isDashboardProposalAlreadyApplied } from "./services/dashboard-proposal-lifecycle.js";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
@@ -82,6 +83,7 @@ app.post("/api/admin/ai/chat", authentication, adminRequired, createAiChatHandle
   createTools: ({ currentUser, pageContext, onToolEvent }) => {
     const repository = createAiReadToolsRepository();
     return [
+      ...createAiQuestionnaireTools({ currentUser, onQuestion: onToolEvent }),
       ...createAiReadTools({ currentUser, onToolEvent, repository }),
       ...createAiQueryTestTools({ currentUser, onToolEvent, repository }),
       ...createAiDashboardTools({
@@ -571,8 +573,8 @@ function createAiDashboardToolsRepository(): AiDashboardToolsRepository {
         bound.sqlText,
         bound.values,
         {
-          rowLimit: 50,
-          byteLimit: 48_000,
+          rowLimit: AI_QUERY_MAX_ROWS,
+          byteLimit: AI_QUERY_MAX_BYTES,
           preserveConfiguredSearchPath: true,
           allowGeneralReadOnlySql: true,
         },
@@ -780,6 +782,135 @@ app.post("/api/admin/dashboards", authentication, adminRequired, async (context)
   }
   rollbackFile = undefined;
   return context.json({ id: dashboard.id }, 201);
+});
+
+app.post("/api/admin/ai/dashboard-proposals/:id/preview", authentication, adminRequired, async (context) => {
+  const currentUser = context.get("currentUser");
+  const receiptId = z.string().uuid().parse(context.req.param("id"));
+  const input = await jsonBody(context, z.object({
+    contextValues: z.record(
+      z.string().max(80),
+      z.union([z.string().max(2_048), z.array(z.string().max(2_048)).max(50)]),
+    ).default({}),
+    componentIds: z.array(z.string().trim().min(1).max(160)).min(1).max(24),
+  }).strict());
+  const receipt = (await db.select().from(dashboardProposalReceipts)
+    .where(eq(dashboardProposalReceipts.id, receiptId)).limit(1))[0];
+  if (!receipt) throw new ApiError(409, "A prévia expirou. Gere uma nova proposta.");
+  try {
+    assertDashboardProposalUsable({ ...receipt, mode: receipt.mode as "create" | "update" }, currentUser.id, new Date());
+  } catch {
+    throw new ApiError(409, "A prévia expirou, já foi aplicada ou pertence a outra sessão. Gere uma nova proposta.");
+  }
+
+  const document = dashboardDocumentSchema.parse(receipt.document);
+  let previewScope: ReturnType<typeof dashboardProposalPreviewScope>;
+  try {
+    previewScope = dashboardProposalPreviewScope(document, input.componentIds);
+  } catch (error) {
+    throw new ApiError(400, error instanceof Error ? error.message : "Os componentes da prévia são inválidos.");
+  }
+  const argumentNames = new Set(document.workspace.params.map((argument) => argument.name));
+  const unknownValues = Object.keys(input.contextValues).filter((name) => !argumentNames.has(name));
+  if (unknownValues.length > 0) throw new ApiError(400, "A prévia recebeu filtros que não existem neste dashboard.");
+  const referenceIds = [...dashboardQueryReferences(document)];
+  if (referenceIds.length === 0) throw new ApiError(409, "A proposta não possui queries salvas.");
+
+  const queryRows = await db.select({ query: savedQueries, source: dataSources })
+    .from(savedQueries)
+    .innerJoin(dataSources, eq(savedQueries.dataSourceId, dataSources.id))
+    .where(inArray(savedQueries.id, referenceIds));
+  if (queryRows.length !== referenceIds.length) throw new ApiError(409, "Uma query da proposta foi removida. Gere uma nova prévia.");
+  const referencesFingerprint = dashboardReferenceFingerprint(queryRows.map(({ query, source }) => ({
+    queryId: query.id,
+    queryUpdatedAt: query.updatedAt,
+    dataSourceId: query.dataSourceId,
+    sourceUpdatedAt: source.updatedAt,
+    sourceTargetHash: querySourceTargetHash(source),
+  })));
+  if (referencesFingerprint !== receipt.referenceFingerprint) {
+    throw new ApiError(409, "Uma query ou servidor mudou desde a proposta. Gere uma nova prévia.");
+  }
+  try {
+    buildDashboardDefinitionFromDocument(
+      document,
+      queryRows.map(({ query }) => ({ id: query.id, parameters: query.parameters })),
+      { validateCatalog: true },
+    );
+  } catch (error) {
+    throw new ApiError(409, error instanceof Error ? error.message : "As referências do dashboard não são válidas.");
+  }
+
+  const queryRowsById = new Map(queryRows.map((row) => [row.query.id, row]));
+  const bindingByQueryId = new Map(document.queryBindings.map((binding) => [binding.queryUuid, binding]));
+  const componentQueryIds = [...previewScope.queryIds];
+  const previews: Record<string, {
+    rows: Record<string, unknown>[];
+    rowLimit: number;
+    byteLimit: number;
+    bytes: number;
+    truncated: boolean;
+    truncationReason: "row_limit" | "byte_limit" | null;
+    error?: string;
+    previewPending?: string;
+  }> = {};
+
+  for (const queryId of componentQueryIds) {
+    const entry = queryRowsById.get(queryId);
+    if (!entry) throw new ApiError(409, "Uma query usada por um componente não existe mais.");
+    const parameters = z.array(parameterDefinitionSchema).parse(entry.query.parameters);
+    const binding = bindingByQueryId.get(queryId);
+    const values: Record<string, string | string[]> = {};
+    for (const [parameterName, source] of Object.entries(binding?.parameters ?? {})) {
+      if (source.source === "manual") values[parameterName] = source.value;
+      else if (Object.hasOwn(input.contextValues, source.argument)) {
+        const value = input.contextValues[source.argument]!;
+        if (Array.isArray(value) ? value.length > 0 : value.trim().length > 0) values[parameterName] = value;
+      }
+    }
+    const pending = parameters.filter((parameter) => {
+      const value = values[parameter.name];
+      return parameter.required && (value === undefined || (Array.isArray(value) ? value.length === 0 : value.trim().length === 0));
+    });
+    if (pending.length > 0) {
+      const labels = pending.map((parameter) => {
+        const source = binding?.parameters[parameter.name];
+        const argument = source?.source === "context"
+          ? document.workspace.params.find((item) => item.name === source.argument)
+          : undefined;
+        return argument?.label ?? parameter.label;
+      });
+      previews[queryId] = {
+        rows: [], rowLimit: AI_QUERY_MAX_ROWS, byteLimit: AI_QUERY_MAX_BYTES, bytes: 0,
+        truncated: false, truncationReason: null,
+        previewPending: `Preencha: ${labels.join(", ")}.`,
+      };
+      continue;
+    }
+    try {
+      assertParameterDefinitions(parameters);
+      assertSqlParameters(entry.query.sqlText, parameters);
+      const bound = bindQueryParameters(entry.query.sqlText, parameters, values);
+      previews[queryId] = await runBoundedReadOnlyQueryWithRetry(
+        sourceConnection(entry.source),
+        bound.sqlText,
+        bound.values,
+        {
+          rowLimit: AI_QUERY_MAX_ROWS,
+          byteLimit: AI_QUERY_MAX_BYTES,
+          preserveConfiguredSearchPath: true,
+          allowGeneralReadOnlySql: true,
+        },
+      );
+    } catch (error) {
+      previews[queryId] = {
+        rows: [], rowLimit: AI_QUERY_MAX_ROWS, byteLimit: AI_QUERY_MAX_BYTES, bytes: 0,
+        truncated: false, truncationReason: null,
+        error: error instanceof Error ? error.message.slice(0, 400) : "A consulta falhou durante o teste.",
+      };
+    }
+  }
+  return context.json({ queries: previews });
 });
 
 app.post("/api/admin/ai/dashboard-proposals/:id/commit", authentication, adminRequired, async (context) => {

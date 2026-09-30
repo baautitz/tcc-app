@@ -6,6 +6,7 @@ import type { DiscoveredColumn, DiscoveredTable, ExternalPostgresConfig } from "
 import { runBoundedReadOnlyQuery } from "./external-postgres.js";
 import { MAX_DATA_SOURCE_CATALOG_TABLES } from "./data-source-catalog.js";
 import type { ContextProposalProgressEvent } from "./ai-context-proposals.js";
+import type { AiQuestionnaireProgressEvent } from "./ai-questionnaire.js";
 
 export interface AiReadSource {
   id: string;
@@ -94,7 +95,8 @@ export type AiToolProgressEvent =
         error?: string;
       }>;
     }
-  | ContextProposalProgressEvent;
+  | ContextProposalProgressEvent
+  | AiQuestionnaireProgressEvent;
 
 export interface CreateAiReadToolsOptions {
   currentUser: AuthenticatedUser;

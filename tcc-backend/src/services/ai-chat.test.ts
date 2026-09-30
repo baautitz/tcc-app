@@ -77,6 +77,40 @@ describe("rota de chat IA SSE", () => {
     expect(createAgent).not.toHaveBeenCalled();
   });
 
+  it("passa prévia não salva como contexto e orienta QA sobre o pedido de dashboard", async () => {
+    let capturedPrompt = "";
+    const agent = makeAgent(async () => (async function* () {
+      yield [{ content: "Vou conferir os filtros do dashboard." } as AIMessageChunk, { langgraph_node: "model" }] as AiAgentToken;
+    })());
+    const app = createTestApp(createAiChatHandler({
+      getConfiguration: () => enabledConfiguration,
+      createAgent: (options) => {
+        capturedPrompt = options.systemPrompt;
+        return agent;
+      },
+    }));
+
+    const response = await postChat(app, {
+      ...defaultBody,
+      messages: [{ role: "user", content: "Adicionar esta tabela no meu dashboard, usando os filtros disponíveis" }],
+      pendingQueryPreviews: [{
+        testRunId: "00000000-0000-4000-8000-000000000030",
+        queryName: "Vendas por cidade — agosto de 2017",
+        dataSource: { id: "00000000-0000-4000-8000-000000000031", name: "Olist local" },
+        sqlText: "SELECT cidade, SUM(price) AS venda_total FROM public.sales GROUP BY cidade",
+        parameters: [{ name: "period", label: "Período", type: "date", required: true }],
+        testValues: { period: "2017-08-01" },
+      }],
+    });
+
+    expect(response.status).toBe(200);
+    expect(capturedPrompt).toContain("QA antes de responder");
+    expect(capturedPrompt).toContain("Vendas por cidade — agosto de 2017");
+    expect(capturedPrompt).toContain("leia o dashboard atual e seus filtros reais agora");
+    expect(capturedPrompt).toContain("Use testRunId apenas para identificar o cartão pendente");
+    expect(capturedPrompt).toContain("não pare com uma recusa por falta de UUID");
+  });
+
   it("retorna 503 claro quando a IA não está configurada e não inicia SSE", async () => {
     const createAgent = vi.fn();
     const app = createTestApp(createAiChatHandler({
@@ -221,11 +255,12 @@ describe("rota de chat IA SSE", () => {
     const events = parseEvents(await response.text());
 
     expect(capturedTools).toHaveLength(1);
-    expect(capturedContext).toEqual({
+    expect(capturedContext).toMatchObject({
       currentUserId: "admin-id",
       isAdmin: true,
       pathname: "/admin/dashboards",
       dashboardId: "00000000-0000-4000-8000-000000000001",
+      clearPendingResponse: expect.any(Function),
     });
     expect(events.map(({ event }) => event)).toEqual([
       "start", "tool_start", "query_preview", "tool_result", "token", "done",
