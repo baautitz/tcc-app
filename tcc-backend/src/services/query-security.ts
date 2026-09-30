@@ -1396,6 +1396,16 @@ function normalizeParameter(
   definition: ParameterDefinition,
   rawValue: string | string[] | undefined,
 ): string | number | boolean | string[] | null {
+  // An unselected optional multi-select means “all values”, represented as
+  // an empty array. Binding NULL makes common CARDINALITY/ANY filter clauses
+  // evaluate to NULL and can silently turn an aggregate into zero.
+  if (
+    definition.type === "multi_select" &&
+    !definition.required &&
+    (rawValue === undefined || rawValue.length === 0)
+  ) {
+    return [];
+  }
   if (rawValue === undefined || rawValue.length === 0) return null;
   const inputValues = Array.isArray(rawValue) ? rawValue : [rawValue];
   if (
