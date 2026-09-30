@@ -31,7 +31,6 @@ import {
   previewUsesDateParameters,
   shouldInvalidateForDynamicPeriod,
   markQueryPreviewSavedOnce,
-  movePendingQueryPreviewToEnd,
   shouldResurfaceQueryPreview,
   shouldSendPendingPreviewContext,
 } from "@/components/ai/chat-followup";
@@ -93,7 +92,16 @@ type ChatMessage = {
   role: "user" | "assistant";
   content: string;
   status: "complete" | "streaming" | "stopped" | "error";
+  actionCard?: ChatActionCardRef;
 };
+
+type ChatActionCardKind =
+  | "proposal"
+  | "context_proposal"
+  | "query_preview"
+  | "dashboard_preview"
+  | "questionnaire";
+type ChatActionCardRef = { id: string; kind: ChatActionCardKind };
 
 type ToolMessage = {
   id: string;
@@ -107,11 +115,13 @@ type ProposalMessage = {
   kind: "proposal";
   title: string;
   summary: string;
+  ownerMessageId?: string;
 };
 type ContextProposalMessage = {
   id: string;
   kind: "context_proposal";
   proposal: AiContextProposal;
+  ownerMessageId?: string;
 };
 
 type ErrorMessage = {
@@ -128,6 +138,7 @@ type QueryPreviewItem = QueryPreview & {
   savedQueryName?: string;
   stale?: boolean;
   staleReason?: "dynamic_period_mismatch";
+  ownerMessageId?: string;
 };
 type DashboardPreviewQuery = {
   rows: Record<string, unknown>[];
@@ -154,11 +165,13 @@ type DashboardPreviewItem = {
   document: DashboardDocument;
   definition: DashboardDefinition;
   changeSummary: string[];
+  componentChanges: Record<string, "added" | "modified" | "unchanged">;
   requiresTruncationAcknowledgement: boolean;
   queries: Record<string, DashboardPreviewQuery>;
   saved?: boolean;
   stale?: boolean;
   saving?: boolean;
+  ownerMessageId?: string;
 };
 type ChatItem =
   | ChatMessage
@@ -169,7 +182,46 @@ type ChatItem =
   | QueryPreviewItem
   | DashboardPreviewItem
   | QuestionnaireChatItem;
+type ChatActionCardItem =
+  | ProposalMessage
+  | ContextProposalMessage
+  | QueryPreviewItem
+  | DashboardPreviewItem
+  | QuestionnaireChatItem;
 type ChatRoleMessage = { role: "user" | "assistant"; content: string };
+
+function getActionCardReference(item: ChatItem): ChatActionCardRef | undefined {
+  switch (item.kind) {
+    case "proposal":
+    case "context_proposal":
+    case "query_preview":
+    case "dashboard_preview":
+    case "questionnaire":
+      return { id: item.id, kind: item.kind };
+    default:
+      return undefined;
+  }
+}
+
+function withActionCardOwner(
+  item: ChatActionCardItem,
+  ownerMessageId: string,
+): ChatActionCardItem {
+  return { ...item, ownerMessageId };
+}
+
+function isActionCardItem(item: ChatItem): item is ChatActionCardItem {
+  return getActionCardReference(item) !== undefined;
+}
+
+function normalizeQueryPreviewName(value: string) {
+  return value
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
 type AiContinuation =
   | { type: "query_saved"; queryId: string; queryName: string }
   | {
@@ -213,6 +265,69 @@ function pageContextForPath(pathname: string) {
     pathname,
     ...(match ? { dashboardId: match[1] } : {}),
   };
+}
+
+function hasPendingDashboardComponentRequest(items: ChatItem[], pathname: string) {
+  const userMessages = items.filter(
+    (item): item is ChatMessage => item.kind === "message" && item.role === "user",
+  );
+  const latest = userMessages.at(-1)?.content ?? "";
+  const normalizedLatest = latest
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  const isQuestionnaireAnswer = /\b(respostas? ao formulario|respostas enviadas)\b/.test(normalizedLatest);
+  const text = [
+    ...(isQuestionnaireAnswer ? [userMessages.at(-2)?.content ?? ""] : []),
+    latest,
+  ].join(" ")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  const asksForAction = /\b(adicionar|adicione|adiciona|inclui|inclua|incluir|criar|crie|montar|monte|colocar|coloque|inserir|insira|gerar|gere|faca|fazer)\b/.test(text);
+  const asksForComponent = /\b(graficos?|dashboards?|paineis|componentes?|tabelas?|indicadores?|metricas?|kpis?)\b/.test(text);
+  const requestsComponent = /\b(quero|preciso)\b/.test(text) && asksForComponent;
+  const placementInstruction = /\b(ao lado(?: direito| esquerdo)?|a direita|a esquerda|acima|abaixo|antes|depois|apos)\b/.test(text);
+  const metricDescription = /\b(somatoria|soma|total|quantidade|indicador|metrica|kpi)\b/.test(text);
+  const dashboardContext = DASHBOARD_ID_PATTERN.test(pathname);
+  const isConcreteVisualizationRequest = (requestText: string) => {
+    const normalizedRequest = requestText
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase();
+    return /\b(graficos?|tabelas?|indicadores?|metricas?|kpis?)\b/.test(normalizedRequest)
+      && /\b(top\s*\d+|maiores?|menores?|por\s+(?:venda|faturamento|categoria|estado|cidade)|venda|faturamento)\b/.test(normalizedRequest);
+  };
+  const recentConcreteVisualization = userMessages.slice(-6, -1).some(
+    (message) => isConcreteVisualizationRequest(message.content),
+  );
+  const confirmsImplementation = /\b(pode|poderia|vamos|sim)\b.{0,32}\b(implementar|implemente|adicionar|incluir|montar|criar)\b/.test(normalizedLatest)
+    && recentConcreteVisualization;
+  const isDashboardRequest = (requestText: string) => {
+    const normalizedRequest = requestText
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase();
+    const action = /\b(adicionar|adicione|adiciona|inclui|inclua|incluir|criar|crie|montar|monte|colocar|coloque|inserir|insira|gerar|gere|faca|fazer)\b/.test(normalizedRequest);
+    const component = /\b(graficos?|dashboards?|paineis|componentes?|tabelas?|indicadores?|metricas?|kpis?)\b/.test(normalizedRequest);
+    const wantsComponent = /\b(quero|preciso)\b/.test(normalizedRequest) && component;
+    const positionedMetric = /\b(ao lado(?: direito| esquerdo)?|a direita|a esquerda|acima|abaixo|antes|depois|apos)\b/.test(normalizedRequest)
+      && /\b(somatoria|soma|total|quantidade|indicador|metrica|kpi)\b/.test(normalizedRequest);
+    return (action && component)
+      || wantsComponent
+      || (action && positionedMetric)
+      || isConcreteVisualizationRequest(requestText);
+  };
+  const isDirectDashboardRequest = (asksForAction && asksForComponent)
+    || requestsComponent
+    || (asksForAction && placementInstruction && (metricDescription || dashboardContext));
+  if (isDirectDashboardRequest || isDashboardRequest(text) || confirmsImplementation) return true;
+  const latestIsStatusFollowUp = /^[?!.…\s]+$/.test(normalizedLatest)
+    || (/\b(aplicar|visualizar|proposta|previ\w*|cartao|botao)\b/.test(normalizedLatest)
+      && /\b(nao|tem|cade|onde|aparece|apareceu|sumiu)\b/.test(normalizedLatest));
+  return (latestIsStatusFollowUp && userMessages.slice(-5, -1).some(
+    (message) => isDashboardRequest(message.content),
+  )) || (isQuestionnaireAnswer && recentConcreteVisualization);
 }
 
 function completedConversation(
@@ -262,13 +377,21 @@ function toolLabel(toolName: string) {
   return labels[toolName] ?? `Executando ${toolName}`;
 }
 
+function formatElapsedTime(elapsedMs: number) {
+  const seconds = Math.floor(elapsedMs / 1_000);
+  if (seconds < 60) return `${seconds}s`;
+  return `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, "0")}s`;
+}
+
 function DashboardPreviewCard({
   item,
   busy,
+  isLatestInteraction,
   onApply,
 }: {
   item: DashboardPreviewItem;
   busy: boolean;
+  isLatestInteraction: boolean;
   onApply: (acknowledgeTruncation: boolean) => void;
 }) {
   const [acknowledgedLimit, setAcknowledgedLimit] = useState(false);
@@ -276,6 +399,7 @@ function DashboardPreviewCard({
   const [previewOpen, setPreviewOpen] = useState(false);
   const [testedQueries, setTestedQueries] =
     useState<Record<string, DashboardPreviewQuery>>();
+  const [testedIssues, setTestedIssues] = useState<string[]>();
   const [testingPreview, setTestingPreview] = useState(false);
   const [previewTestError, setPreviewTestError] = useState<string>();
   const emptyPreviewFilters = useMemo<DashboardFilterValues>(() => ({}), []);
@@ -316,6 +440,7 @@ function DashboardPreviewCard({
   useEffect(() => {
     setAcknowledgedLimit(false);
     setTestedQueries(undefined);
+    setTestedIssues(undefined);
     setPreviewTestError(undefined);
     const remaining = new Date(item.expiresAt).getTime() - Date.now();
     if (remaining <= 0) {
@@ -327,8 +452,23 @@ function DashboardPreviewCard({
     return () => window.clearTimeout(timer);
   }, [item.id, item.expiresAt]);
 
+  useEffect(() => {
+    setPreviewOpen(previewComponents.length > 0);
+  }, [item.id, previewComponents]);
+
+  useEffect(() => {
+    if (!isLatestInteraction) setPreviewOpen(false);
+  }, [isLatestInteraction]);
+
+  useEffect(() => {
+    if (item.saved) setPreviewOpen(false);
+  }, [item.saved]);
+
   const componentTitles = previewComponents.map(
     (component) => component.title,
+  );
+  const componentChangeSummary = item.changeSummary.find((summary) =>
+    summary.startsWith("Componentes:"),
   );
   const queryCount = previewQueryIds.size;
   const pendingPreviewCount = Object.values(item.queries).filter(
@@ -354,6 +494,7 @@ function DashboardPreviewCard({
     );
     setTestingPreview(true);
     setPreviewTestError(undefined);
+    setTestedIssues(undefined);
     try {
       const result = await api.previewAiDashboardProposal(
         item.proposalId,
@@ -361,6 +502,7 @@ function DashboardPreviewCard({
         item.previewComponentIds,
       );
       setTestedQueries(result.queries);
+      setTestedIssues(result.issues);
     } catch (error) {
       setPreviewTestError(
         error instanceof Error
@@ -373,6 +515,7 @@ function DashboardPreviewCard({
   };
   const onPreviewValuesChange = useCallback(() => {
     setTestedQueries(undefined);
+    setTestedIssues(undefined);
     setPreviewTestError(undefined);
     setAcknowledgedLimit(false);
   }, []);
@@ -402,9 +545,13 @@ function DashboardPreviewCard({
       .map(([queryId, query]) => ({ label: "Teste atual", queryId, query })),
   ];
   const interactiveTestFailed = Boolean(
-    testedQueries && Object.values(testedQueries).some((query) => query.error),
+    testedQueries && (
+      Object.values(testedQueries).some((query) => query.error || query.previewPending) ||
+      (testedIssues?.length ?? 0) > 0
+    ),
   );
   const unavailable =
+    !isLatestInteraction ||
     !item.canCommit ||
     item.saved ||
     item.stale ||
@@ -432,23 +579,32 @@ function DashboardPreviewCard({
                 {componentTitles.join(" · ")}
               </p>
             )}
+            {componentTitles.length === 0 && componentChangeSummary && (
+              <p className="mt-1 break-words text-xs font-medium">
+                {componentChangeSummary}
+              </p>
+            )}
             <p className="mt-1 text-xs text-muted-foreground">
-              {componentTitles.length} componentes · {queryCount} queries salvas
+              {componentTitles.length > 0
+                ? `${componentTitles.length} componentes na prévia · ${queryCount} queries`
+                : "Nenhuma prévia de dados necessária"}
               {failedPreviewCount > 0 &&
                 ` · ${failedPreviewCount} falhas na prévia`}
               {pendingPreviewCount > 0 &&
                 ` · ${pendingPreviewCount} aguardando filtros`}
             </p>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="shrink-0"
-            onClick={() => setPreviewOpen(true)}
-          >
-            <Eye />
-            Visualizar
-          </Button>
+          {isLatestInteraction && !item.saved && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0"
+              onClick={() => setPreviewOpen(true)}
+            >
+              <Eye />
+              Visualizar
+            </Button>
+          )}
         </div>
 
         {item.changeSummary.length > 0 && (
@@ -458,14 +614,21 @@ function DashboardPreviewCard({
         )}
         {item.issues.length > 0 && (
           <p className="text-xs text-destructive">
-            {item.issues.length} problema(s) na prévia. Abra Visualizar para
-            revisar antes de ajustar.
+            {item.issues.length} problema(s) na prévia. {isLatestInteraction
+              ? "Abra Visualizar para revisar antes de ajustar."
+              : "Peça uma nova proposta para revisar e ajustar."}
+          </p>
+        )}
+        {testedIssues && testedIssues.length > 0 && (
+          <p role="alert" className="text-xs text-destructive">
+            Teste da prévia encontrou problemas; corrija a proposta antes de
+            aplicar.
           </p>
         )}
         {pendingPreviewCount > 0 && !testedQueries && (
           <p className="text-xs text-muted-foreground">
-            Abra Visualizar, preencha os filtros obrigatórios e teste os
-            componentes antes de salvar.
+            Preencha os filtros obrigatórios e teste os componentes antes de
+            aplicar as alterações.
           </p>
         )}
 
@@ -499,7 +662,7 @@ function DashboardPreviewCard({
               Nenhuma alteração é aplicada antes de confirmar.
             </span>
           )}
-          {!item.saved && (
+          {!item.saved && isLatestInteraction && (
             <Button
               size="sm"
               className="w-full @md:w-auto @md:shrink-0"
@@ -516,55 +679,70 @@ function DashboardPreviewCard({
         </footer>
       </section>
 
-      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+      <Dialog
+        open={previewOpen && !item.saved && isLatestInteraction}
+        onOpenChange={setPreviewOpen}
+      >
         <DialogContent className="flex h-[86dvh] max-h-[90dvh] w-[calc(100%-1rem)] max-w-5xl flex-col overflow-hidden p-4 sm:w-[88vw] sm:max-w-5xl sm:p-6">
           <DialogHeader className="shrink-0 border-b pb-4 pr-8 text-left">
             <DialogTitle className="text-xl">
-              Prévia dos componentes
+              Prévia visual dos componentes propostos
             </DialogTitle>
             <DialogDescription>
-              Teste os filtros obrigatórios e veja como os componentes desta
-              proposta renderizam com os dados retornados.
+              Teste os filtros necessários e veja como os componentes serão
+              exibidos no dashboard antes de aplicar as alterações.
             </DialogDescription>
           </DialogHeader>
 
           <div className="min-h-0 flex-1 space-y-5 overflow-y-auto py-1 pr-1">
-            <section className="space-y-3 rounded border bg-muted/20 p-3">
-              <div>
-                <h3 className="text-sm font-medium">Testar filtros</h3>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Os valores são usados apenas para executar esta amostra; não
-                  alteram nem salvam filtros no dashboard.
-                </p>
-              </div>
-              <DashboardFilters
-                parameters={requiredArguments}
-                lookupData={previewLookupData}
-                appliedFilters={emptyPreviewFilters}
-                onApply={runPreviewTest}
-                onValuesChange={onPreviewValuesChange}
-                heading="Filtros obrigatórios"
-                description="Os valores são usados apenas para executar esta amostra; não alteram nem salvam filtros no dashboard."
-                submitLabel={testingPreview ? "Testando…" : "Testar componentes"}
-                submitIcon={testingPreview ? <LoaderCircle className="animate-spin" /> : <RefreshCw />}
-                submitDisabled={testingPreview || busy || expired || item.stale}
-                showWhenEmpty
-                emptyMessage="Não há filtros obrigatórios para os componentes desta proposta."
-              />
-              {previewTestError && (
-                <p role="alert" className="text-xs text-destructive">
-                  {previewTestError}
-                </p>
-              )}
-              {testedQueries && !interactiveTestFailed && (
-                <p className="text-xs text-emerald-700 dark:text-emerald-400">
-                  Amostra carregada para os componentes desta proposta. Revise
-                  os resultados abaixo antes de aplicar.
-                </p>
-              )}
-            </section>
+            {previewComponents.length > 0 ? (
+              <section className="space-y-3 rounded border bg-muted/20 p-3">
+                <div>
+                  <h3 className="text-sm font-medium">Testar filtros</h3>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Os valores são usados apenas para executar esta amostra; não
+                    alteram nem salvam filtros no dashboard.
+                  </p>
+                </div>
+                <DashboardFilters
+                  parameters={requiredArguments}
+                  lookupData={previewLookupData}
+                  appliedFilters={emptyPreviewFilters}
+                  onApply={runPreviewTest}
+                  onValuesChange={onPreviewValuesChange}
+                  heading="Filtros obrigatórios"
+                  description="Os valores são usados apenas para executar esta amostra; não alteram nem salvam filtros no dashboard."
+                  submitLabel={testingPreview ? "Testando…" : "Testar componentes"}
+                  submitIcon={testingPreview ? <LoaderCircle className="animate-spin" /> : <RefreshCw />}
+                  submitDisabled={testingPreview || busy || expired || item.stale}
+                  showWhenEmpty
+                  emptyMessage="Não há filtros obrigatórios para os componentes adicionados."
+                />
+                {previewTestError && (
+                  <p role="alert" className="text-xs text-destructive">
+                    {previewTestError}
+                  </p>
+                )}
+                {testedIssues && testedIssues.length > 0 && (
+                  <p role="alert" className="text-xs text-destructive">
+                    A proposta não pode ser aplicada: {testedIssues.join(" ")}
+                  </p>
+                )}
+                {testedQueries && !interactiveTestFailed && (
+                  <p className="text-xs text-emerald-700 dark:text-emerald-400">
+                    Amostra carregada para os componentes propostos. Revise
+                    os resultados abaixo antes de aplicar.
+                  </p>
+                )}
+              </section>
+            ) : (
+              <p className="rounded border bg-muted/20 p-3 text-sm text-muted-foreground">
+                Esta proposta não adiciona componentes novos. Consulte o resumo
+                das alterações abaixo.
+              </p>
+            )}
 
-            {testedQueries &&
+            {previewComponents.length > 0 && testedQueries &&
               Object.values(testedQueries).some((query) => query.error) && (
                 <div
                   role="alert"
@@ -591,7 +769,7 @@ function DashboardPreviewCard({
               </div>
             )}
 
-            {truncated && (
+            {previewComponents.length > 0 && truncated && (
               <div className="border border-amber-500/30 bg-amber-500/5 p-3 text-xs">
                 <p className="font-medium">Amostra limitada</p>
                 <ul className="mt-1 list-disc space-y-1 pl-5 text-muted-foreground">
@@ -607,11 +785,35 @@ function DashboardPreviewCard({
               </div>
             )}
 
-            <DashboardProposalCanvas
-              definition={item.definition}
-              rowsByQuery={previewQueries}
-              componentIds={item.previewComponentIds}
-            />
+            {previewComponents.length > 0 && (
+              <div
+                role="note"
+                aria-label="Legenda das alterações dos componentes"
+                className="flex flex-wrap gap-x-4 gap-y-2 border bg-muted/20 px-3 py-2 text-xs text-muted-foreground"
+              >
+                <span className="flex items-center gap-2">
+                  <span className="size-3 border border-emerald-600/50 bg-emerald-500/10" aria-hidden="true" />
+                  Verde: novo componente
+                </span>
+                <span className="flex items-center gap-2">
+                  <span className="size-3 border border-amber-600/50 bg-amber-500/10" aria-hidden="true" />
+                  Amarelo: componente modificado
+                </span>
+                <span className="flex items-center gap-2">
+                  <span className="size-3 border border-border bg-muted" aria-hidden="true" />
+                  Neutro: sem alteração
+                </span>
+              </div>
+            )}
+
+            {previewComponents.length > 0 && (
+              <DashboardProposalCanvas
+                definition={item.definition}
+                rowsByQuery={previewQueries}
+                componentIds={item.previewComponentIds}
+                componentChanges={item.componentChanges}
+              />
+            )}
 
             <section className="space-y-2 border-t pt-4 text-sm">
               <h3 className="font-medium">Resumo das alterações</h3>
@@ -652,7 +854,7 @@ function DashboardPreviewCard({
                 A proposta só será aplicada após sua confirmação.
               </span>
             )}
-            {!item.saved && (
+            {!item.saved && isLatestInteraction && (
               <Button
                 disabled={unavailable}
                 onClick={() => onApply(acknowledgedLimit)}
@@ -674,6 +876,7 @@ function DashboardPreviewCard({
 function ChatItemView({
   item,
   busy,
+  isLatestInteraction,
   onRetry,
   onReviewPreview,
   onApplyDashboard,
@@ -682,6 +885,7 @@ function ChatItemView({
 }: {
   item: ChatItem;
   busy: boolean;
+  isLatestInteraction: boolean;
   onRetry: () => void;
   onReviewPreview: (item: QueryPreviewItem) => void;
   onApplyDashboard: (
@@ -699,6 +903,7 @@ function ChatItemView({
       <QuestionnaireCard
         item={item}
         busy={busy}
+        isLatestInteraction={isLatestInteraction}
         onSubmit={onSubmitQuestionnaire}
       />
     );
@@ -727,11 +932,13 @@ function ChatItemView({
   }
 
   if (item.kind === "query_preview") {
+    const dashboardPurpose = item.purpose === "dashboard";
     return (
       <section className="mx-3 flex min-w-0 flex-col gap-3 border border-primary/30 bg-primary/5 p-3 text-sm sm:mx-4">
         <div className="min-w-0">
           <p className="font-medium">
-            Prévia de {item.intent.mode === "update" ? "edição" : "nova query"}
+            {dashboardPurpose ? "Query para dashboard" : "Consulta rápida"} ·{" "}
+            {item.intent.mode === "update" ? "edição" : "nova query"}
           </p>
           <p className="mt-1 break-words text-xs text-muted-foreground">
             {item.dataSource.name} · {item.savedQueryName ?? item.intent.queryName}
@@ -743,10 +950,11 @@ function ChatItemView({
               ? ` · amostra truncada (${item.truncationReason})`
               : ""}
           </p>
-          {!item.savedQueryId && !item.stale && (
+          {!item.savedQueryId && !item.stale && isLatestInteraction && (
             <p className="mt-2 text-xs text-muted-foreground">
-              A query ainda não foi salva. Revise e confirme no modal para
-              liberar as próximas etapas que dependem dela.
+              {dashboardPurpose
+                ? "Esta query é uma etapa da proposta de dashboard. Ao salvá-la, o assistente continuará essa tarefa."
+                : "Esta consulta é pontual. Salvá-la adiciona a query ao catálogo sem iniciar outra tarefa automaticamente."}
             </p>
           )}
         </div>
@@ -765,7 +973,7 @@ function ChatItemView({
               ? "Esta prévia usa período fixo e não pode ser aprovada para acompanhar os filtros do dashboard. Aguarde uma nova prévia."
               : "Prévia substituída · teste novamente"}
           </p>
-        ) : (
+        ) : isLatestInteraction ? (
           <Button
             variant="outline"
             size="sm"
@@ -773,8 +981,15 @@ function ChatItemView({
             disabled={busy}
             onClick={() => onReviewPreview(item)}
           >
-            Revisar e aprovar query
+            {dashboardPurpose
+              ? "Revisar query para dashboard"
+              : "Revisar e salvar query"}
           </Button>
+        ) : (
+          <p className="border-t border-primary/15 pt-2 text-xs text-muted-foreground">
+            Esta prévia pertence a uma mensagem anterior. Peça novamente para
+            criar ou continuar a query.
+          </p>
         )}
       </section>
     );
@@ -785,6 +1000,7 @@ function ChatItemView({
       <DashboardPreviewCard
         item={item}
         busy={busy}
+        isLatestInteraction={isLatestInteraction}
         onApply={(acknowledgeTruncation) =>
           onApplyDashboard(item, acknowledgeTruncation)
         }
@@ -838,7 +1054,7 @@ function ChatItemView({
               {target}
             </p>
           </div>
-          {pending && (
+          {pending && (!item.ownerMessageId || isLatestInteraction) && (
             <Button
               variant="outline"
               size="sm"
@@ -926,6 +1142,7 @@ function ChatItemView({
 function ChatWindow({
   items,
   busy,
+  activityProgress,
   draft,
   pageLabel,
   onDraftChange,
@@ -941,6 +1158,7 @@ function ChatWindow({
 }: {
   items: ChatItem[];
   busy: boolean;
+  activityProgress?: string;
   draft: string;
   pageLabel: string;
   onDraftChange: (value: string) => void;
@@ -981,6 +1199,23 @@ function ChatWindow({
   const savePendingRef = useRef(false);
   const { hasPermission } = useAuth();
   const refreshCurrentView = useCurrentViewRefresh();
+  const latestMessage = [...items]
+    .reverse()
+    .find((item): item is ChatMessage => item.kind === "message");
+  const isLatestInteractionItem = (item: ChatItem) => {
+    if (item.kind === "message") return item.id === latestMessage?.id;
+    if (!isActionCardItem(item) || !item.ownerMessageId) return false;
+    const owner = items.find(
+      (candidate): candidate is ChatMessage =>
+        candidate.kind === "message" && candidate.id === item.ownerMessageId,
+    );
+    return Boolean(
+      owner &&
+        owner.id === latestMessage?.id &&
+        owner.actionCard?.id === item.id &&
+        owner.actionCard?.kind === item.kind,
+    );
+  };
 
   useEffect(() => {
     setReviewName(reviewPreview?.intent.queryName ?? "");
@@ -1001,6 +1236,22 @@ function ChatWindow({
       setStalePreview(true);
     }
   }, [items, reviewPreview]);
+
+  useEffect(() => {
+    if (!reviewPreview) return;
+    const owner = items.find(
+      (item): item is ChatMessage =>
+        item.kind === "message" &&
+        item.id === reviewPreview.ownerMessageId,
+    );
+    if (
+      !owner ||
+      owner.id !== latestMessage?.id ||
+      owner.actionCard?.id !== reviewPreview.id
+    ) {
+      setReviewPreview(undefined);
+    }
+  }, [items, latestMessage?.id, reviewPreview]);
 
   const canSavePreview = reviewPreview
     ? reviewPreview.intent.mode === "create"
@@ -1202,6 +1453,7 @@ function ChatWindow({
                         <ChatItemView
                           item={item}
                           busy={busy}
+                          isLatestInteraction={isLatestInteractionItem(item)}
                           onRetry={onRetry}
                           onReviewPreview={setReviewPreview}
                           onApplyDashboard={onApplyDashboard}
@@ -1211,18 +1463,14 @@ function ChatWindow({
                       </MessageScrollerItem>
                     );
                   })}
-                  {busy &&
-                    !items.some(
-                      (item) =>
-                        item.kind === "tool" && item.status === "running",
-                    ) && (
+                  {busy && activityProgress && (
                       <MessageScrollerItem messageId="assistant-thinking">
                         <Marker role="status" className="px-4 text-xs">
                           <MarkerIcon>
                             <LoaderCircle className="animate-spin" />
                           </MarkerIcon>
                           <MarkerContent className="shimmer">
-                            Pensando…
+                            {activityProgress}
                           </MarkerContent>
                         </Marker>
                       </MessageScrollerItem>
@@ -1282,12 +1530,17 @@ function ChatWindow({
       >
         <DialogContent className="flex max-h-[90vh] w-[90vw] max-w-[90vw] flex-col overflow-hidden sm:max-w-[90vw]">
           <DialogHeader>
-            <DialogTitle>Revisar prévia da query</DialogTitle>
+            <DialogTitle>
+              {reviewPreview?.purpose === "dashboard"
+                ? "Revisar query para dashboard"
+                : "Revisar consulta rápida"}
+            </DialogTitle>
             <DialogDescription>
-              Confirme o servidor, a ação, os valores usados e a amostra. Ao
-              salvar, você aprova esta query e libera as próximas etapas que
-              dependem dela. A resposta em texto da IA não confirma nenhuma
-              alteração.
+              Confirme o servidor, a ação, os valores usados e a amostra.{" "}
+              {reviewPreview?.purpose === "dashboard"
+                ? "Ao salvar, o assistente continuará a proposta de dashboard solicitada."
+                : "Ao salvar, esta query ficará disponível no catálogo; isso não inicia automaticamente uma proposta de dashboard."}{" "}
+              A resposta em texto da IA não confirma nenhuma alteração.
             </DialogDescription>
           </DialogHeader>
           {reviewPreview && (
@@ -1399,9 +1652,13 @@ function ChatWindow({
             >
               {savingPreview
                 ? "Salvando…"
-                : reviewPreview?.intent.mode === "update"
-                  ? "Aplicar edição"
-                  : "Salvar nova query"}
+                : reviewPreview?.purpose === "dashboard"
+                  ? reviewPreview.intent.mode === "update"
+                    ? "Aplicar e continuar"
+                    : "Salvar e continuar"
+                  : reviewPreview?.intent.mode === "update"
+                    ? "Aplicar edição"
+                    : "Salvar query"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1542,8 +1799,10 @@ export function AiChatDock({
   const [items, setItems] = useState<ChatItem[]>([]);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
+  const [activityProgress, setActivityProgress] = useState<string>();
   const [panelWidth, setPanelWidth] = useState(DEFAULT_AI_CHAT_WIDTH);
   const abortRef = useRef<AbortController | null>(null);
+  const activeRequestIdRef = useRef<string | null>(null);
   const resizeStartRef = useRef<{
     pointerId: number;
     startX: number;
@@ -1679,17 +1938,62 @@ export function AiChatDock({
   const insertAfterAssistant = useCallback(
     (assistantId: string, item: ChatItem) => {
       setItems((current) => {
-        const assistantIndex = current.findIndex(
+        const reference = getActionCardReference(item);
+        const originalAssistant = current.find(
           (candidate) =>
             candidate.kind === "message" && candidate.id === assistantId,
+        ) ?? [...current].reverse().find(
+          (candidate): candidate is ChatMessage =>
+            candidate.kind === "message" && candidate.role === "assistant",
         );
-        if (assistantIndex < 0) return [...current, item];
+        if (!originalAssistant || originalAssistant.kind !== "message")
+          return [...current, item];
+        const ownerMessageId = originalAssistant.id;
+
+        let next = current;
+        let attachedItem = item;
+        if (reference && isActionCardItem(item)) {
+          const displacedCardIds = new Set([
+            reference.id,
+            originalAssistant.actionCard?.id,
+          ]);
+          next = current
+            .filter(
+              (candidate) =>
+                !isActionCardItem(candidate) ||
+                !displacedCardIds.has(candidate.id),
+            )
+            .map((candidate) => {
+              if (candidate.kind !== "message") return candidate;
+              if (candidate.id === ownerMessageId)
+                return { ...candidate, actionCard: reference };
+              if (
+                candidate.actionCard &&
+                displacedCardIds.has(candidate.actionCard.id)
+              ) {
+                const message = { ...candidate };
+                delete message.actionCard;
+                return message;
+              }
+              return candidate;
+            });
+          attachedItem = withActionCardOwner(item, ownerMessageId);
+        }
+
+        const assistantIndex = next.findIndex(
+          (candidate) =>
+            candidate.kind === "message" && candidate.id === ownerMessageId,
+        );
 
         let index = assistantIndex + 1;
-        while (index < current.length && current[index]?.kind !== "message") {
+        while (index < next.length && next[index]?.kind !== "message") {
           index += 1;
         }
-        return [...current.slice(0, index), item, ...current.slice(index)];
+        return [
+          ...next.slice(0, index),
+          attachedItem,
+          ...next.slice(index),
+        ];
       });
     },
     [],
@@ -1706,8 +2010,20 @@ export function AiChatDock({
 
       switch (event.type) {
         case "start":
+          activeRequestIdRef.current = event.requestId;
+          setActivityProgress(`Aguardando resposta da IA · ID ${event.requestId.slice(0, 8)}`);
           return;
+        case "progress": {
+          const label = event.phase === "running_tool"
+            ? toolLabel(event.toolName ?? "")
+            : event.phase === "preparing_response"
+              ? "Preparando resposta"
+              : "Aguardando resposta da IA";
+          setActivityProgress(`${label} · ${formatElapsedTime(event.elapsedMs)} · ID ${event.requestId.slice(0, 8)}`);
+          return;
+        }
         case "token":
+          setActivityProgress(undefined);
           updateAssistant(assistantId, (message) => ({
             ...message,
             content: message.content + event.delta,
@@ -1769,6 +2085,14 @@ export function AiChatDock({
             current.map((item) => {
               if (item.kind !== "query_preview" || item.savedQueryId)
                 return item;
+              const sameTarget = item.intent.mode === event.intent.mode && (
+                event.intent.mode === "update"
+                  ? Boolean(event.intent.queryId) && item.intent.queryId === event.intent.queryId
+                  : item.dataSource.id === event.dataSource.id &&
+                    normalizeQueryPreviewName(item.intent.queryName) ===
+                      normalizeQueryPreviewName(event.intent.queryName)
+              );
+              if (!sameTarget) return item;
               const draftChanged =
                 item.dataSource.id !== event.dataSource.id ||
                 item.sqlText !== event.sqlText ||
@@ -1786,6 +2110,7 @@ export function AiChatDock({
             kind: "query_preview",
             testRunId: event.testRunId,
             dataSource: event.dataSource,
+            purpose: event.purpose,
             intent: event.intent,
             sqlText: event.sqlText,
             parameters: event.parameters,
@@ -1808,34 +2133,10 @@ export function AiChatDock({
           });
           return;
         case "context_proposal":
-          setItems((current) => {
-            const item: ContextProposalMessage = {
-              id: event.proposal.id,
-              kind: "context_proposal",
-              proposal: event.proposal,
-            };
-            const existingIndex = current.findIndex(
-              (candidate) =>
-                candidate.kind === "context_proposal" &&
-                candidate.id === item.id,
-            );
-            if (existingIndex >= 0)
-              return current.map((candidate, index) =>
-                index === existingIndex ? item : candidate,
-              );
-            const assistantIndex = current.findIndex(
-              (candidate) =>
-                candidate.kind === "message" && candidate.id === assistantId,
-            );
-            let index =
-              assistantIndex < 0 ? current.length : assistantIndex + 1;
-            while (
-              index < current.length &&
-              current[index]?.kind !== "message"
-            ) {
-              index += 1;
-            }
-            return [...current.slice(0, index), item, ...current.slice(index)];
+          insertAfterAssistant(assistantId, {
+            id: event.proposal.id,
+            kind: "context_proposal",
+            proposal: event.proposal,
           });
           return;
         case "questionnaire":
@@ -1862,7 +2163,21 @@ export function AiChatDock({
             kind: "dashboard_preview",
           });
           return;
+        case "dashboard_applied": {
+          const currentDashboardId = /^\/dashboards\/([^/]+)$/.exec(pathRef.current)?.[1];
+          if (
+            event.mode === "create" ||
+            currentDashboardId?.toLowerCase() !== event.dashboardId.toLowerCase()
+          ) {
+            navigate(`/dashboards/${event.dashboardId}`);
+          } else {
+            refreshCurrentView();
+          }
+          toast.success(`Patch aplicado ao dashboard “${event.dashboardName}”.`);
+          return;
+        }
         case "error":
+          setActivityProgress(undefined);
           updateAssistant(assistantId, (message) => ({
             ...message,
             status: "error",
@@ -1876,6 +2191,7 @@ export function AiChatDock({
           });
           return;
         case "done":
+          setActivityProgress(undefined);
           updateAssistant(assistantId, (message) => ({
             ...message,
             status: "complete",
@@ -1885,6 +2201,7 @@ export function AiChatDock({
     [
       insertAfterAssistant,
       insertBeforeAssistant,
+      navigate,
       refreshCurrentView,
       updateAssistant,
     ],
@@ -1895,6 +2212,8 @@ export function AiChatDock({
     abortRef.current = null;
     generationRef.current += 1;
     setBusy(false);
+    setActivityProgress(undefined);
+    activeRequestIdRef.current = null;
     const assistantId = activeAssistantIdRef.current;
     if (assistantId) {
       updateAssistant(assistantId, (message) => ({
@@ -1965,46 +2284,45 @@ export function AiChatDock({
         latestQueryPreview &&
           shouldInvalidateForDynamicPeriod(content, latestQueryPreview),
       );
-      const resurfacedPreview =
-        !retrying &&
-        !options?.silentUser &&
-        !invalidatesPendingPreview &&
-        latestQueryPreview &&
-        !latestQueryPreview.stale &&
-        !latestQueryPreview.savedQueryId &&
-        shouldResurfaceQueryPreview(
-          content,
-          latestQueryPreview.savedQueryName ??
-            latestQueryPreview.intent.queryName,
-        )
-          ? latestQueryPreview
-          : undefined;
-      const pendingQueryPreviews =
-        !retrying &&
-        !options?.silentUser &&
-        shouldSendPendingPreviewContext(content) &&
-        latestQueryPreview &&
-        latestQueryPreview.sqlText.length <= 60_000
-          ? [
-              {
-                testRunId: latestQueryPreview.testRunId,
-                queryName: latestQueryPreview.intent.queryName,
-                dataSource: {
-                  id: latestQueryPreview.dataSource.id,
-                  name: latestQueryPreview.dataSource.name,
-                },
-                sqlText: latestQueryPreview.sqlText,
-                parameters: latestQueryPreview.parameters,
-                testValues: latestQueryPreview.testValues,
-              },
-            ]
-          : undefined;
-      const moveResurfacedPreviewToEnd = () => {
-        if (!resurfacedPreview) return;
-        setItems((current) =>
-          movePendingQueryPreviewToEnd(current, resurfacedPreview.id),
+      const shouldIncludePendingQueryContext =
+        shouldSendPendingPreviewContext(content) ||
+        Boolean(
+          latestQueryPreview &&
+            shouldResurfaceQueryPreview(
+              content,
+              latestQueryPreview.savedQueryName ?? latestQueryPreview.intent.queryName,
+            ),
         );
-      };
+      let pendingQueryPreviews =
+        !retrying &&
+        !options?.silentUser &&
+        shouldIncludePendingQueryContext
+          ? items.flatMap((item) =>
+              item.kind === "query_preview" &&
+              !item.savedQueryId &&
+              (!item.stale || item.testRunId === latestQueryPreview?.testRunId) &&
+              item.sqlText.length <= 60_000
+                ? [{
+                    testRunId: item.testRunId,
+                    queryName: item.intent.queryName,
+                    purpose: item.purpose ?? "quick_query",
+                    dataSource: {
+                      id: item.dataSource.id,
+                      name: item.dataSource.name,
+                    },
+                    sqlText: item.sqlText,
+                    parameters: item.parameters,
+                    testValues: item.testValues,
+                  }]
+                : [],
+            ).slice(-3)
+          : undefined;
+      while (
+        pendingQueryPreviews?.length &&
+        new TextEncoder().encode(JSON.stringify(pendingQueryPreviews)).length > 60_000
+      ) {
+        pendingQueryPreviews = pendingQueryPreviews.slice(1);
+      }
       const baseUrl = (
         import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000"
       ).replace(/\/$/, "");
@@ -2031,14 +2349,7 @@ export function AiChatDock({
         if (!retrying) {
           return options?.silentUser
             ? [...withInvalidatedPreview, assistantMessage]
-            : [
-                ...(resurfacedPreview
-                  ? withInvalidatedPreview.filter((item) => item.id !== resurfacedPreview.id)
-                  : withInvalidatedPreview),
-                userMessage,
-                ...(resurfacedPreview ? [resurfacedPreview] : []),
-                assistantMessage,
-              ];
+            : [...withInvalidatedPreview, userMessage, assistantMessage];
         }
         const failedAssistantId = [...current]
           .reverse()
@@ -2061,6 +2372,7 @@ export function AiChatDock({
       });
       setDraft("");
       setBusy(true);
+      setActivityProgress("Conectando à IA…");
 
       try {
         const response = await fetch(`${baseUrl}/api/admin/ai/chat`, {
@@ -2115,7 +2427,6 @@ export function AiChatDock({
             ));
           }
         });
-        moveResurfacedPreviewToEnd();
         if (!receivedDone && !receivedError) {
           throw new Error(
             "A conexão foi encerrada antes de a IA concluir a resposta.",
@@ -2150,19 +2461,19 @@ export function AiChatDock({
               kind: "error",
               assistantId: assistantMessage.id,
               retryable: true,
-              message:
-                reason instanceof Error
-                  ? reason.message
-                  : "A conexão com a IA falhou.",
+              message: reason instanceof TypeError && /fetch|network|load failed/i.test(reason.message)
+                ? `A conexão com o servidor foi interrompida.${activeRequestIdRef.current ? ` ID ${activeRequestIdRef.current.slice(0, 8)}.` : ""} Tente novamente.`
+                : `${reason instanceof Error ? reason.message : "A conexão com a IA falhou."}${activeRequestIdRef.current ? ` (ID ${activeRequestIdRef.current.slice(0, 8)})` : ""}`,
             },
           ]);
         }
-        moveResurfacedPreviewToEnd();
         return false;
       } finally {
         if (generation === generationRef.current) {
           setBusy(false);
+          setActivityProgress(undefined);
           abortRef.current = null;
+          activeRequestIdRef.current = null;
           activeAssistantIdRef.current = null;
         }
       }
@@ -2205,6 +2516,8 @@ export function AiChatDock({
     abortRef.current?.abort();
     abortRef.current = null;
     setBusy(false);
+    setActivityProgress(undefined);
+    activeRequestIdRef.current = null;
     setItems([]);
     setDraft("");
     activeAssistantIdRef.current = null;
@@ -2217,19 +2530,25 @@ export function AiChatDock({
 
   const continueAfterQuerySaved = useCallback(
     (preview: QueryPreviewItem, queryId: string, queryName: string) => {
+      const shouldContinue = preview.purpose === "dashboard"
+        || hasPendingDashboardComponentRequest(items, location.pathname);
+      const savedPreview = shouldContinue && preview.purpose !== "dashboard"
+        ? { ...preview, purpose: "dashboard" as const }
+        : preview;
       setItems((current) => markQueryPreviewSavedOnce(
         current,
         preview.testRunId,
         queryId,
         queryName,
         {
-            ...preview,
+            ...savedPreview,
             id: newId(),
             savedQueryId: queryId,
             savedQueryName: queryName,
             stale: false,
         },
       ));
+      if (!shouldContinue) return;
       void send({
         content: `A query “${queryName}” foi salva com o UUID ${queryId}. Continue a solicitação original que dependia dela; se não houver outra etapa pendente, confirme que ela foi salva.`,
         silentUser: true,
@@ -2249,7 +2568,7 @@ export function AiChatDock({
         ]);
       });
     },
-    [send],
+    [items, location.pathname, send],
   );
 
   const markContextProposalResolved = useCallback(
@@ -2386,6 +2705,7 @@ export function AiChatDock({
     <ChatWindow
       items={items}
       busy={busy}
+      activityProgress={activityProgress}
       draft={draft}
       pageLabel={pageLabel}
       onDraftChange={setDraft}

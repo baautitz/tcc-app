@@ -37,7 +37,7 @@ import { createAiQuestionnaireTools } from "./services/ai-questionnaire.js";
 import { DataSourceCatalogSnapshotChangedError, hasDataSourceTargetChanged, MAX_DATA_SOURCE_CATALOG_TABLES, reconcileDataSourceCatalog, type CatalogSourceSnapshot, type CatalogSourceUpdate } from "./services/data-source-catalog.js";
 import { DataSourceContextSourceNotFoundError, DataSourceContextVersionConflictError, DataSourceTableContextVersionConflictError, sourceContextRevisionChanged, updateTableContextIfSourceVersionMatches } from "./services/data-source-context.js";
 import { issueQueryTestReceipt, QueryLifecycleError, queryDraftFingerprint, querySourceTargetHash, saveQueryWithTestReceipt, type QueryLifecycleQuery, type QueryLifecycleRepository, type QueryLifecycleTransaction, type QuerySaveMode, type QueryTestReceipt } from "./services/query-lifecycle.js";
-import { createAiDashboardTools, type AiDashboardQuery, type AiDashboardQueryDefinition, type AiDashboardToolsRepository } from "./services/ai-dashboard-tools.js";
+import { createAiDashboardTools, validateDashboardPreviewFields, type AiDashboardQuery, type AiDashboardQueryDefinition, type AiDashboardToolsRepository } from "./services/ai-dashboard-tools.js";
 import { dashboardDocumentFingerprint, dashboardProposalPreviewScope, dashboardReferenceFingerprint } from "./services/ai-dashboard-proposals.js";
 import { assertDashboardPreviewAcknowledged, assertDashboardProposalFresh, assertDashboardProposalUsable, isDashboardProposalAlreadyApplied } from "./services/dashboard-proposal-lifecycle.js";
 import { readFile } from "node:fs/promises";
@@ -792,7 +792,7 @@ app.post("/api/admin/ai/dashboard-proposals/:id/preview", authentication, adminR
       z.string().max(80),
       z.union([z.string().max(2_048), z.array(z.string().max(2_048)).max(50)]),
     ).default({}),
-    componentIds: z.array(z.string().trim().min(1).max(160)).min(1).max(24),
+    componentIds: z.array(z.string().trim().min(1).max(160)).max(24),
   }).strict());
   const receipt = (await db.select().from(dashboardProposalReceipts)
     .where(eq(dashboardProposalReceipts.id, receiptId)).limit(1))[0];
@@ -910,7 +910,19 @@ app.post("/api/admin/ai/dashboard-proposals/:id/preview", authentication, adminR
       };
     }
   }
-  return context.json({ queries: previews });
+  const pendingIssues = Object.entries(previews).flatMap(([queryId, preview]) =>
+    preview.previewPending ? [`A prévia da query ${queryId.slice(0, 8)} continua aguardando filtros: ${preview.previewPending}`] : [],
+  );
+  const issues = [
+    ...pendingIssues,
+    ...validateDashboardPreviewFields(
+      document,
+      previews,
+      new Set(previewScope.componentIds),
+      new Set(previewScope.arguments.map((argument) => argument.name)),
+    ),
+  ];
+  return context.json({ queries: previews, issues });
 });
 
 app.post("/api/admin/ai/dashboard-proposals/:id/commit", authentication, adminRequired, async (context) => {

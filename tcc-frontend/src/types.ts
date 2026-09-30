@@ -139,6 +139,7 @@ export type SavedQuery = QuerySummary & {
 export type QueryPreview = {
   testRunId: string;
   dataSource: { id: string; name: string };
+  purpose?: "dashboard" | "quick_query";
   intent: {
     mode: "create" | "update";
     queryId?: string;

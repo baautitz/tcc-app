@@ -47,11 +47,12 @@ export const aiDashboardProposalInputSchema = z.object({
   mode: z.enum(["create", "update"]),
   dashboardId: z.string().uuid().optional(),
   name: z.string().trim().min(1).max(200),
-  description: z.string().trim().max(2000).default(""),
-  gap: gapSchema.default(16),
+  description: z.string().trim().max(2000).optional(),
+  gap: gapSchema.optional(),
   workspace: z.object({ params: z.array(dashboardArgumentSchema).max(30).default([]) }).strict().default({ params: [] }),
   queryBindings: z.array(queryBindingSchema).max(50).default([]),
-  components: z.array(aiComponentSchema).min(1).max(24),
+  components: z.array(aiComponentSchema).max(24).default([]),
+  removeComponentIds: z.array(z.string().trim().min(1).max(160)).max(24).default([]),
   contextValues: z.record(z.string().max(80), z.union([z.string().max(2048), z.array(z.string().max(2048)).max(50)])).default({}),
 }).strict().superRefine((proposal, context) => {
   if (proposal.mode === "update" && !proposal.dashboardId) {
@@ -60,14 +61,30 @@ export const aiDashboardProposalInputSchema = z.object({
   if (proposal.mode === "create" && proposal.dashboardId) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ["dashboardId"], message: "Uma proposta de criação não pode indicar dashboard existente." });
   }
+  if (proposal.mode === "create" && proposal.components.length === 0) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["components"], message: "Uma proposta de criação precisa adicionar ao menos um componente." });
+  }
+  if (proposal.mode === "create" && proposal.removeComponentIds.length > 0) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["removeComponentIds"], message: "Uma proposta de criação não pode remover componentes existentes." });
+  }
+  if (proposal.mode === "update" && proposal.components.length === 0 && proposal.removeComponentIds.length === 0) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["components"], message: "Informe componentes para adicionar/alterar ou IDs para remover." });
+  }
   const ids = new Set<string>();
   for (const [index, component] of proposal.components.entries()) {
     if (ids.has(component.id)) context.addIssue({ code: z.ZodIssueCode.custom, path: ["components", index, "id"], message: "IDs de componentes devem ser únicos." });
     ids.add(component.id);
   }
+  const removedIds = new Set<string>();
+  for (const [index, id] of proposal.removeComponentIds.entries()) {
+    if (removedIds.has(id)) context.addIssue({ code: z.ZodIssueCode.custom, path: ["removeComponentIds", index], message: "IDs para remoção devem ser únicos." });
+    if (ids.has(id)) context.addIssue({ code: z.ZodIssueCode.custom, path: ["removeComponentIds", index], message: "Um componente não pode ser alterado e removido na mesma proposta." });
+    removedIds.add(id);
+  }
 });
 
 export type AiDashboardProposalInput = z.infer<typeof aiDashboardProposalInputSchema>;
+export type DashboardComponentChange = "added" | "modified" | "unchanged";
 
 function stableJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
@@ -125,6 +142,13 @@ export function summarizeDashboardChanges(
     (binding) => binding.queryUuid,
     (binding) => `${binding.queryUuid.slice(0, 8)}… → ${Object.keys(binding.parameters).join(", ") || "sem parâmetros"}`,
   );
+  const previousComponentIds = previous?.ui.components.map((component) => component.id) ?? [];
+  const nextComponentIds = next.ui.components.map((component) => component.id);
+  const componentOrderChanged = Boolean(previous) &&
+    previousComponentIds.join("\u0000") !== nextComponentIds.join("\u0000");
+  const orderSummary = componentOrderChanged
+    ? ` Ordem proposta: ${next.ui.components.map((component) => String(component.props.title ?? component.id)).join(" → ") || "nenhum componente"}.`
+    : "";
   const describe = (label: string, change: typeof components) => {
     const parts = [
       change.added.length ? `adicionados: ${change.added.join("; ")}` : "",
@@ -137,10 +161,28 @@ export function summarizeDashboardChanges(
     `Nome do dashboard: ${previous ? `“${displayValue(previous.name)}”` : "(novo)"} → “${displayValue(next.name)}”.`,
     `Descrição: ${previous ? `“${displayValue(previous.description ?? "")}”` : "(nova)"} → “${displayValue(next.description ?? "")}”.`,
     `Espaçamento (gap): ${previous ? String(previous.ui.layout.gap) : "(novo)"} → ${String(next.ui.layout.gap)}.`,
-    describe("Componentes", components),
+    `${describe("Componentes", components)}${orderSummary}`,
     describe("Filtros do dashboard", params),
     describe("Mapeamentos de parâmetros das queries", bindings),
   ];
+}
+
+export function dashboardComponentChanges(
+  next: DashboardDocument,
+  previous?: DashboardDocument,
+): Record<string, DashboardComponentChange> {
+  const previousById = new Map(
+    (previous?.ui.components ?? []).map((component) => [component.id, component]),
+  );
+  return Object.fromEntries(next.ui.components.map((component) => {
+    const before = previousById.get(component.id);
+    const status: DashboardComponentChange = !before
+      ? "added"
+      : stableJson(before) === stableJson(component)
+        ? "unchanged"
+        : "modified";
+    return [component.id, status];
+  }));
 }
 
 export function createDashboardDocument(
@@ -159,7 +201,7 @@ export function createDashboardDocument(
     input.workspace.params,
     (parameter) => parameter.name,
   );
-  const queryBindings = mergeBy(
+  const mergedQueryBindings = mergeBy(
     input.mode === "update" ? previous?.queryBindings ?? [] : [],
     input.queryBindings,
     (binding) => binding.queryUuid,
@@ -175,19 +217,50 @@ export function createDashboardDocument(
       props,
     };
   });
+  const existingComponents = input.mode === "update" ? previous?.ui.components ?? [] : [];
+  const existingComponentIds = new Set(existingComponents.map((component) => component.id));
+  const unknownRemovalId = input.removeComponentIds.find((id) => !existingComponentIds.has(id));
+  if (unknownRemovalId) {
+    throw new Error(`O componente '${unknownRemovalId}' não existe no dashboard atual.`);
+  }
+  const removedComponentIds = new Set(input.removeComponentIds);
+  const survivingComponents = existingComponents.filter((component) => !removedComponentIds.has(component.id));
+  const proposedIds = new Set(proposedComponents.map((component) => component.id));
+  const suppliesCompleteOrder = survivingComponents.every((component) => proposedIds.has(component.id));
+  const nextComponents = suppliesCompleteOrder
+    ? proposedComponents
+    : mergeBy(survivingComponents, proposedComponents, (component) => component.id);
+  const removedQueryIds = new Set(
+    existingComponents
+      .filter((component) => removedComponentIds.has(component.id))
+      .flatMap((component) => {
+        const queryUuid = component.props.queryUuid;
+        return typeof queryUuid === "string" ? [queryUuid] : [];
+      }),
+  );
+  const stillReferencedQueryIds = new Set([
+    ...nextComponents.flatMap((component) => {
+      const queryUuid = component.props.queryUuid;
+      return typeof queryUuid === "string" ? [queryUuid] : [];
+    }),
+    ...workspaceParams.flatMap((parameter) =>
+      parameter.lookup ? [parameter.lookup.queryUuid] : [],
+    ),
+  ]);
+  const queryBindings = mergedQueryBindings.filter(
+    (binding) =>
+      !removedQueryIds.has(binding.queryUuid) ||
+      stillReferencedQueryIds.has(binding.queryUuid),
+  );
   const document = dashboardDocumentSchema.parse({
     id: dashboardId,
-    name: input.name,
-    description: input.description,
+    name: input.name ?? previous?.name ?? "",
+    description: input.description ?? previous?.description ?? "",
     workspace: { params: workspaceParams },
     queryBindings,
     ui: {
-      layout: { type: "grid", columns: 12, gap: input.gap },
-      components: mergeBy(
-        input.mode === "update" ? previous?.ui.components ?? [] : [],
-        proposedComponents,
-        (component) => component.id,
-      ),
+      layout: { type: "grid", columns: 12, gap: input.gap ?? previous?.ui.layout.gap ?? 16 },
+      components: nextComponents,
     },
   });
   if (input.mode === "update" && previous && document.id !== previous.id) {
@@ -210,7 +283,6 @@ export function dashboardProposalPreviewScope(
     requestedIds.has(component.id),
   );
   if (
-    requestedIds.size === 0 ||
     requestedIds.size !== componentIds.length ||
     components.length !== requestedIds.size
   ) {

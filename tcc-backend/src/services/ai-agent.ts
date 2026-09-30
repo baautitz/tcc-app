@@ -1,7 +1,7 @@
 import { createAgent } from "langchain";
 import { createMiddleware } from "langchain";
 import { ChatOpenAI } from "@langchain/openai";
-import { RemoveMessage, SystemMessage, ToolMessage } from "@langchain/core/messages";
+import { AIMessage, RemoveMessage, SystemMessage, ToolMessage } from "@langchain/core/messages";
 import type { AIMessageChunk } from "@langchain/core/messages";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import type { StructuredToolInterface } from "@langchain/core/tools";
@@ -48,16 +48,124 @@ function record(value: unknown): Record<string, unknown> | undefined {
     : undefined;
 }
 
+function messageText(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+  return content.flatMap((part) => {
+    const item = record(part);
+    return item?.type === "text" && typeof item.text === "string"
+      ? [item.text]
+      : [];
+  }).join(" ");
+}
+
+export function latestUserAskedToAddDashboardComponent(
+  messages: readonly unknown[],
+  runtimeContext?: unknown,
+): boolean {
+  const userMessages = messages.filter((message) => {
+    const candidate = record(message);
+    return candidate?.type === "human" || candidate?.role === "user";
+  });
+  const latestUserText = messageText(record(userMessages.at(-1))?.content);
+  const normalizedLatest = latestUserText
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  const isQuestionnaireAnswer = /\b(respostas? ao formulario|respostas enviadas)\b/.test(normalizedLatest);
+  const text = [
+    ...(isQuestionnaireAnswer ? [messageText(record(userMessages.at(-2))?.content)] : []),
+    latestUserText,
+  ].join(" ")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  const asksForComponent = /\b(graficos?|dashboards?|paineis|componentes?|tabelas?)\b/.test(text);
+  const asksForAction = /\b(adicionar|adicione|adiciona|inclui|inclua|incluir|criar|crie|montar|monte|colocar|coloque|inserir|insira|gerar|gere|faca|fazer)\b/.test(text);
+  const requestsVisualization = /\b(quero|preciso)\b/.test(text)
+    && /\b(graficos?|dashboards?|paineis)\b/.test(text);
+  const placementInstruction = /\b(ao lado(?: direito| esquerdo)?|a direita|a esquerda|acima|abaixo|antes|depois|apos)\b/.test(text);
+  const metricDescription = /\b(somatoria|soma|total|quantidade|indicador|metrica|kpi)\b/.test(text);
+  const context = record(runtimeContext);
+  if (context?.pendingDashboardContinuation === true) return true;
+  const pathname = typeof context?.pathname === "string" ? context.pathname : "";
+  const hasDashboardContext = typeof context?.dashboardId === "string"
+    || /^\/(?:admin\/)?dashboards(?:\/|$)/i.test(pathname);
+  const hasDashboardReference = /\b(dashboard|painel|componente|card|cartao)\b/.test(text);
+  const concreteVisualization = /\b(graficos?|tabelas?|indicadores?|metricas?|kpis?)\b/.test(text)
+    && /\b(top\s*\d+|maiores?|menores?|por\s+(?:venda|faturamento|categoria|estado|cidade)|venda|faturamento)\b/.test(text);
+  const recentConcreteVisualization = userMessages.slice(-6, -1).some((message) => {
+    const previousText = messageText(record(message)?.content)
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase();
+    return /\b(graficos?|tabelas?|indicadores?|metricas?|kpis?)\b/.test(previousText)
+      && /\b(top\s*\d+|maiores?|menores?|por\s+(?:venda|faturamento|categoria|estado|cidade)|venda|faturamento)\b/.test(previousText);
+  });
+  const confirmsImplementation = /\b(pode|poderia|vamos|sim)\b.{0,32}\b(implementar|implemente|adicionar|incluir|montar|criar)\b/.test(normalizedLatest)
+    && recentConcreteVisualization;
+  const placesDashboardMetric = asksForAction
+    && placementInstruction
+    && (metricDescription || hasDashboardContext || hasDashboardReference);
+  return (asksForComponent && asksForAction)
+    || requestsVisualization
+    || placesDashboardMetric
+    || concreteVisualization
+    || confirmsImplementation
+    || (isQuestionnaireAnswer && recentConcreteVisualization);
+}
+
+function optionalMultiSelectFilterIssue(input: Record<string, unknown>): string | undefined {
+  if (typeof input.sqlText !== "string" || !Array.isArray(input.parameters))
+    return undefined;
+  for (const value of input.parameters) {
+    const parameter = record(value);
+    if (
+      !parameter ||
+      parameter.required === true ||
+      parameter.type !== "multi_select" ||
+      typeof parameter.name !== "string"
+    ) continue;
+
+    const name = parameter.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const placeholder = String.raw`\{\{\s*${name}\s*\}\}`;
+    const usedAsFilter = new RegExp(
+      String.raw`\b(?:CARDINALITY|ARRAY_LENGTH)\s*\(\s*${placeholder}|\bANY\s*\(\s*${placeholder}`,
+      "i",
+    ).test(input.sqlText);
+    if (!usedAsFilter) continue;
+
+    const handlesEmptyAndNull = new RegExp(
+      String.raw`COALESCE\s*\(\s*(?:CARDINALITY|ARRAY_LENGTH)\s*\(\s*${placeholder}[\s\S]{0,80}?\)\s*,\s*0\s*\)\s*=\s*0`,
+      "i",
+    ).test(input.sqlText);
+    if (!handlesEmptyAndNull) {
+      return `O parâmetro opcional multi_select '{{${parameter.name}}}' é usado como filtro sem tratar NULL/lista vazia como “todas as opções”. Preserve required=false e proteja o filtro com COALESCE(CARDINALITY({{${parameter.name}}}::text[]), 0) = 0 OR coluna = ANY({{${parameter.name}}}::text[]) antes de executar a query.`;
+    }
+  }
+  return undefined;
+}
+
 function clearPendingResponse(runtimeContext: unknown): void {
   const clear = record(runtimeContext)?.clearPendingResponse;
   if (typeof clear === "function") clear();
 }
 
-export function queryPreflightIssue(messages: readonly unknown[], args: unknown): string | undefined {
+export function queryPreflightIssue(
+  messages: readonly unknown[],
+  args: unknown,
+  runtimeContext?: unknown,
+): string | undefined {
   const input = record(args);
-  const dataSourceId = typeof input?.dataSourceId === "string" ? input.dataSourceId : undefined;
-  const sqlText = typeof input?.sqlText === "string" ? input.sqlText : undefined;
+  if (!input) return "A chamada de teste está incompleta. Corrija os argumentos antes de validar.";
+  if (latestUserAskedToAddDashboardComponent(messages, runtimeContext) && input.purpose !== "dashboard") {
+    return "A última solicitação pede adicionar um componente ao dashboard. Classifique esta query com purpose='dashboard' para que o salvamento continue automaticamente com a prévia do dashboard.";
+  }
+  const dataSourceId = typeof input.dataSourceId === "string" ? input.dataSourceId : undefined;
+  const sqlText = typeof input.sqlText === "string" ? input.sqlText : undefined;
   if (!dataSourceId || !sqlText) return "A chamada de teste está incompleta. Corrija os argumentos antes de validar.";
+  const optionalFilterIssue = optionalMultiSelectFilterIssue(input);
+  if (optionalFilterIssue) return optionalFilterIssue;
 
   const successfulToolResults = messages.flatMap((message) => {
     const candidate = record(message);
@@ -65,6 +173,24 @@ export function queryPreflightIssue(messages: readonly unknown[], args: unknown)
     const result = parseToolResult(candidate.content);
     return result ? [{ name: candidate.name, result }] : [];
   });
+  if (input.mode === "update") {
+    const queryId = typeof input.queryId === "string" ? input.queryId : undefined;
+    const listedQuery = successfulToolResults.some(({ name, result }) => name === "list_saved_queries"
+      && Array.isArray(result.queries)
+      && result.queries.some((query) => record(query)?.id === queryId));
+    if (!listedQuery) return "Antes de editar, use list_saved_queries e selecione o UUID atual da query solicitada.";
+    const savedQuery = successfulToolResults.find(({ name, result }) => name === "get_saved_query"
+      && result.id === queryId);
+    if (!savedQuery) return "Antes de editar, leia o SQL e os parâmetros atuais com get_saved_query para este UUID.";
+    if (savedQuery.result.dataSourceId !== dataSourceId) {
+      return "Use em test_query o servidor dataSourceId retornado por get_saved_query para esta query.";
+    }
+    // The saved SQL is the schema context for a targeted edit. test_query still
+    // performs the authoritative live catalog, SQL safety, and PostgreSQL checks.
+    // Re-discovering every unchanged table and profiling unrelated filters here
+    // only blocks edits when those read tools are temporarily unavailable.
+    return undefined;
+  }
   const listedSource = successfulToolResults.some(({ name, result }) => name === "list_data_sources"
     && Array.isArray(result.sources)
     && result.sources.some((source) => record(source)?.id === dataSourceId));
@@ -248,6 +374,54 @@ function latestQueryTestResult(messages: readonly unknown[]): Record<string, unk
   return latest;
 }
 
+function latestUserRequestedQueryUpdate(messages: readonly unknown[]): { requested: boolean; queryName?: string } {
+  const userMessage = [...messages].reverse().find((message) => {
+    const candidate = record(message);
+    return candidate?.type === "human" || candidate?.role === "user";
+  });
+  const text = messageText(record(userMessage)?.content);
+  const normalized = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const requestsChange = /\b(ajust\w*|corrig\w*|alter\w*|modific\w*|atualiz\w*)\b/.test(normalized);
+  const referencesQuery = /\b(query|consulta|sql)\b/.test(normalized);
+  const quotedName = text.match(/\b(?:query|consulta|sql)\s+(?:(?:de|chamada|chamado)\s+)?[“"']([^”"']{2,160})[”"']/i)?.[1]?.trim();
+  return {
+    requested: requestsChange && referencesQuery,
+    ...(quotedName ? { queryName: quotedName } : {}),
+  };
+}
+
+function hasSuccessfulQueryUpdatePreview(messages: readonly unknown[], expectedName?: string): boolean {
+  const expected = expectedName?.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  return messages.some((message) => {
+    const candidate = record(message);
+    if (candidate?.type !== "tool" || candidate.name !== "test_query" || candidate.status === "error") return false;
+    const result = parseToolResult(candidate.content);
+    const intent = record(result?.intent);
+    if (result?.ok !== true || intent?.mode !== "update" || typeof intent.queryId !== "string") return false;
+    if (!expected) return true;
+    const actual = typeof intent.queryName === "string"
+      ? intent.queryName.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+      : "";
+    return actual === expected;
+  });
+}
+
+function hasDashboardProposal(messages: readonly unknown[]): boolean {
+  return messages.some((message) => {
+    const candidate = record(message);
+    if (candidate?.type !== "tool" || candidate.name !== "create_or_update_dashboard" || candidate.status === "error") return false;
+    const result = parseToolResult(candidate.content);
+    return typeof result?.proposalId === "string";
+  });
+}
+
+function hasPendingDashboardQuestion(messages: readonly unknown[]): boolean {
+  return messages.some((message) => {
+    const candidate = record(message);
+    return candidate?.type === "tool" && candidate.name === "ask_admin_questions" && candidate.status !== "error";
+  });
+}
+
 function hasUnresolvedTestQueryCall(messages: readonly unknown[]): boolean {
   const testCallIds = new Set<string>();
   const resolvedCallIds = new Set<string>();
@@ -274,6 +448,8 @@ const finalResponseQa = createMiddleware({
     emptyResponseRetries: z.number().default(0),
     zeroRowsReviewRetries: z.number().default(0),
     queryResultReviewRetries: z.number().default(0),
+    queryUpdateRetries: z.number().default(0),
+    dashboardProposalRetries: z.number().default(0),
   }),
   wrapToolCall: async (request, handler) => {
     if (
@@ -300,7 +476,7 @@ const finalResponseQa = createMiddleware({
             ok: false,
             code: "DASHBOARD_CONTEXT_REQUIRED",
             message: issue,
-            instruction: "Não gere a proposta ainda. Leia o dashboard alvo com get_current_dashboard, use os filtros e bindings retornados, preserve os componentes existentes e só então tente novamente.",
+            instruction: "Não aplique o patch ainda. Leia o dashboard alvo com get_current_dashboard, use os filtros e bindings retornados, preserve os componentes não mencionados e só então tente novamente.",
           }),
           tool_call_id: request.toolCall.id ?? crypto.randomUUID(),
           name: request.toolCall.name,
@@ -308,7 +484,11 @@ const finalResponseQa = createMiddleware({
       }
     }
     if (request.toolCall.name !== "test_query") return handler(request);
-    const issue = queryPreflightIssue(request.state.messages, request.toolCall.args);
+    const issue = queryPreflightIssue(
+      request.state.messages,
+      request.toolCall.args,
+      request.runtime.context,
+    );
     if (!issue) return handler(request);
     clearPendingResponse(request.runtime.context);
     return new ToolMessage({
@@ -318,7 +498,11 @@ const finalResponseQa = createMiddleware({
         retryable: false,
         askUser: false,
         message: issue,
-        instruction: "Não execute SQL ainda. Complete a etapa de análise indicada usando as ferramentas de leitura; depois reavalie a query e tente uma vez com SQL fundamentado no catálogo.",
+        instruction: issue.includes("purpose='dashboard'")
+          ? "A query ainda não foi executada. Repita test_query com os mesmos SQL, parâmetros e valores, corrigindo purpose para dashboard. O pedido de adicionar o componente continua pendente."
+          : issue.includes("NULL/lista vazia")
+            ? "Corrija o SQL para preservar required=false e fazer seleção ausente, NULL ou array vazio significar ausência do filtro. Use COALESCE(CARDINALITY(array), 0) = 0 OR coluna = ANY(array); depois execute test_query novamente."
+          : "Não execute SQL ainda. Complete a etapa de análise indicada usando as ferramentas de leitura; depois reavalie a query e tente uma vez com SQL fundamentado no catálogo.",
       }),
       tool_call_id: request.toolCall.id ?? crypto.randomUUID(),
       name: "test_query",
@@ -365,6 +549,71 @@ const finalResponseQa = createMiddleware({
       }
       if (toolCalls.length > 0) return;
 
+      const queryUpdateRequest = latestUserRequestedQueryUpdate(state.messages);
+      const latestTest = latestQueryTestResult(state.messages);
+      if (
+        queryUpdateRequest.requested &&
+        !hasSuccessfulQueryUpdatePreview(state.messages, queryUpdateRequest.queryName) &&
+        latestTest?.askUser !== true
+      ) {
+        if (state.queryUpdateRetries < 1 && lastMessage.id) {
+          clearPendingResponse(runtime.context);
+          return {
+            messages: [
+              new RemoveMessage({ id: lastMessage.id }),
+              new SystemMessage(
+                "O administrador pediu para editar uma query salva, mas você ainda não produziu um cartão query_preview com intent.mode='update'. Localize a query pelo nome em list_saved_queries, leia o SQL e os parâmetros com get_saved_query, preserve required=false e altere apenas o pedido. Depois use test_query com mode='update' e o mesmo queryId; conclua a rodada assim que a prévia for gerada. A aplicação exige confirmação humana para salvar. Se alguma ferramenta falhar ou não encontrar a query, não improvise nem declare sucesso: informe que o ajuste não foi concluído.",
+              ),
+            ],
+            queryUpdateRetries: state.queryUpdateRetries + 1,
+            jumpTo: "model" as const,
+          };
+        }
+        if (lastMessage.id) {
+          clearPendingResponse(runtime.context);
+          return {
+            messages: [
+              new RemoveMessage({ id: lastMessage.id }),
+              new AIMessage({
+                content: "Não consegui gerar a prévia de atualização da query nesta tentativa. Nenhuma alteração foi salva; a query não foi ajustada. As ferramentas de leitura ou validação não concluíram o fluxo necessário.",
+              }),
+            ],
+          };
+        }
+      }
+
+      const dashboardRequest = latestUserAskedToAddDashboardComponent(state.messages, runtime.context);
+      if (
+        dashboardRequest &&
+        !hasDashboardProposal(state.messages) &&
+        !hasPendingDashboardQuestion(state.messages)
+      ) {
+        if (state.dashboardProposalRetries < 1 && lastMessage.id) {
+          clearPendingResponse(runtime.context);
+          return {
+            messages: [
+              new RemoveMessage({ id: lastMessage.id }),
+              new SystemMessage(
+                "O administrador pediu um componente de dashboard, mas você ainda não gerou uma prévia com create_or_update_dashboard. Leia o dashboard atual e as queries necessárias, respeite as decisões já respondidas, e chame a ferramenta para produzir o cartão actionCard de prévia. Se faltar query salva ou contexto indispensável, use o formulário apropriado. Não diga que a prévia está pronta sem o resultado da ferramenta; se ela falhar, informe que o dashboard não foi alterado e diga que o cartão não foi gerado.",
+              ),
+            ],
+            dashboardProposalRetries: state.dashboardProposalRetries + 1,
+            jumpTo: "model" as const,
+          };
+        }
+        if (lastMessage.id) {
+          clearPendingResponse(runtime.context);
+          return {
+            messages: [
+              new RemoveMessage({ id: lastMessage.id }),
+              new AIMessage({
+                content: "Não consegui gerar o cartão de prévia do dashboard nesta rodada. Nenhuma alteração no dashboard foi aplicada.",
+              }),
+            ],
+          };
+        }
+      }
+
       const content = lastMessage.content;
       const text = typeof content === "string"
         ? content
@@ -376,7 +625,6 @@ const finalResponseQa = createMiddleware({
           )).join("")
           : "";
       const userFacingText = text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
-      const latestTest = latestQueryTestResult(state.messages);
       const needsQueryResultReview = latestTest
         && latestTest.askUser !== true
         && (latestTest.ok === false || (latestTest.ok === true && latestTest.rowCount === 0));
@@ -429,6 +677,7 @@ export interface AiAgentContext {
   isAdmin?: boolean;
   pathname?: string;
   dashboardId?: string;
+  pendingDashboardContinuation?: boolean;
   clearPendingResponse?: () => void;
 }
 
@@ -437,6 +686,7 @@ const aiAgentContextSchema = z.object({
   isAdmin: z.boolean().optional(),
   pathname: z.string().optional(),
   dashboardId: z.string().optional(),
+  pendingDashboardContinuation: z.boolean().optional(),
   clearPendingResponse: z.function().optional(),
 });
 

@@ -53,6 +53,7 @@ export type AiToolProgressEvent =
       toolCallId: string;
       testRunId: string;
       dataSource: { id: string; name: string };
+      purpose?: "dashboard" | "quick_query";
       intent: {
         mode: "create" | "update";
         queryId?: string;
@@ -85,6 +86,7 @@ export type AiToolProgressEvent =
       document: import("./dashboards.js").DashboardDocument;
       definition: import("../lib/contracts.js").DashboardDefinition;
       changeSummary: string[];
+      componentChanges: Record<string, "added" | "modified" | "unchanged">;
       queries: Record<string, {
         rows: Record<string, unknown>[];
         rowLimit: number;
@@ -94,6 +96,12 @@ export type AiToolProgressEvent =
         truncationReason: "row_limit" | "byte_limit" | null;
         error?: string;
       }>;
+    }
+  | {
+      type: "dashboard_applied";
+      dashboardId: string;
+      dashboardName: string;
+      mode: "create" | "update";
     }
   | ContextProposalProgressEvent
   | AiQuestionnaireProgressEvent;

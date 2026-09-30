@@ -130,6 +130,60 @@ const gapClass: Record<number, string> = {
   24: "gap-6",
   32: "gap-8",
 };
+type DashboardComponentChange = "added" | "modified" | "unchanged";
+
+function componentChangeClasses(status?: DashboardComponentChange) {
+  switch (status) {
+    case "added":
+      return {
+        card: "border-emerald-600/45 bg-emerald-500/5 dark:border-emerald-400/40 dark:bg-emerald-400/5",
+        badge: "border-emerald-600/40 bg-emerald-500/10 text-emerald-800 dark:border-emerald-400/40 dark:text-emerald-300",
+        label: "Novo",
+      };
+    case "modified":
+      return {
+        card: "border-amber-600/45 bg-amber-500/5 dark:border-amber-400/40 dark:bg-amber-400/5",
+        badge: "border-amber-600/40 bg-amber-500/10 text-amber-800 dark:border-amber-400/40 dark:text-amber-300",
+        label: "Modificado",
+      };
+    case "unchanged":
+      return {
+        card: "border-border/70 bg-muted/10",
+        badge: "border-border bg-muted text-muted-foreground",
+        label: "Sem alteração",
+      };
+    default:
+      return undefined;
+  }
+}
+
+function ComponentPreviewHeader({
+  component,
+  changeStatus,
+  stat = false,
+}: {
+  component: DashboardComponent;
+  changeStatus?: DashboardComponentChange;
+  stat?: boolean;
+}) {
+  const change = componentChangeClasses(changeStatus);
+  return (
+    <CardHeader>
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        {stat ? (
+          <CardDescription>{component.title}</CardDescription>
+        ) : (
+          <CardTitle>{component.title}</CardTitle>
+        )}
+        {change && (
+          <Badge variant="outline" className={`shrink-0 ${change.badge}`}>
+            {change.label}
+          </Badge>
+        )}
+      </div>
+    </CardHeader>
+  );
+}
 
 function propertyString(
   component: DashboardComponent,
@@ -230,15 +284,16 @@ function ComponentLoading({ component }: { component: DashboardComponent }) {
 function ComponentError({
   component,
   message,
+  changeStatus,
 }: {
   component: DashboardComponent;
   message: string;
+  changeStatus?: DashboardComponentChange;
 }) {
+  const change = componentChangeClasses(changeStatus);
   return (
-    <Card className={colClass(component)}>
-      <CardHeader>
-        <CardTitle>{component.title}</CardTitle>
-      </CardHeader>
+    <Card className={[colClass(component), change?.card].filter(Boolean).join(" ")}>
+      <ComponentPreviewHeader component={component} changeStatus={changeStatus} />
       <CardContent>
         <Alert variant="destructive">
           <AlertCircle />
@@ -252,18 +307,20 @@ function ComponentError({
 function DashboardComponentView({
   component,
   state,
+  changeStatus,
 }: {
   component: DashboardComponent;
   state?: QueryState;
+  changeStatus?: DashboardComponentChange;
 }) {
+  const change = componentChangeClasses(changeStatus);
+  const cardClassName = [colClass(component), change?.card].filter(Boolean).join(" ");
   if (!state || (state.loading && state.rows === undefined))
     return <ComponentLoading component={component} />;
   if (state.previewPending && state.rows === undefined) {
     return (
-      <Card className={colClass(component)}>
-        <CardHeader>
-          <CardTitle>{component.title}</CardTitle>
-        </CardHeader>
+      <Card className={cardClassName}>
+        <ComponentPreviewHeader component={component} changeStatus={changeStatus} />
         <CardContent>
           <Alert>
             <AlertCircle />
@@ -275,14 +332,12 @@ function DashboardComponentView({
     );
   }
   if (state.error && state.rows === undefined)
-    return <ComponentError component={component} message={state.error} />;
+    return <ComponentError component={component} message={state.error} changeStatus={changeStatus} />;
   const rows = state.rows ?? [];
   if (rows.length === 0) {
     return (
-      <Card className={colClass(component)}>
-        <CardHeader>
-          <CardTitle>{component.title}</CardTitle>
-        </CardHeader>
+      <Card className={cardClassName}>
+        <ComponentPreviewHeader component={component} changeStatus={changeStatus} />
         <CardContent>
           <p className="py-6 text-center text-xs text-muted-foreground">
             Nenhum dado retornado.
@@ -297,10 +352,8 @@ function DashboardComponentView({
     const value = field ? rows[0]?.[field] : undefined;
     const format = propertyString(component, "format");
     return (
-      <Card className={colClass(component)}>
-        <CardHeader>
-          <CardDescription>{component.title}</CardDescription>
-        </CardHeader>
+      <Card className={cardClassName}>
+        <ComponentPreviewHeader component={component} changeStatus={changeStatus} stat />
         <CardContent>
           <p className="text-3xl font-semibold tracking-tight">
             {format === "currency"
@@ -311,51 +364,62 @@ function DashboardComponentView({
       </Card>
     );
   }
-  const nameKey =
-    propertyString(component, "nameKey") ??
-    Object.keys(rows[0] ?? {})[0] ??
-    "label";
-  const valueKey =
-    propertyString(component, "valueKey") ??
-    Object.keys(rows[0] ?? {})[1] ??
-    "value";
-  const chartRows = numericChartRows(rows, valueKey);
-  if (component.type === "bar_chart")
-    return (
-      <Card className={colClass(component)}>
-        <CardHeader>
-          <CardTitle>{component.title}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={chartRows}>
-              <XAxis
-                dataKey={nameKey}
-                tickLine={false}
-                axisLine={false}
-                fontSize={11}
-              />
-              <YAxis tickLine={false} axisLine={false} fontSize={11} />
-              <Tooltip />
-              <Bar dataKey={valueKey} fill="var(--chart-1)" radius={0} />
-            </BarChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
-    );
-  if (component.type === "pie_chart") {
-    const rankedRows = rows
-      .map((row) => ({ row, rank: Number(row.ranking) }))
+  if (component.type === "bar_chart" || component.type === "pie_chart") {
+    const nameKey =
+      propertyString(component, "nameKey") ??
+      Object.keys(rows[0] ?? {})[0] ??
+      "label";
+    const valueKey =
+      propertyString(component, "valueKey") ??
+      Object.keys(rows[0] ?? {})[1] ??
+      "value";
+    const chartRows = numericChartRows(rows, valueKey).filter((row) => {
+      const category = row[nameKey];
+      const value = row[valueKey];
+      return category !== null && category !== undefined && String(category).trim() !== ""
+        && typeof value === "number" && Number.isFinite(value);
+    });
+    if (chartRows.length === 0) {
+      const availableFields = Object.keys(rows[0] ?? {}).slice(0, 16).join(", ") || "nenhuma coluna retornada";
+      return (
+        <ComponentError
+          component={component}
+          message={`A query retornou dados, mas nenhuma linha corresponde à categoria '${nameKey}' e ao valor numérico '${valueKey}'. Aliases disponíveis: ${availableFields}. Corrija os aliases do componente ou da query.`}
+          changeStatus={changeStatus}
+        />
+      );
+    }
+    if (component.type === "bar_chart")
+      return (
+        <Card className={cardClassName}>
+          <ComponentPreviewHeader component={component} changeStatus={changeStatus} />
+          <CardContent>
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={chartRows}>
+                <XAxis
+                  dataKey={nameKey}
+                  tickLine={false}
+                  axisLine={false}
+                  fontSize={11}
+                />
+                <YAxis tickLine={false} axisLine={false} fontSize={11} />
+                <Tooltip />
+                <Bar dataKey={valueKey} fill="var(--chart-1)" radius={0} />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      );
+    const rankedRows = chartRows
+      .map((row, index) => ({ row, rank: Number(row.ranking ?? index + 1) }))
       .filter(
         (item) =>
           Number.isInteger(item.rank) && item.rank > 0 && item.rank <= 5,
       )
       .sort((left, right) => left.rank - right.rank);
     return (
-      <Card className={colClass(component)}>
-        <CardHeader>
-          <CardTitle>{component.title}</CardTitle>
-        </CardHeader>
+      <Card className={cardClassName}>
+        <ComponentPreviewHeader component={component} changeStatus={changeStatus} />
         <CardContent>
           <div className="grid items-center gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(9rem,0.8fr)]">
             <ResponsiveContainer width="100%" height={280}>
@@ -410,10 +474,8 @@ function DashboardComponentView({
   }
   const columns = componentColumns(component, rows);
   return (
-    <Card className={colClass(component)}>
-      <CardHeader>
-        <CardTitle>{component.title}</CardTitle>
-      </CardHeader>
+    <Card className={cardClassName}>
+      <ComponentPreviewHeader component={component} changeStatus={changeStatus} />
       <CardContent>
         {rows.length ? (
           <Table>
@@ -450,10 +512,12 @@ export function DashboardProposalCanvas({
   definition,
   rowsByQuery,
   componentIds,
+  componentChanges,
 }: {
   definition: DashboardDefinition;
   rowsByQuery: Record<string, { rows: Record<string, unknown>[]; error?: string; previewPending?: string }>;
   componentIds?: string[];
+  componentChanges?: Record<string, DashboardComponentChange>;
 }) {
   const gridGap = gapClass[definition.layout.gap] ?? "gap-4";
   const visibleComponentIds = componentIds ? new Set(componentIds) : undefined;
@@ -468,6 +532,7 @@ export function DashboardProposalCanvas({
           <DashboardComponentView
             key={component.id}
             component={component}
+            changeStatus={componentChanges?.[component.id]}
             state={{
               loading: false,
               ...(preview?.previewPending

@@ -53,6 +53,7 @@ type DashboardPreviewItem = {
   document: DashboardDocument;
   definition: DashboardDefinition;
   changeSummary: string[];
+  componentChanges: Record<string, "added" | "modified" | "unchanged">;
   requiresTruncationAcknowledgement: boolean;
   queries: Record<string, DashboardPreviewQuery>;
   saved?: boolean;
@@ -62,11 +63,13 @@ type DashboardPreviewItem = {
 
 export type ChatEvent =
   | { version: 1; type: "start"; requestId: string; messageId: string }
+  | { version: 1; type: "progress"; requestId: string; phase: "waiting_for_model" | "running_tool" | "preparing_response"; elapsedMs: number; toolName?: string }
   | { version: 1; type: "token"; messageId: string; delta: string }
   | { version: 1; type: "tool_start"; toolCallId: string; toolName: string }
   | { version: 1; type: "tool_result"; toolCallId: string; toolName: string; ok: boolean }
   | ({ version: 1; type: "query_preview"; toolCallId: string } & QueryPreview)
   | ({ version: 1; type: "dashboard_preview" } & Omit<DashboardPreviewItem, "id" | "kind" | "saved" | "stale">)
+  | { version: 1; type: "dashboard_applied"; dashboardId: string; dashboardName: string; mode: "create" | "update" }
   | { version: 1; type: "questionnaire"; toolCallId: string; questionnaire: AiQuestionnaire }
   | { version: 1; type: "context_proposal"; toolCallId: string; proposal: AiContextProposal }
   | { version: 1; type: "proposal"; proposalId: string; kind: string; title: string; summary: string }
@@ -100,6 +103,14 @@ function decodeEvent(eventName: string, data: string): ChatEvent | undefined {
     case "start":
       if (typeof payload.requestId === "string" && typeof payload.messageId === "string") return normalizedPayload as ChatEvent;
       throw new Error("O evento de início da IA está malformado.");
+    case "progress":
+      if (
+        typeof payload.requestId === "string" &&
+        ["waiting_for_model", "running_tool", "preparing_response"].includes(String(payload.phase)) &&
+        Number.isSafeInteger(payload.elapsedMs) && (payload.elapsedMs as number) >= 0 &&
+        (payload.toolName === undefined || typeof payload.toolName === "string")
+      ) return normalizedPayload as ChatEvent;
+      throw new Error("O evento de progresso da IA está malformado.");
     case "token":
       if (typeof payload.messageId === "string" && typeof payload.delta === "string") return normalizedPayload as ChatEvent;
       throw new Error("O evento de texto da IA está malformado.");
@@ -129,6 +140,7 @@ function decodeEvent(eventName: string, data: string): ChatEvent | undefined {
         typeof payload.toolCallId === "string" &&
         typeof payload.testRunId === "string" &&
         isRecord(dataSource) && typeof dataSource.id === "string" && typeof dataSource.name === "string" &&
+        (payload.purpose === undefined || ["dashboard", "quick_query"].includes(String(payload.purpose))) &&
         isRecord(intent) && ["create", "update"].includes(String(intent.mode)) && typeof intent.queryName === "string" &&
         (intent.queryId === undefined || typeof intent.queryId === "string") &&
         (intent.queryUpdatedAt === undefined || typeof intent.queryUpdatedAt === "string") &&
@@ -179,6 +191,7 @@ function decodeEvent(eventName: string, data: string): ChatEvent | undefined {
       const document = payload.document;
       const definition = payload.definition;
       const queries = payload.queries;
+      const componentChanges = payload.componentChanges;
       const previewComponentIds = payload.previewComponentIds;
       const definitionComponentIds = isRecord(definition) && Array.isArray(definition.components)
         ? definition.components.flatMap((component) =>
@@ -196,6 +209,9 @@ function decodeEvent(eventName: string, data: string): ChatEvent | undefined {
         (query.error === undefined || typeof query.error === "string") &&
         (query.previewPending === undefined || typeof query.previewPending === "string"),
       );
+      const validComponentChanges = isRecord(componentChanges) && Object.entries(componentChanges).every(([id, status]) =>
+        definitionComponentIds.includes(id) && ["added", "modified", "unchanged"].includes(String(status)),
+      );
       if (
         typeof payload.toolCallId === "string" &&
         typeof payload.proposalId === "string" &&
@@ -206,13 +222,21 @@ function decodeEvent(eventName: string, data: string): ChatEvent | undefined {
         (payload.expectedDashboardFingerprint === null || typeof payload.expectedDashboardFingerprint === "string") &&
         isRecord(document) && typeof document.id === "string" && typeof document.name === "string" &&
         isRecord(definition) && Array.isArray(definition.components) &&
-        Array.isArray(previewComponentIds) && previewComponentIds.length > 0 &&
+        Array.isArray(previewComponentIds) &&
         previewComponentIds.every((id) => typeof id === "string" && definitionComponentIds.includes(id)) &&
+        validComponentChanges &&
         new Set(previewComponentIds).size === previewComponentIds.length &&
         validQueries
       ) return normalizedPayload as ChatEvent;
       throw new Error("A prévia do dashboard está malformada.");
     }
+    case "dashboard_applied":
+      if (
+        typeof payload.dashboardId === "string" &&
+        typeof payload.dashboardName === "string" &&
+        ["create", "update"].includes(String(payload.mode))
+      ) return normalizedPayload as ChatEvent;
+      throw new Error("A confirmação do patch no dashboard está malformada.");
     case "questionnaire": {
       const questionnaire = payload.questionnaire;
       const validQuestions = isRecord(questionnaire) &&
@@ -261,6 +285,7 @@ export class SseV1Parser {
   private data: string[] = [];
   private eventName = "message";
   private startedMessageId: string | undefined;
+  private startedRequestId: string | undefined;
   private terminal = false;
 
   push(chunk: string, final = false): ChatEvent[] {
@@ -317,9 +342,13 @@ export class SseV1Parser {
     if (event.type === "start") {
       if (this.startedMessageId !== undefined) throw new Error("O evento de início da IA apareceu mais de uma vez.");
       this.startedMessageId = event.messageId;
+      this.startedRequestId = event.requestId;
       return;
     }
     if (this.startedMessageId === undefined) throw new Error("O streaming da IA começou antes do evento de início.");
+    if (event.type === "progress" && event.requestId !== this.startedRequestId) {
+      throw new Error("O ID da requisição do evento de progresso da IA não corresponde ao início.");
+    }
     if ((event.type === "token" || event.type === "done") && event.messageId !== this.startedMessageId) {
       throw new Error("O ID da mensagem do evento de streaming da IA não corresponde ao início.");
     }

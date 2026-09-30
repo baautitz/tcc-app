@@ -42,6 +42,9 @@ const inputSchema = z
     mode: z.enum(["create", "update"]).default("create").describe(
       "A intenção da revisão: create para salvar nova query ou update para editar uma query existente.",
     ),
+    purpose: z.enum(["dashboard", "quick_query"]).default("quick_query").describe(
+      "Use dashboard sempre que o administrador pedir para adicionar/criar um gráfico, tabela, indicador ou métrica em um dashboard, inclusive quando indicar a posição em relação a um componente existente (por exemplo, ao lado, acima ou abaixo), mesmo que a query seja criada primeiro. Use quick_query somente para consulta/análise sem pedido de alteração do dashboard.",
+    ),
     queryId: z.string().uuid().optional().describe(
       "ID da query existente que será editada; obrigatório quando mode=update. Nunca invente este ID.",
     ),
@@ -60,7 +63,9 @@ const inputSchema = z
       .array(parameterDefinitionSchema)
       .max(50)
       .default([])
-      .describe("Definições dos parâmetros {{nome}} usados pelo SQL."),
+      .describe(
+        "Definições dos parâmetros {{nome}} usados pelo SQL. Preserve required: parâmetros opcionais continuam required=false.",
+      ),
     values: z
       .record(
         z.string(),
@@ -71,7 +76,7 @@ const inputSchema = z
       )
       .default({})
       .describe(
-        "Valores informados pelo administrador. Não invente valores para parâmetros obrigatórios ausentes.",
+        "Valores informados pelo administrador. Não invente valores para parâmetros obrigatórios ausentes. Parâmetro multi_select opcional sem seleção será ligado como array vazio; a SQL deve tratar lista vazia como ausência do filtro.",
       ),
   })
   .strict()
@@ -584,6 +589,7 @@ export function createAiQueryTestTools({
               toolCallId,
               testRunId,
               dataSource: { id: source.id, name: source.name },
+              purpose: input.purpose,
               intent,
               sqlText: input.sqlText,
               parameters: input.parameters,
@@ -601,6 +607,7 @@ export function createAiQueryTestTools({
               ok: true,
               testRunId,
               dataSource: { id: source.id, name: source.name },
+              purpose: input.purpose,
               intent,
               sqlText: input.sqlText,
               parameters: input.parameters,
@@ -612,9 +619,9 @@ export function createAiQueryTestTools({
               bytes: result.bytes,
               truncated: result.truncated,
               truncationReason: result.truncationReason,
-              instruction: result.truncated
-                ? "A amostra foi limitada no servidor. Use a estrutura e as linhas retornadas para avaliar o rascunho; reduza colunas ou filtro se precisar de outra amostra."
-                : "Esta é uma amostra limitada de leitura. Os valores numéricos são texto para preservar precisão. Apresente a prévia estruturada e aguarde a confirmação humana antes de salvar.",
+              instruction: input.purpose === "dashboard"
+                ? "Esta query é uma etapa solicitada para montar um dashboard. Apresente a prévia e aguarde a confirmação explícita no cartão; depois do salvamento, continue a proposta de dashboard pendente."
+                : "Esta é uma consulta rápida sem etapa de dashboard solicitada. Apresente a prévia e aguarde a confirmação explícita antes de salvar; depois do salvamento, apenas confirme a conclusão e não inicie automaticamente uma proposta de dashboard.",
             };
           } catch (error) {
             if (runtime.signal?.aborted)
@@ -658,7 +665,7 @@ export function createAiQueryTestTools({
     {
       name: "test_query",
       description:
-        "Testa um rascunho SQL PostgreSQL em um servidor cadastrado usando apenas leitura, parâmetros vinculados e uma amostra com limites de tempo, linhas e bytes. Aceita queries analíticas complexas, inclusive com CTEs e múltiplas relações, desde que use somente tabelas base do catálogo atualizado, colunas built-in e funções seguras; não aceita views, UDFs, extensões nem tipos customizados. Revise o esquema de cada tabela e os dados relevantes antes de testar; refine a consulta a partir de erros específicos sem repetir a mesma versão. Após sucesso emite uma prévia estruturada e recibo curto de uso único; nunca salva sem confirmação explícita do administrador. Para editar, use mode=update e um queryId existente; nunca invente IDs. Quando um parâmetro obrigatório faltar, pergunte ao administrador em vez de inventá-lo.",
+        "Testa um rascunho SQL PostgreSQL em um servidor cadastrado usando apenas leitura, parâmetros vinculados e uma amostra com limites de tempo, linhas e bytes. Classifique purpose=dashboard somente quando a query for pré-requisito para um dashboard pedido pelo administrador; use quick_query para consultas pontuais sem etapa de dashboard. Aceita queries analíticas complexas, inclusive com CTEs e múltiplas relações, desde que use somente tabelas base do catálogo atualizado, colunas built-in e funções seguras; não aceita views, UDFs, extensões nem tipos customizados. Revise o esquema de cada tabela e os dados relevantes antes de testar; refine a consulta a partir de erros específicos sem repetir a mesma versão. Após sucesso emite uma prévia estruturada e recibo curto de uso único; nunca salva sem confirmação explícita do administrador. Para editar, use mode=update e um queryId existente; nunca invente IDs. Quando um parâmetro obrigatório faltar, pergunte ao administrador em vez de inventá-lo.",
       schema: inputSchema,
     },
   );

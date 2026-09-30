@@ -233,7 +233,9 @@ describe("ferramentas de leitura de contexto e esquema da IA", () => {
     });
     await expect(result).resolves.toMatchObject({ ok: false, code: "DATA_SOURCE_NOT_FOUND" });
     expect(events.map(({ type }) => type)).toEqual(["tool_start", "tool_result"]);
-    expect(events[0]?.toolCallId).toBe(events[1]?.toolCallId);
+    const started = events.find((event) => event.type === "tool_start");
+    const finished = events.find((event) => event.type === "tool_result");
+    expect(started?.toolCallId).toBe(finished?.toolCallId);
     expect(events.every((event) => event.type !== "query_preview" && event.type !== "dashboard_preview" && "toolName" in event && event.toolName === "list_data_source_tables")).toBe(true);
     expect(events[1] && "ok" in events[1] ? events[1].ok : undefined).toBe(false);
   });

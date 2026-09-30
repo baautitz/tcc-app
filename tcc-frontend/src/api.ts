@@ -118,6 +118,7 @@ export const api = {
         error?: string;
         previewPending?: string;
       }>;
+      issues: string[];
     }>(`/api/admin/ai/dashboard-proposals/${encodeURIComponent(proposalId)}/preview`, {
       method: "POST",
       body: JSON.stringify({ contextValues, componentIds }),

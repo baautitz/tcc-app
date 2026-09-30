@@ -10,6 +10,7 @@ export type QuestionnaireChatItem = {
   toolCallId: string;
   kind: "questionnaire";
   questionnaire: AiQuestionnaire;
+  ownerMessageId?: string;
   answers?: QuestionnaireAnswers;
   answersSent?: boolean;
 };
@@ -17,10 +18,12 @@ export type QuestionnaireChatItem = {
 export function QuestionnaireCard({
   item,
   busy,
+  isLatestInteraction,
   onSubmit,
 }: {
   item: QuestionnaireChatItem;
   busy: boolean;
+  isLatestInteraction: boolean;
   onSubmit: (item: QuestionnaireChatItem, answers: QuestionnaireAnswers) => void;
 }) {
   const definitions = useMemo(
@@ -52,11 +55,17 @@ export function QuestionnaireCard({
       <header>
         <h3 className="font-semibold">{item.questionnaire.title}</h3>
         <p className="mt-1 text-xs text-muted-foreground">
-          Responda para a IA continuar. Ela aguardará suas escolhas antes de prosseguir.
+          {isLatestInteraction
+            ? "Responda para a IA continuar. Ela aguardará suas escolhas antes de prosseguir."
+            : "A conversa avançou; esta etapa não pode mais ser respondida."}
         </p>
       </header>
 
-      {item.answers ? (
+      {!item.answers && !isLatestInteraction ? (
+        <p className="border-t border-primary/15 pt-3 text-xs text-muted-foreground">
+          Esta pergunta foi substituída por uma mensagem mais recente.
+        </p>
+      ) : item.answers ? (
         <div className="space-y-2 border-t border-primary/15 pt-3">
           {item.questionnaire.questions.map((question) => {
             const answer = item.answers?.[question.name] ?? [];
@@ -73,7 +82,7 @@ export function QuestionnaireCard({
             <p className="flex items-center gap-1 text-xs text-emerald-700 dark:text-emerald-400">
               <Check className="size-3.5" /> Respostas enviadas para a IA.
             </p>
-          ) : (
+          ) : isLatestInteraction ? (
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-xs text-muted-foreground">
                 O envio anterior não foi confirmado.
@@ -87,6 +96,10 @@ export function QuestionnaireCard({
                 Reenviar respostas
               </button>
             </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Esta pergunta foi substituída por uma mensagem mais recente.
+            </p>
           )}
         </div>
       ) : (
@@ -117,7 +130,7 @@ export function QuestionnaireCard({
               name={question.name}
               required={question.required}
               multiple={question.multiple}
-              disabled={busy}
+              disabled={busy || !isLatestInteraction}
               className="min-w-0 space-y-1 border-0 p-0"
             >
               <Questionnaire.Title className="block text-sm font-medium">
@@ -157,7 +170,7 @@ export function QuestionnaireCard({
                         aria-label={question.otherLabel}
                         id={`questionnaire-other-${item.id}-${question.name}`}
                         placeholder={question.otherPlaceholder}
-                        disabled={busy}
+                        disabled={busy || !isLatestInteraction}
                         className="h-8 w-full border bg-background px-2 text-xs outline-none focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/50"
                       />
                     </div>
