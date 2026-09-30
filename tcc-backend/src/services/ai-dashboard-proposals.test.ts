@@ -10,6 +10,7 @@ import {
 
 const dashboardId = "00000000-0000-4000-8000-000000000001";
 const queryId = "00000000-0000-4000-8000-000000000002";
+const addedQueryId = "00000000-0000-4000-8000-000000000003";
 
 describe("contrato da proposta gerada pela IA", () => {
   it("rejeita shape adicional e configuração de layout não suportada", () => {
@@ -56,6 +57,56 @@ describe("contrato da proposta gerada pela IA", () => {
     });
     expect(JSON.stringify(document)).not.toContain("sources");
     expect(JSON.stringify(document)).not.toContain("SELECT");
+  });
+
+  it("adiciona componente sem remover componentes, filtros e bindings existentes", () => {
+    const previous = dashboardDocumentSchema.parse({
+      id: dashboardId,
+      name: "Fechamento de mês",
+      description: "Resumo mensal",
+      workspace: { params: [
+        { name: "from_date", label: "Data inicial", type: "date", required: true },
+        { name: "to_date", label: "Data final", type: "date", required: true },
+        { name: "categories_focus", label: "Categorias", type: "multi_select", required: false },
+      ] },
+      queryBindings: [{ queryUuid: queryId, parameters: { start: { source: "manual", value: "2026-01-01" } } }],
+      ui: { layout: { gap: 16 }, components: [
+        { id: "old-total", component: "stat_card", layoutProps: { colSpan: 3 }, props: { title: "Vendas totais", queryUuid: queryId, field: "total" } },
+      ] },
+    });
+    const input = aiDashboardProposalInputSchema.parse({
+      mode: "update",
+      dashboardId,
+      name: "Fechamento de mês",
+      description: "Resumo mensal",
+      workspace: { params: [] },
+      queryBindings: [{ queryUuid: addedQueryId, parameters: {
+        start: { source: "context", argument: "from_date" },
+        end: { source: "context", argument: "to_date" },
+        categories: { source: "context", argument: "categories_focus" },
+      } }],
+      components: [{
+        id: "sales-by-city",
+        component: "data_table",
+        title: "Vendas por cidade",
+        queryUuid: addedQueryId,
+        colSpan: 12,
+        columns: [{ key: "cidade" }, { key: "venda_total" }],
+      }],
+      contextValues: {},
+    });
+
+    const next = createDashboardDocument(input, dashboardId, previous);
+
+    expect(next.workspace.params.map(({ name }) => name)).toEqual(["from_date", "to_date", "categories_focus"]);
+    expect(next.queryBindings).toHaveLength(2);
+    expect(next.queryBindings).toContainEqual(previous.queryBindings[0]);
+    expect(next.queryBindings.find(({ queryUuid }) => queryUuid === addedQueryId)?.parameters).toMatchObject({
+      start: { source: "context", argument: "from_date" },
+      end: { source: "context", argument: "to_date" },
+      categories: { source: "context", argument: "categories_focus" },
+    });
+    expect(next.ui.components.map(({ id }) => id)).toEqual(["old-total", "sales-by-city"]);
   });
 
   it("produz fingerprint estável para ordem de chaves e o altera quando query ou servidor mudam", () => {

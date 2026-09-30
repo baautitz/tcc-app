@@ -148,31 +148,104 @@ export function createDashboardDocument(
   dashboardId: string,
   previous?: DashboardDocument,
 ): DashboardDocument {
+  const mergeBy = <T,>(existing: T[], proposed: T[], key: (item: T) => string) => {
+    const merged = new Map<string, T>();
+    existing.forEach((item) => merged.set(key(item), item));
+    proposed.forEach((item) => merged.set(key(item), item));
+    return [...merged.values()];
+  };
+  const workspaceParams = mergeBy(
+    input.mode === "update" ? previous?.workspace.params ?? [] : [],
+    input.workspace.params,
+    (parameter) => parameter.name,
+  );
+  const queryBindings = mergeBy(
+    input.mode === "update" ? previous?.queryBindings ?? [] : [],
+    input.queryBindings,
+    (binding) => binding.queryUuid,
+  );
+  const proposedComponents = input.components.map((component) => {
+    const { id, component: kind, queryUuid, title, colSpan, ...config } = component;
+    const props = { ...config, title, queryUuid };
+    return {
+      id,
+      component: kind,
+      // The current renderer uses colSpan only. rowSpan is fixed to one.
+      layoutProps: { colSpan, rowSpan: 1 },
+      props,
+    };
+  });
   const document = dashboardDocumentSchema.parse({
     id: dashboardId,
     name: input.name,
     description: input.description,
-    workspace: input.workspace,
-    queryBindings: input.queryBindings,
+    workspace: { params: workspaceParams },
+    queryBindings,
     ui: {
       layout: { type: "grid", columns: 12, gap: input.gap },
-      components: input.components.map((component) => {
-        const { id, component: kind, queryUuid, title, colSpan, ...config } = component;
-        const props = { ...config, title, queryUuid };
-        return {
-          id,
-          component: kind,
-          // The current renderer uses colSpan only. rowSpan is fixed to one.
-          layoutProps: { colSpan, rowSpan: 1 },
-          props,
-        };
-      }),
+      components: mergeBy(
+        input.mode === "update" ? previous?.ui.components ?? [] : [],
+        proposedComponents,
+        (component) => component.id,
+      ),
     },
   });
   if (input.mode === "update" && previous && document.id !== previous.id) {
     throw new Error("O id do dashboard não pode ser alterado.");
   }
   return document;
+}
+
+export function dashboardProposalPreviewScope(
+  document: DashboardDocument,
+  componentIds: string[],
+): {
+  componentIds: string[];
+  componentQueryIds: Set<string>;
+  queryIds: Set<string>;
+  arguments: DashboardDocument["workspace"]["params"];
+} {
+  const requestedIds = new Set(componentIds);
+  const components = document.ui.components.filter((component) =>
+    requestedIds.has(component.id),
+  );
+  if (
+    requestedIds.size === 0 ||
+    requestedIds.size !== componentIds.length ||
+    components.length !== requestedIds.size
+  ) {
+    throw new Error("A prévia precisa apontar para os componentes desta proposta.");
+  }
+
+  const componentQueryIds = new Set(
+    components.flatMap((component) => {
+      const queryUuid = component.props.queryUuid;
+      return typeof queryUuid === "string" ? [queryUuid] : [];
+    }),
+  );
+  const argumentNames = new Set(
+    document.queryBindings
+      .filter((binding) => componentQueryIds.has(binding.queryUuid))
+      .flatMap((binding) =>
+        Object.values(binding.parameters).flatMap((source) =>
+          source.source === "context" ? [source.argument] : [],
+        ),
+      ),
+  );
+  const argumentsInScope = document.workspace.params.filter((argument) =>
+    argumentNames.has(argument.name),
+  );
+  const queryIds = new Set(componentQueryIds);
+  argumentsInScope.forEach((argument) => {
+    if (argument.lookup) queryIds.add(argument.lookup.queryUuid);
+  });
+
+  return {
+    componentIds: components.map((component) => component.id),
+    componentQueryIds,
+    queryIds,
+    arguments: argumentsInScope,
+  };
 }
 
 export function dashboardDocumentFingerprint(document: DashboardDocument): string {

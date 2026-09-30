@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { AuthenticatedUser } from "./auth.js";
+import { dashboardDocumentSchema } from "../lib/contracts.js";
 import {
   createAiDashboardTools,
   type AiDashboardQueryDefinition,
@@ -70,6 +71,69 @@ function eventFrom(events: AiToolProgressEvent[], type: "dashboard_preview") {
 }
 
 describe("propostas de dashboard da IA", () => {
+  it("retorna os filtros reais e pede decisão de período só quando existe filtro de data", async () => {
+    const dashboardId = "00000000-0000-4000-8000-000000000010";
+    const currentDocument = dashboardDocumentSchema.parse({
+      id: dashboardId,
+      name: "Fechamento de mês",
+      workspace: { params: [
+        { name: "from_date", label: "Data inicial", type: "date", required: true },
+        { name: "categories_focus", label: "Categorias", type: "multi_select", required: false },
+      ] },
+      queryBindings: [],
+      ui: { layout: { gap: 16 }, components: [] },
+    });
+    const tools = createAiDashboardTools({
+      currentUser: admin,
+      repository: makeRepository({
+        findDashboard: vi.fn(async () => ({ document: currentDocument, fingerprint: "revision-1" })),
+      }),
+      pageDashboardId: dashboardId,
+    });
+    const tool = tools.find((candidate) => candidate.name === "get_current_dashboard")!;
+    const output = await tool.invoke({} as never);
+
+    expect(output).toMatchObject({
+      dashboardId,
+      filters: [
+        { name: "from_date", label: "Data inicial", type: "date", required: true },
+        { name: "categories_focus", label: "Categorias", type: "multi_select", required: false },
+      ],
+      filterDecision: {
+        hasDateFilter: true,
+        dateFilters: [{ name: "from_date", label: "Data inicial" }],
+      },
+    });
+    expect(JSON.stringify(output)).toContain("Data inicial");
+    expect(JSON.stringify(output)).toContain("período específico");
+  });
+
+  it("não pergunta sobre período quando o dashboard só tem filtro de categoria", async () => {
+    const dashboardId = "00000000-0000-4000-8000-000000000010";
+    const currentDocument = dashboardDocumentSchema.parse({
+      id: dashboardId,
+      name: "Fechamento de mês",
+      workspace: { params: [
+        { name: "categories_focus", label: "Categorias", type: "multi_select", required: false },
+      ] },
+      queryBindings: [],
+      ui: { layout: { gap: 16 }, components: [] },
+    });
+    const tools = createAiDashboardTools({
+      currentUser: admin,
+      repository: makeRepository({
+        findDashboard: vi.fn(async () => ({ document: currentDocument, fingerprint: "revision-1" })),
+      }),
+      pageDashboardId: dashboardId,
+    });
+    const tool = tools.find((candidate) => candidate.name === "get_current_dashboard")!;
+    const output = await tool.invoke({} as never);
+
+    expect(output).toMatchObject({ filterDecision: { hasDateFilter: false } });
+    expect(JSON.stringify(output)).toContain("não tem filtro de data");
+    expect(JSON.stringify(output)).not.toContain("período específico");
+  });
+
   it("gera prévia com query UUID salva e cria apenas recibo temporário", async () => {
     const events: AiToolProgressEvent[] = [];
     const issueReceipt = vi.fn(async (_input: Parameters<AiDashboardToolsRepository["issueReceipt"]>[0]) => undefined);

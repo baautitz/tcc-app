@@ -1,15 +1,17 @@
 import { tool, type StructuredToolInterface, type ToolRuntime } from "@langchain/core/tools";
 import { z } from "zod";
-import { dashboardDocumentSchema } from "../lib/contracts.js";
+import { dashboardDocumentSchema, parameterDefinitionSchema } from "../lib/contracts.js";
 import type { AuthenticatedUser } from "./auth.js";
 import { buildDashboardDefinitionFromDocument, dashboardQueryReferences, type DashboardQueryMetadata } from "./dashboard-sync.js";
 import type { DashboardDocument } from "./dashboards.js";
+import { AI_QUERY_MAX_BYTES, AI_QUERY_MAX_ROWS } from "./external-postgres.js";
 import {
   aiDashboardProposalInputSchema,
   createDashboardDocument,
   dashboardDocumentFingerprint,
   dashboardReferenceFingerprint,
   DASHBOARD_PROPOSAL_TTL_MS,
+  dashboardProposalPreviewScope,
   makeDashboardProposalReceiptId,
   summarizeDashboardChanges,
 } from "./ai-dashboard-proposals.js";
@@ -37,6 +39,7 @@ export interface AiDashboardQueryPreview {
   truncated: boolean;
   truncationReason: "row_limit" | "byte_limit" | null;
   error?: string;
+  previewPending?: string;
 }
 
 export interface AiDashboardToolsRepository {
@@ -87,7 +90,14 @@ export function createAiDashboardTools(options: {
   });
   const getSavedQuery = tool(async ({ queryUuid }) => {
     const [query] = await options.repository.findSavedQueries([queryUuid]);
-    if (!query) throw new Error("A query não existe no catálogo salvo permitido ao administrador.");
+    if (!query) {
+      return {
+        ok: false,
+        code: "SAVED_QUERY_NOT_FOUND",
+        message: "A query não existe no catálogo salvo permitido ao administrador.",
+        instruction: "Confira list_saved_queries e use somente o UUID atual retornado. Um testRunId é temporário; se a query não estiver na lista, pare e informe que ela precisa ser salva antes de montar o dashboard.",
+      };
+    }
     return {
       id: query.id,
       name: query.name,
@@ -107,15 +117,37 @@ export function createAiDashboardTools(options: {
     if (!id) throw new Error("Abra um dashboard para editar ou informe seu UUID.");
     const current = await options.repository.findDashboard(id);
     if (!current) throw new Error("O dashboard não existe no catálogo atual.");
+    const filters = current.document.workspace.params.map((parameter) => ({
+      name: parameter.name,
+      label: parameter.label,
+      type: parameter.type,
+      required: parameter.required,
+      options: parameter.options?.map((option) => ({ label: option.label, value: option.value })),
+      lookup: parameter.lookup,
+    }));
+    const dateFilters = filters.filter((filter) => filter.type === "date");
+    const dateFilterNames = dateFilters.map((filter) => `“${filter.label}” (${filter.name})`).join(", ");
     return {
       dashboardId: current.document.id,
       revision: current.fingerprint,
       document: current.document,
-      instruction: "Use esta versão como base da proposta e preserve workspace.params, queryBindings e componentes que não foram solicitados para alteração.",
+      filters,
+      queryBindings: current.document.queryBindings,
+      filterDecision: {
+        requiredBeforeAddingQuery: filters.length > 0,
+        hasDateFilter: dateFilters.length > 0,
+        dateFilters: dateFilters.map(({ name, label }) => ({ name, label })),
+        instruction: dateFilters.length
+          ? `Compare os parâmetros da query com os filtros e bindings reais. Como há filtro(s) de data ${dateFilterNames}, se o pedido fixa um período específico pergunte se a tabela mantém esse período ou acompanha dinamicamente o(s) filtro(s) listado(s). Se o administrador já pediu os filtros disponíveis, aplique as dimensões compatíveis sem perguntar por cada uma. Use nomes e labels exatos; não presuma start_date, end_date ou categories. Aguarde a resposta sobre período antes de gerar a proposta.`
+          : filters.length
+            ? "Este dashboard não tem filtro de data. Não pergunte sobre período fixo versus dinâmico; compare os parâmetros com os filtros reais e aplique os que forem compatíveis, sem perguntar por cada dimensão. Informe se nenhum filtro existente for compatível."
+            : "Este dashboard não tem filtros em workspace.params; informe que não há filtros para ligar à nova tabela.",
+      },
+      instruction: "Use esta versão como base da proposta e preserve workspace.params, queryBindings e componentes não solicitados para alteração. A prévia da query é separada da alteração do dashboard; resolva a compatibilidade dos filtros antes de gerar a proposta.",
     };
   }, {
     name: "get_current_dashboard",
-    description: "Lê o documento e a revisão atual de um dashboard que o administrador pretende editar, para preservar parâmetros e mapeamentos não alterados.",
+    description: "Lê o documento, filtros reais (workspace.params), bindings e revisão atual do dashboard que o administrador pretende editar. Ao adicionar query, compare seus parâmetros com os filtros retornados. Pergunte fixo versus dinâmico somente se houver filtro de data e o pedido contiver período explícito. Se já pediram para usar os filtros disponíveis, aplique os compatíveis sem perguntar de novo por cada dimensão. Preserve parâmetros, bindings e componentes existentes.",
     schema: z.object({ dashboardId: z.string().uuid().optional() }).strict(),
   });
 
@@ -137,6 +169,10 @@ export function createAiDashboardTools(options: {
         : parsed;
       const document = createDashboardDocument(normalizedInput, dashboardId, previous?.document);
       dashboardDocumentSchema.parse(document);
+      const previewScope = dashboardProposalPreviewScope(
+        document,
+        parsed.components.map((component) => component.id),
+      );
 
       const referenceIds = [...dashboardQueryReferences(document)];
       if (referenceIds.length === 0) throw new Error("Adicione ao menos uma query salva ao dashboard.");
@@ -151,25 +187,53 @@ export function createAiDashboardTools(options: {
 
       const bindingByQueryId = new Map(document.queryBindings.map((binding) => [binding.queryUuid, binding]));
       const previewRows: Record<string, AiDashboardQueryPreview> = {};
-      for (const query of definitions) {
+      for (const query of definitions.filter((item) => previewScope.queryIds.has(item.id))) {
         const values: Record<string, string | string[]> = {};
         const binding = bindingByQueryId.get(query.id);
+        const parameters = z.array(parameterDefinitionSchema).parse(query.parameters);
         for (const [parameterName, source] of Object.entries(binding?.parameters ?? {})) {
           if (source.source === "manual") values[parameterName] = source.value;
           else if (Object.hasOwn(parsed.contextValues, source.argument)) values[parameterName] = parsed.contextValues[source.argument]!;
+        }
+        const pendingParameters = parameters.filter((parameter) => {
+          if (!parameter.required) return false;
+          const value = values[parameter.name];
+          return value === undefined || (Array.isArray(value) ? value.length === 0 : value.trim().length === 0);
+        });
+        if (pendingParameters.length > 0) {
+          const pendingLabels = pendingParameters.map((parameter) => {
+            const source = binding?.parameters[parameter.name];
+            const argument = source?.source === "context"
+              ? document.workspace.params.find((item) => item.name === source.argument)
+              : undefined;
+            return argument
+              ? `“${argument.label}” (parâmetro ${parameter.label})`
+              : `“${parameter.label}”`;
+          });
+          previewRows[query.id] = {
+            rows: [], rowLimit: AI_QUERY_MAX_ROWS, byteLimit: AI_QUERY_MAX_BYTES, bytes: 0,
+            truncated: false, truncationReason: null,
+            previewPending: `Prévia aguardando valor para ${pendingLabels.join(", ")}. Informe os valores nos filtros acima e teste os componentes para carregar a amostra.`,
+          };
+          continue;
         }
         try {
           previewRows[query.id] = await options.repository.runPreview(query, values);
         } catch (error) {
           previewRows[query.id] = {
-            rows: [], rowLimit: 50, byteLimit: 48_000, bytes: 0,
+            rows: [], rowLimit: AI_QUERY_MAX_ROWS, byteLimit: AI_QUERY_MAX_BYTES, bytes: 0,
             truncated: false, truncationReason: null,
             error: error instanceof Error ? error.message.slice(0, 400) : "A consulta falhou durante a prévia.",
           };
         }
       }
 
-      const issues = validatePreviewFields(document, previewRows);
+      const issues = validatePreviewFields(
+        document,
+        previewRows,
+        new Set(previewScope.componentIds),
+        new Set(previewScope.arguments.map((argument) => argument.name)),
+      );
       const freshDefinitions = await options.repository.findSavedQueries(referenceIds);
       const referencesFingerprint = dashboardReferenceFingerprint(freshDefinitions.map((query) => ({
         queryId: query.id,
@@ -197,6 +261,7 @@ export function createAiDashboardTools(options: {
         type: "dashboard_preview" as const,
         toolCallId,
         proposalId: id,
+        previewComponentIds: previewScope.componentIds,
         expiresAt: expiresAt.toISOString(),
         mode,
         dashboardId,
@@ -233,34 +298,42 @@ export function createAiDashboardTools(options: {
         mode,
         dashboardId,
         name: document.name,
-        componentCount: definition.components.length,
-        queryCount: referenceIds.length,
+        componentCount: previewScope.componentIds.length,
+        queryCount: previewScope.componentQueryIds.size,
         expiresAt: expiresAt.toISOString(),
         canCommit: issues.length === 0,
         issues,
         instruction: issues.length
           ? "A prévia encontrou erros ou componentes vazios. Explique os problemas ao administrador, ajuste as queries ou aliases e gere uma nova proposta; não há recibo para confirmação."
-          : "Esta prévia não salvou alterações. Aguarde o clique explícito do administrador em Criar dashboard ou Aplicar alterações. Nunca afirme que foi salvo antes da confirmação.",
+          : Object.values(previewRows).some((query) => query.previewPending)
+            ? "Uma ou mais amostras não foram executadas porque faltaram valores de filtros obrigatórios. Explique quais filtros precisam ser preenchidos ao abrir o dashboard. A configuração continua válida porque os parâmetros estão mapeados; aguarde o clique explícito do administrador para salvar. Nunca afirme que foi salvo antes da confirmação."
+            : "Esta prévia não salvou alterações. Aguarde o clique explícito do administrador em Criar dashboard ou Aplicar alterações. Nunca afirme que foi salvo antes da confirmação.",
       };
     } finally {
       await emit({ type: "tool_result", toolCallId, toolName: "create_or_update_dashboard", ok });
     }
   }, {
     name: "create_or_update_dashboard",
-    description: "Gera uma proposta e prévia visual de dashboard usando somente queries salvas obtidas por list_saved_queries. Não persiste o dashboard. Para criar, mode=create. Para editar o atual, mode=update e use o UUID informado no contexto da tela.",
+    description: "Gera uma proposta e prévia visual de dashboard usando somente queries salvas obtidas por list_saved_queries. A prévia SQL e adicionar o componente ao dashboard são operações distintas. Não persiste o dashboard. Em mode=update, componentes, filtros e mapeamentos omitidos são preservados; inclua apenas componentes novos ou os existentes que devem ser alterados, mantendo os nomes reais de filtros e parâmetros. Antes desta ferramenta, leia o dashboard atual e resolva com o administrador se um período fixo da consulta deve continuar fixo ou acompanhar o filtro real do dashboard. Preencha contextValues somente com valores de filtros informados explicitamente; não invente datas ou valores. Se um filtro obrigatório estiver mapeado mas sem valor de teste, a prévia daquele componente ficará pendente, sem impedir salvar a configuração. Para criar, mode=create. Para editar o atual, mode=update e use o UUID informado no contexto da tela.",
     schema: aiDashboardProposalInputSchema,
   });
 
   return [listQueries, getSavedQuery, getCurrentDashboard, proposeDashboard];
 }
 
-function validatePreviewFields(document: DashboardDocument, rowsByQuery: Record<string, AiDashboardQueryPreview>): string[] {
+function validatePreviewFields(
+  document: DashboardDocument,
+  rowsByQuery: Record<string, AiDashboardQueryPreview>,
+  componentIds?: Set<string>,
+  argumentNames?: Set<string>,
+): string[] {
   const issues: string[] = [];
-  for (const component of document.ui.components) {
+  for (const component of document.ui.components.filter((item) => !componentIds || componentIds.has(item.id))) {
     const props = component.props as Record<string, unknown>;
     const queryUuid = String(props.queryUuid);
     const rows = rowsByQuery[queryUuid]?.rows ?? [];
     if (!String(props.title ?? "").trim()) issues.push(`O componente '${component.id}' precisa de um título.`);
+    if (rowsByQuery[queryUuid]?.previewPending) continue;
     if (rowsByQuery[queryUuid]?.error) {
       issues.push(`A query do componente '${component.id}' falhou: ${rowsByQuery[queryUuid]?.error}`);
       continue;
@@ -295,7 +368,7 @@ function validatePreviewFields(document: DashboardDocument, rowsByQuery: Record<
       issues.push(`A tabela '${component.id}' não possui valores nas colunas configuradas.`);
     }
   }
-  for (const argument of document.workspace.params) {
+  for (const argument of document.workspace.params.filter((item) => !argumentNames || argumentNames.has(item.name))) {
     const lookup = argument.lookup;
     if (!lookup) continue;
     const keys = new Set(Object.keys(rowsByQuery[lookup.queryUuid]?.rows[0] ?? {}));
