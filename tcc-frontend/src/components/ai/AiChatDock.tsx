@@ -27,6 +27,9 @@ import {
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
+  choseDynamicPeriod,
+  previewUsesDateParameters,
+  shouldInvalidateForDynamicPeriod,
   markQueryPreviewSavedOnce,
   movePendingQueryPreviewToEnd,
   shouldResurfaceQueryPreview,
@@ -124,6 +127,7 @@ type QueryPreviewItem = QueryPreview & {
   savedQueryId?: string;
   savedQueryName?: string;
   stale?: boolean;
+  staleReason?: "dynamic_period_mismatch";
 };
 type DashboardPreviewQuery = {
   rows: Record<string, unknown>[];
@@ -757,7 +761,9 @@ function ChatItemView({
           </div>
         ) : item.stale ? (
           <p className="border-t border-primary/15 pt-2 text-xs text-muted-foreground">
-            Prévia substituída · teste novamente
+            {item.staleReason === "dynamic_period_mismatch"
+              ? "Esta prévia usa período fixo e não pode ser aprovada para acompanhar os filtros do dashboard. Aguarde uma nova prévia."
+              : "Prévia substituída · teste novamente"}
           </p>
         ) : (
           <Button
@@ -1955,9 +1961,14 @@ export function AiChatDock({
           (item): item is QueryPreviewItem =>
             item.kind === "query_preview" && !item.stale && !item.savedQueryId,
         );
+      const invalidatesPendingPreview = Boolean(
+        latestQueryPreview &&
+          shouldInvalidateForDynamicPeriod(content, latestQueryPreview),
+      );
       const resurfacedPreview =
         !retrying &&
         !options?.silentUser &&
+        !invalidatesPendingPreview &&
         latestQueryPreview &&
         !latestQueryPreview.stale &&
         !latestQueryPreview.savedQueryId &&
@@ -2009,13 +2020,21 @@ export function AiChatDock({
       lastSilentUserRef.current = options?.silentUser === true;
       refreshedToolCallsRef.current.clear();
       setItems((current) => {
+        const withInvalidatedPreview = invalidatesPendingPreview && latestQueryPreview
+          ? current.map((item) =>
+              item.kind === "query_preview" &&
+              item.testRunId === latestQueryPreview.testRunId
+                ? { ...item, stale: true, staleReason: "dynamic_period_mismatch" as const }
+                : item,
+            )
+          : current;
         if (!retrying) {
           return options?.silentUser
-            ? [...current, assistantMessage]
+            ? [...withInvalidatedPreview, assistantMessage]
             : [
                 ...(resurfacedPreview
-                  ? current.filter((item) => item.id !== resurfacedPreview.id)
-                  : current),
+                  ? withInvalidatedPreview.filter((item) => item.id !== resurfacedPreview.id)
+                  : withInvalidatedPreview),
                 userMessage,
                 ...(resurfacedPreview ? [resurfacedPreview] : []),
                 assistantMessage,
@@ -2030,7 +2049,7 @@ export function AiChatDock({
               item.status === "error",
         )?.id;
         return [
-          ...current.filter(
+          ...withInvalidatedPreview.filter(
             (item) =>
               item.id !== failedAssistantId &&
               !(
@@ -2084,6 +2103,17 @@ export function AiChatDock({
           if (event.type === "done") receivedDone = true;
           if (event.type === "error") receivedError = true;
           handleEvent(event, assistantMessage.id, requestPath, generation);
+          if (
+            event.type === "query_preview" &&
+            choseDynamicPeriod(content) &&
+            !previewUsesDateParameters(event)
+          ) {
+            setItems((current) => current.map((item) =>
+              item.kind === "query_preview" && item.testRunId === event.testRunId
+                ? { ...item, stale: true, staleReason: "dynamic_period_mismatch" as const }
+                : item,
+            ));
+          }
         });
         moveResurfacedPreviewToEnd();
         if (!receivedDone && !receivedError) {

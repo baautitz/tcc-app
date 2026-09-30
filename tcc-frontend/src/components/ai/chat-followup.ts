@@ -29,6 +29,42 @@ export function shouldSendPendingPreviewContext(content: string) {
   return dashboardAddRequest || questionnaireAnswer || periodChoice;
 }
 
+function normalizePreviewText(value: string) {
+  return normalizedText(value).replace(/\s+/g, " ").trim();
+}
+
+export function choseDynamicPeriod(content: string) {
+  const normalizedContent = normalizePreviewText(content);
+  return /\b(dinamic\w*|acompanhar|seguir os filtros|conforme os filtros)\b/.test(
+    normalizedContent,
+  );
+}
+
+export function previewUsesDateParameters(preview: {
+  sqlText: string;
+  parameters: Array<{ name: string; type: string }>;
+}) {
+  const dateParameters = preview.parameters.filter(
+    (parameter) => parameter.type === "date",
+  );
+  if (dateParameters.length === 0) return false;
+
+  const usedDateParameters = dateParameters.filter((parameter) => {
+    const escapedName = parameter.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp(`\\{\\{\\s*${escapedName}\\s*\\}\\}`).test(
+      preview.sqlText,
+    );
+  });
+  return usedDateParameters.length === dateParameters.length;
+}
+
+export function shouldInvalidateForDynamicPeriod(
+  content: string,
+  preview: { sqlText: string; parameters: Array<{ name: string; type: string }> },
+) {
+  return choseDynamicPeriod(content) && !previewUsesDateParameters(preview);
+}
+
 type QueryPreviewState = {
   id: string;
   kind: string;
