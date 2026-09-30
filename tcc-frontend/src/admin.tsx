@@ -1359,11 +1359,15 @@ function AdminSectionPage({ section }: { section: Section }) {
     return () => window.removeEventListener("queries:saved", reloadQueries);
   }, []);
 
-  const remove = async (label: string, action: () => Promise<void>) => {
+  const remove = async (
+    label: string,
+    action: () => Promise<void>,
+    description = "Esta operação não pode ser desfeita.",
+  ) => {
     if (
       !(await confirm({
         title: `Excluir ${label}?`,
-        description: "Esta operação não pode ser desfeita.",
+        description,
         confirmLabel: "Excluir",
         destructive: true,
       }))
@@ -1455,7 +1459,11 @@ function AdminSectionPage({ section }: { section: Section }) {
           isMobile={isMobile}
           onEdit={(id) => void editQuery(id)}
           onDelete={(value) =>
-            void remove(value.name, () => api.deleteQuery(value.id))
+            void remove(
+              value.name,
+              () => api.deleteQuery(value.id),
+              "Se a query estiver vinculada a dashboards, os componentes e mapeamentos que dependem dela também serão removidos. Os dashboards serão mantidos.",
+            )
           }
         />
       )}

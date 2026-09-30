@@ -1540,11 +1540,88 @@ app.post("/api/queries/:id/test", authentication, permissionRequired("queries:up
 
 app.delete("/api/queries/:id", authentication, permissionRequired("queries:delete"), async (context) => {
   const queryId = z.string().uuid().parse(context.req.param("id"));
-  const dashboardFiles = await getDashboardFiles();
-  const isReferenced = dashboardFiles.some(({ dashboard }) => dashboardQueryReferences(dashboard).has(queryId));
-  if (isReferenced) throw new ApiError(400, "Remova as referências do dashboard (componentes, lookups e mapeamentos) antes de excluir a query.");
-  await getQueryOrThrow(queryId);
-  await db.delete(savedQueries).where(eq(savedQueries.id, queryId));
+  const dashboardRollbacks: Array<() => Promise<void>> = [];
+  try {
+    await withDashboardFileCompensation(
+      () => db.transaction(async (tx) => {
+        await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('tcc-app:dashboard-files'))`);
+        const query = (await tx.select({ id: savedQueries.id, name: savedQueries.name })
+          .from(savedQueries)
+          .where(eq(savedQueries.id, queryId))
+          .for("update")
+          .limit(1))[0];
+        if (!query) throw new ApiError(404, "Query não encontrada.");
+
+        const dashboardFiles = await getDashboardFiles();
+        const lookupReference = dashboardFiles.flatMap(({ dashboard }) =>
+          dashboard.workspace.params
+            .filter((parameter) => parameter.lookup?.queryUuid === queryId)
+            .map((parameter) => ({ dashboardName: dashboard.name, parameterLabel: parameter.label })),
+        )[0];
+        if (lookupReference) {
+          throw new ApiError(
+            400,
+            `A query '${query.name}' fornece as opções do filtro '${lookupReference.parameterLabel}' no dashboard '${lookupReference.dashboardName}'. Remova ou substitua esse lookup antes de excluir a query.`,
+          );
+        }
+
+        for (const { dashboard, filePath } of dashboardFiles) {
+          const nextComponents = dashboard.ui.components.filter(
+            (component) => component.props.queryUuid !== queryId,
+          );
+          const nextBindings = dashboard.queryBindings.filter(
+            (binding) => binding.queryUuid !== queryId,
+          );
+          if (
+            nextComponents.length === dashboard.ui.components.length &&
+            nextBindings.length === dashboard.queryBindings.length
+          ) continue;
+
+          const nextDashboard = {
+            ...dashboard,
+            queryBindings: nextBindings,
+            ui: { ...dashboard.ui, components: nextComponents },
+          };
+          dashboardRollbacks.push(
+            await writeDashboardDocumentAtomically(filePath, nextDashboard),
+          );
+        }
+
+        const deleted = await tx.delete(savedQueries)
+          .where(eq(savedQueries.id, queryId))
+          .returning({ id: savedQueries.id });
+        if (deleted.length === 0) throw new ApiError(404, "Query não encontrada.");
+      }),
+      () => dashboardRollbacks.length > 0
+        ? async () => {
+            const rollbackErrors: unknown[] = [];
+            for (const rollback of dashboardRollbacks.reverse()) {
+              try {
+                await rollback();
+              } catch (error) {
+                rollbackErrors.push(error);
+              }
+            }
+            if (rollbackErrors.length > 0) {
+              throw new AggregateError(rollbackErrors, "Não foi possível restaurar todos os dashboards.");
+            }
+          }
+        : undefined,
+    );
+  } catch (error) {
+    if (error instanceof DashboardFileCompensationError) {
+      console.error("[query] dashboard compensation failed after query deletion error", {
+        operationError: error.operationError,
+        compensationError: error.compensationError,
+      });
+      throw new ApiError(
+        500,
+        "A exclusão da query falhou e nem todas as alterações dos dashboards puderam ser restauradas. É necessária reconciliação administrativa.",
+      );
+    }
+    if (error instanceof ApiError) throw error;
+    throw error;
+  }
   return context.body(null, 204);
 });
 
