@@ -17,6 +17,8 @@ import { DashboardListPage, DashboardPage } from "@/dashboard";
 import { DashboardContextEditor } from "@/dashboard-context-editor";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
+import { AiChatProvider } from "@/context/AiChatContext";
+import { CurrentViewRefreshProvider } from "@/context/CurrentViewRefreshContext";
 import { ImperativeUIProvider } from "@/context/ImperativeUIContext";
 import { Button } from "@/components/ui/button";
 import {
@@ -252,7 +254,11 @@ function App() {
         <Toaster>
           <AuthProvider>
             <ImperativeUIProvider>
-              <ProtectedApp />
+              <AiChatProvider>
+                <CurrentViewRefreshProvider>
+                  <ProtectedApp />
+                </CurrentViewRefreshProvider>
+              </AiChatProvider>
             </ImperativeUIProvider>
           </AuthProvider>
         </Toaster>

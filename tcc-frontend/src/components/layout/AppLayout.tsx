@@ -45,7 +45,9 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/components/ui/toast";
 import { AiChatDock, AiChatTrigger } from "@/components/ai/AiChatDock";
-import { CurrentViewRefreshProvider } from "@/context/CurrentViewRefreshContext";
+import { useAiChat } from "@/context/AiChatContext";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { cn } from "@/lib/utils";
 
 function SidebarAutoClose() {
   const { setOpenMobile } = useSidebar();
@@ -110,12 +112,13 @@ export function AppLayout() {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const [aiChatOpen, setAiChatOpen] = useState(false);
+  const isMobile = useIsMobile();
+  const { isAiChatOpen, openAiChat, closeAiChat, toggleAiChat } = useAiChat();
   const [logoutPending, setLogoutPending] = useState(false);
 
   const handleLogout = async () => {
     setLogoutPending(true);
-    setAiChatOpen(false);
+    closeAiChat();
     try {
       await logout();
       navigate("/login");
@@ -128,10 +131,10 @@ export function AppLayout() {
   const canAdmin = Boolean(user && (user.isAdmin || hasAdministrationAccess(user.permissions)));
 
   return (
-    <SidebarProvider>
+    <SidebarProvider className="h-dvh min-h-0 w-full overflow-hidden">
       <SidebarAutoClose />
 
-      <Sidebar variant="inset" collapsible="icon">
+      <Sidebar variant="sidebar" collapsible="icon">
         <SidebarContent>
           <SidebarGroup>
             <SidebarMenu>
@@ -252,7 +255,12 @@ export function AppLayout() {
         </SidebarFooter>
       </Sidebar>
 
-      <SidebarInset className="flex min-w-0 flex-1 flex-col">
+      <SidebarInset
+        className={cn(
+          "h-dvh min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
+          isMobile && isAiChatOpen && "hidden",
+        )}
+      >
         <header className="sticky top-0 z-50 flex h-14 shrink-0 items-center border-b border-border/50 bg-background/95 px-3 backdrop-blur supports-backdrop-filter:bg-background/60 md:px-6">
           <div className="flex min-w-0 shrink-0 items-center gap-2">
             <SidebarTrigger className="-ml-1 size-8 shrink-0" />
@@ -277,24 +285,22 @@ export function AppLayout() {
             </Breadcrumb>
           </div>
           {user?.isAdmin && !logoutPending && (
-            <AiChatTrigger
-              open={aiChatOpen}
-              onClick={() => setAiChatOpen((current) => !current)}
-            />
+            <AiChatTrigger open={isAiChatOpen} onClick={toggleAiChat} />
           )}
         </header>
 
-        <CurrentViewRefreshProvider>
-          <div className="flex min-h-0 min-w-0 flex-1">
-            <main className="flex min-w-0 flex-1 flex-col gap-6 p-4 md:p-6 lg:p-8">
-              <Outlet />
-            </main>
-            {user?.isAdmin && !logoutPending && (
-              <AiChatDock open={aiChatOpen} onOpenChange={setAiChatOpen} />
-            )}
-          </div>
-        </CurrentViewRefreshProvider>
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-contain p-4 md:p-6 lg:p-8">
+          <Outlet />
+        </main>
       </SidebarInset>
+      {user?.isAdmin && !logoutPending && (
+        <AiChatDock
+          open={isAiChatOpen}
+          onOpenChange={(open) =>
+            open ? openAiChat() : closeAiChat()
+          }
+        />
+      )}
     </SidebarProvider>
   );
 }

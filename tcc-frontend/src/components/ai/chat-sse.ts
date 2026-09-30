@@ -15,11 +15,35 @@ type DashboardPreviewQuery = {
   error?: string;
 };
 
+export type AiQuestionnaireChoice = {
+  value: string;
+  label: string;
+  description?: string;
+};
+
+export type AiQuestionnaireQuestion = {
+  name: string;
+  prompt: string;
+  description?: string;
+  required: boolean;
+  multiple: boolean;
+  choices: AiQuestionnaireChoice[];
+  allowOther: boolean;
+  otherLabel: string;
+  otherPlaceholder: string;
+};
+
+export type AiQuestionnaire = {
+  title: string;
+  questions: AiQuestionnaireQuestion[];
+};
+
 type DashboardPreviewItem = {
   id: string;
   kind: "dashboard_preview";
   toolCallId: string;
   proposalId: string;
+  previewComponentIds: string[];
   expiresAt: string;
   canCommit: boolean;
   issues: string[];
@@ -43,6 +67,7 @@ export type ChatEvent =
   | { version: 1; type: "tool_result"; toolCallId: string; toolName: string; ok: boolean }
   | ({ version: 1; type: "query_preview"; toolCallId: string } & QueryPreview)
   | ({ version: 1; type: "dashboard_preview" } & Omit<DashboardPreviewItem, "id" | "kind" | "saved" | "stale">)
+  | { version: 1; type: "questionnaire"; toolCallId: string; questionnaire: AiQuestionnaire }
   | { version: 1; type: "context_proposal"; toolCallId: string; proposal: AiContextProposal }
   | { version: 1; type: "proposal"; proposalId: string; kind: string; title: string; summary: string }
   | { version: 1; type: "error"; code: string; message: string; retryable: boolean }
@@ -154,6 +179,12 @@ function decodeEvent(eventName: string, data: string): ChatEvent | undefined {
       const document = payload.document;
       const definition = payload.definition;
       const queries = payload.queries;
+      const previewComponentIds = payload.previewComponentIds;
+      const definitionComponentIds = isRecord(definition) && Array.isArray(definition.components)
+        ? definition.components.flatMap((component) =>
+            isRecord(component) && typeof component.id === "string" ? [component.id] : [],
+          )
+        : [];
       const validQueries = isRecord(queries) && Object.values(queries).every((query) =>
         isRecord(query) &&
         Array.isArray(query.rows) && query.rows.every(isRecord) &&
@@ -162,7 +193,8 @@ function decodeEvent(eventName: string, data: string): ChatEvent | undefined {
         Number.isSafeInteger(query.bytes) && (query.bytes as number) >= 0 && (query.bytes as number) <= (query.byteLimit as number) &&
         typeof query.truncated === "boolean" &&
         (query.truncationReason === null || ["row_limit", "byte_limit"].includes(String(query.truncationReason))) &&
-        (query.error === undefined || typeof query.error === "string"),
+        (query.error === undefined || typeof query.error === "string") &&
+        (query.previewPending === undefined || typeof query.previewPending === "string"),
       );
       if (
         typeof payload.toolCallId === "string" &&
@@ -174,9 +206,44 @@ function decodeEvent(eventName: string, data: string): ChatEvent | undefined {
         (payload.expectedDashboardFingerprint === null || typeof payload.expectedDashboardFingerprint === "string") &&
         isRecord(document) && typeof document.id === "string" && typeof document.name === "string" &&
         isRecord(definition) && Array.isArray(definition.components) &&
+        Array.isArray(previewComponentIds) && previewComponentIds.length > 0 &&
+        previewComponentIds.every((id) => typeof id === "string" && definitionComponentIds.includes(id)) &&
+        new Set(previewComponentIds).size === previewComponentIds.length &&
         validQueries
       ) return normalizedPayload as ChatEvent;
       throw new Error("A prévia do dashboard está malformada.");
+    }
+    case "questionnaire": {
+      const questionnaire = payload.questionnaire;
+      const validQuestions = isRecord(questionnaire) &&
+        typeof questionnaire.title === "string" &&
+        Array.isArray(questionnaire.questions) &&
+        questionnaire.questions.length > 0 &&
+        questionnaire.questions.length <= 5 &&
+        questionnaire.questions.every((question) =>
+          isRecord(question) &&
+          typeof question.name === "string" && /^[a-z][a-z0-9_-]{0,63}$/.test(question.name) &&
+          typeof question.prompt === "string" &&
+          (question.description === undefined || typeof question.description === "string") &&
+          typeof question.required === "boolean" &&
+          typeof question.multiple === "boolean" &&
+          typeof question.allowOther === "boolean" &&
+          typeof question.otherLabel === "string" &&
+          typeof question.otherPlaceholder === "string" &&
+          Array.isArray(question.choices) &&
+          question.choices.length <= 8 &&
+          question.choices.every((choice) =>
+            isRecord(choice) &&
+            typeof choice.value === "string" &&
+            typeof choice.label === "string" &&
+            (choice.description === undefined || typeof choice.description === "string"),
+          ) &&
+          (question.choices.length > 0 || question.allowOther),
+        );
+      if (typeof payload.toolCallId === "string" && validQuestions) {
+        return normalizedPayload as ChatEvent;
+      }
+      throw new Error("O formulário de esclarecimento da IA está malformado.");
     }
     case "error":
       if (typeof payload.code === "string" && typeof payload.message === "string" && typeof payload.retryable === "boolean") return normalizedPayload as ChatEvent;

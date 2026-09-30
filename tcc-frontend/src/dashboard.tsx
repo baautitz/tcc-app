@@ -4,6 +4,7 @@ import {
   useRef,
   useState,
   type FormEvent,
+  type ReactNode,
 } from "react";
 import {
   Bar,
@@ -95,6 +96,7 @@ type QueryState = {
   loading: boolean;
   rows?: Record<string, unknown>[];
   error?: string;
+  previewPending?: string;
 };
 type FilterValues = Record<string, string | string[]>;
 const colors = [
@@ -105,17 +107,17 @@ const colors = [
   "var(--chart-5)",
 ];
 const colSpanClass: Record<number, string> = {
-  1: "col-span-12 md:col-span-1",
-  2: "col-span-12 md:col-span-2",
-  3: "col-span-12 md:col-span-3",
-  4: "col-span-12 md:col-span-4",
-  5: "col-span-12 md:col-span-5",
-  6: "col-span-12 md:col-span-6",
-  7: "col-span-12 md:col-span-7",
-  8: "col-span-12 md:col-span-8",
-  9: "col-span-12 md:col-span-9",
-  10: "col-span-12 md:col-span-10",
-  11: "col-span-12 md:col-span-11",
+  1: "col-span-12 @md:col-span-1",
+  2: "col-span-12 @md:col-span-2",
+  3: "col-span-12 @md:col-span-3",
+  4: "col-span-12 @md:col-span-4",
+  5: "col-span-12 @md:col-span-5",
+  6: "col-span-12 @md:col-span-6",
+  7: "col-span-12 @md:col-span-7",
+  8: "col-span-12 @md:col-span-8",
+  9: "col-span-12 @md:col-span-9",
+  10: "col-span-12 @md:col-span-10",
+  11: "col-span-12 @md:col-span-11",
   12: "col-span-12",
 };
 const gapClass: Record<number, string> = {
@@ -256,6 +258,22 @@ function DashboardComponentView({
 }) {
   if (!state || (state.loading && state.rows === undefined))
     return <ComponentLoading component={component} />;
+  if (state.previewPending && state.rows === undefined) {
+    return (
+      <Card className={colClass(component)}>
+        <CardHeader>
+          <CardTitle>{component.title}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Alert>
+            <AlertCircle />
+            <AlertTitle>Prévia aguardando filtros</AlertTitle>
+            <AlertDescription>{state.previewPending}</AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
+    );
+  }
   if (state.error && state.rows === undefined)
     return <ComponentError component={component} message={state.error} />;
   const rows = state.rows ?? [];
@@ -431,37 +449,72 @@ function DashboardComponentView({
 export function DashboardProposalCanvas({
   definition,
   rowsByQuery,
+  componentIds,
 }: {
   definition: DashboardDefinition;
-  rowsByQuery: Record<string, { rows: Record<string, unknown>[]; error?: string }>;
+  rowsByQuery: Record<string, { rows: Record<string, unknown>[]; error?: string; previewPending?: string }>;
+  componentIds?: string[];
 }) {
   const gridGap = gapClass[definition.layout.gap] ?? "gap-4";
+  const visibleComponentIds = componentIds ? new Set(componentIds) : undefined;
+  const components = definition.components.filter((component) =>
+    !visibleComponentIds || visibleComponentIds.has(component.id),
+  );
   return (
-    <div className={`grid grid-cols-12 ${gridGap}`}>
-      {definition.components.map((component) => (
-        <DashboardComponentView
-          key={component.id}
-          component={component}
-          state={{
-            loading: false,
-            rows: rowsByQuery[component.queryUuid]?.rows ?? [],
-            ...(rowsByQuery[component.queryUuid]?.error ? { error: rowsByQuery[component.queryUuid].error } : {}),
-          }}
-        />
-      ))}
+    <div className={`@container grid grid-cols-12 ${gridGap}`}>
+      {components.length > 0 ? components.map((component) => {
+        const preview = rowsByQuery[component.queryUuid];
+        return (
+          <DashboardComponentView
+            key={component.id}
+            component={component}
+            state={{
+              loading: false,
+              ...(preview?.previewPending
+                ? { previewPending: preview.previewPending }
+                : preview?.error
+                  ? { error: preview.error }
+                  : { rows: preview?.rows ?? [] }),
+            }}
+          />
+        );
+      }) : (
+        <p className="col-span-12 text-sm text-muted-foreground">
+          Esta proposta não contém componentes para visualizar.
+        </p>
+      )}
     </div>
   );
 }
-function DashboardFilters({
+
+export type DashboardFilterValues = Record<string, string | string[]>;
+
+export function DashboardFilters({
   parameters,
   lookupData,
   appliedFilters,
   onApply,
+  onValuesChange,
+  heading = "Filtros",
+  description = "Os argumentos são enviados somente às queries mapeadas pelo dashboard.",
+  submitLabel = "Aplicar filtros",
+  submitIcon = <Filter />,
+  submitDisabled = false,
+  showWhenEmpty = false,
+  emptyMessage,
 }: {
   parameters: DashboardArgument[];
   lookupData: Record<string, QueryState>;
   appliedFilters: FilterValues;
-  onApply: (values: FilterValues) => void;
+  onApply: (values: DashboardFilterValues) => void | Promise<void>;
+  onValuesChange?: (values: DashboardFilterValues) => void;
+  heading?: string;
+  description?: string;
+  submitLabel?: string;
+  submitIcon?: ReactNode;
+  submitDisabled?: boolean;
+  showWhenEmpty?: boolean;
+  emptyMessage?: string;
 }) {
   const schema = z
     .record(z.union([z.string(), z.array(z.string())]))
@@ -506,21 +559,25 @@ function DashboardFilters({
   useEffect(() => {
     form.reset({ ...defaults, ...appliedFilters });
   }, [parameters, appliedFilters, form]);
-  if (!parameters.length) return null;
+  useEffect(() => {
+    const subscription = form.watch((values, metadata) => {
+      if (metadata.type === "change") onValuesChange?.(values as DashboardFilterValues);
+    });
+    return () => subscription.unsubscribe();
+  }, [form, onValuesChange]);
+  if (!parameters.length && !showWhenEmpty) return null;
   return (
-    <Card>
+    <Card className="@container">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Filter /> Filtros
+          <Filter /> {heading}
         </CardTitle>
-        <CardDescription>
-          Os argumentos são enviados somente às queries mapeadas pelo dashboard.
-        </CardDescription>
+        <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onApply)}>
-            <FieldGroup className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <FieldGroup className="grid grid-cols-1 gap-4 @lg:grid-cols-3">
               {parameters.map((parameter) => (
                 <FormField
                   key={parameter.name}
@@ -553,8 +610,8 @@ function DashboardFilters({
                         })
                       : (parameter.options ?? []);
                     return (
-                      <FormItem>
-                        <FormLabel>
+                      <FormItem className="min-w-0">
+                        <FormLabel className="break-words">
                           {parameter.label}
                           {parameter.required ? " *" : ""}
                         </FormLabel>
@@ -677,9 +734,14 @@ function DashboardFilters({
                   }}
                 />
               ))}
+              {!parameters.length && emptyMessage && (
+                <p className="text-xs text-muted-foreground @lg:col-span-2">
+                  {emptyMessage}
+                </p>
+              )}
               <div className="flex items-end">
-                <Button type="submit">
-                  <Filter /> Aplicar filtros
+                <Button type="submit" disabled={submitDisabled}>
+                  {submitIcon} {submitLabel}
                 </Button>
               </div>
             </FieldGroup>
@@ -1006,7 +1068,7 @@ function DashboardPage({
           </AlertDescription>
         </Alert>
       )}
-      <div className={`grid grid-cols-12 ${gridGap}`}>
+      <div className={`@container grid grid-cols-12 ${gridGap}`}>
         {dashboard.definition.components.map((component) => (
           <DashboardComponentView
             key={component.id}

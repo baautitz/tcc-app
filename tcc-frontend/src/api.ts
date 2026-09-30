@@ -102,6 +102,26 @@ export const api = {
       `/api/admin/ai/dashboard-proposals/${encodeURIComponent(proposalId)}/commit`,
       { method: "POST", body: JSON.stringify({ acknowledgeTruncation }) },
     ),
+  previewAiDashboardProposal: (
+    proposalId: string,
+    contextValues: Record<string, string | string[]>,
+    componentIds: string[],
+  ) =>
+    request<{
+      queries: Record<string, {
+        rows: Record<string, unknown>[];
+        rowLimit: number;
+        byteLimit: number;
+        bytes: number;
+        truncated: boolean;
+        truncationReason: "row_limit" | "byte_limit" | null;
+        error?: string;
+        previewPending?: string;
+      }>;
+    }>(`/api/admin/ai/dashboard-proposals/${encodeURIComponent(proposalId)}/preview`, {
+      method: "POST",
+      body: JSON.stringify({ contextValues, componentIds }),
+    }),
   dashboardUsers: (id: string) =>
     request<{ users: DashboardUser[]; userIds: string[] }>(
       `/api/admin/dashboards/${encodeURIComponent(id)}/users`,
