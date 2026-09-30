@@ -4,6 +4,9 @@ import {
   createAiAgent,
   createAiAgentRunConfig,
   createAiModel,
+  dashboardPreflightIssue,
+  queryPreflightIssue,
+  AI_MAX_OUTPUT_TOKENS,
   AI_AGENT_RECURSION_LIMIT,
   DEFAULT_AI_REQUEST_TIMEOUT_MS,
   getAiAvailability,
@@ -70,7 +73,7 @@ describe("configuração e factory da IA", () => {
 
     if (!configuration.enabled) throw new Error("A configuração do teste deveria estar habilitada.");
     expect(typeof createAiAgent({ configuration }).stream).toBe("function");
-    expect(createAiModel(configuration).maxTokens).toBe(2_048);
+    expect(createAiModel(configuration).maxTokens).toBe(AI_MAX_OUTPUT_TOKENS);
   });
 
   it("usa timeout padrão e valida o limite configurável sem derrubar a API", () => {
@@ -90,11 +93,46 @@ describe("configuração e factory da IA", () => {
     });
   });
 
-  it("reserva iterações suficientes para leituras, até três rascunhos SQL e resposta final", () => {
-    expect(AI_AGENT_RECURSION_LIMIT).toBeGreaterThanOrEqual(20);
+  it("reserva iterações para análise, refinamento de consultas complexas e revisão final", () => {
+    expect(AI_AGENT_RECURSION_LIMIT).toBeGreaterThanOrEqual(40);
     expect(createAiAgentRunConfig({ signal: new AbortController().signal }, { isAdmin: true })).toMatchObject({
       recursionLimit: AI_AGENT_RECURSION_LIMIT,
       context: { isAdmin: true },
     });
+  });
+});
+
+describe("pré-condições do fluxo de query e dashboard", () => {
+  const dataSourceId = "00000000-0000-4000-8000-000000000020";
+  const dashboardId = "00000000-0000-4000-8000-000000000021";
+
+  it("mantém a prévia independente do dashboard aberto", () => {
+    const issue = queryPreflightIssue([], {
+      dataSourceId,
+      sqlText: "SELECT 1 AS total",
+      parameters: [],
+    });
+
+    expect(issue).toContain("liste as fontes disponíveis");
+    expect(issue).not.toContain("leia o dashboard atual");
+  });
+
+  it("exige leitura do dashboard real antes da proposta de atualização", () => {
+    const args = { mode: "update", dashboardId };
+    expect(dashboardPreflightIssue([], args, { dashboardId })).toContain("leia o dashboard atual");
+    expect(dashboardPreflightIssue([
+      {
+        type: "tool",
+        name: "get_current_dashboard",
+        content: JSON.stringify({ dashboardId }),
+      },
+    ], args, { dashboardId })).toBeUndefined();
+    expect(dashboardPreflightIssue([
+      {
+        type: "tool",
+        name: "get_current_dashboard",
+        content: JSON.stringify({ dashboardId: "00000000-0000-4000-8000-000000000022" }),
+      },
+    ], args, { dashboardId })).toContain("leia o dashboard atual");
   });
 });

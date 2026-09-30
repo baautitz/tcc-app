@@ -37,7 +37,7 @@ export interface UnsafeAiColumnType extends AiCatalogTableReference {
 
 export const AI_QUERY_CONNECTION_TIMEOUT_MS = 5_000;
 export const AI_QUERY_STATEMENT_TIMEOUT_MS = 10_000;
-export const AI_QUERY_MAX_ROWS = 50;
+export const AI_QUERY_MAX_ROWS = 500;
 export const AI_QUERY_MAX_BYTES = 48_000;
 export const AI_QUERY_RETRY_MIN_DELAY_MS = 100;
 export const AI_QUERY_RETRY_JITTER_MS = 100;

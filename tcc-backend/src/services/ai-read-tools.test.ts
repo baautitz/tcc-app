@@ -231,7 +231,7 @@ describe("ferramentas de leitura de contexto e esquema da IA", () => {
       offset: 0,
       limit: 50,
     });
-    await expect(result).rejects.toThrow("Servidor PostgreSQL não encontrado.");
+    await expect(result).resolves.toMatchObject({ ok: false, code: "DATA_SOURCE_NOT_FOUND" });
     expect(events.map(({ type }) => type)).toEqual(["tool_start", "tool_result"]);
     expect(events[0]?.toolCallId).toBe(events[1]?.toolCallId);
     expect(events.every((event) => event.type !== "query_preview" && event.type !== "dashboard_preview" && "toolName" in event && event.toolName === "list_data_source_tables")).toBe(true);

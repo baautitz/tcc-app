@@ -28,9 +28,8 @@ import {
 import { queryDraftFingerprint } from "./query-lifecycle.js";
 import type { QueryLifecycleQuery } from "./query-lifecycle.js";
 
-const MAX_SQL_DRAFT_CHARACTERS = 20_000;
-const MAX_SQL_DRAFTS = 3;
-const MAX_DATABASE_ATTEMPTS = 6;
+const MAX_SQL_DRAFT_CHARACTERS = 100_000;
+const MAX_DATABASE_ATTEMPTS = 12;
 
 const inputSchema = z
   .object({
@@ -216,7 +215,7 @@ function validationResult(
     askUser: false,
     retryable: false,
     instruction:
-      "Corrija o rascunho SQL e use test_query novamente, se ainda houver orçamento de rascunhos.",
+      "Corrija o rascunho com base no erro e no esquema verificado antes de testar novamente. Não repita uma versão idêntica sem mudança fundamentada.",
   };
 }
 
@@ -235,8 +234,6 @@ export function createAiQueryTestTools({
       "A ferramenta de teste de SQL está disponível apenas para administradores.",
     );
 
-  const sqlDrafts = new Set<string>();
-  let draftAttempts = 0;
   let databaseAttempts = 0;
 
   const testQuery = tool(
@@ -247,23 +244,6 @@ export function createAiQueryTestTools({
         async (emit, toolCallId) => {
           throwIfAborted(runtime.signal);
           const fingerprint = queryDraftFingerprint(input);
-          if (
-            draftAttempts >= MAX_SQL_DRAFTS ||
-            (!sqlDrafts.has(fingerprint) && sqlDrafts.size >= MAX_SQL_DRAFTS)
-          ) {
-            return {
-              ok: false,
-              code: "SQL_DRAFT_LIMIT_REACHED",
-              message: `Esta execução de chat já testou ${MAX_SQL_DRAFTS} rascunhos SQL diferentes.`,
-              askUser: true,
-              retryable: false,
-              instruction:
-                "Explique o bloqueio ao administrador e peça orientação adicional. Não gere nem teste mais SQL nesta execução de chat.",
-            };
-          }
-          draftAttempts += 1;
-          sqlDrafts.add(fingerprint);
-
           let bound: { sqlText: string; values: unknown[] };
           try {
             assertAiReadOnlySql(input.sqlText);
@@ -289,9 +269,11 @@ export function createAiQueryTestTools({
             return {
               ok: false,
               code: "DATABASE_ATTEMPT_LIMIT_REACHED",
-              message: `Esta execução de chat atingiu o limite de ${MAX_DATABASE_ATTEMPTS} tentativas de execução do rascunho SQL ao banco de dados.`,
-              askUser: true,
+              message: "A validação SQL não pode executar outra consulta ao banco nesta rodada.",
+              askUser: false,
               retryable: false,
+              instruction:
+                "Não chame ask_admin_questions nem transforme o orçamento interno em uma escolha do administrador. Informe que a validação não terminou, relate somente resultados confirmados e não afirme que a query está pronta ou salva.",
             };
           }
 
@@ -676,7 +658,7 @@ export function createAiQueryTestTools({
     {
       name: "test_query",
       description:
-        "Testa um rascunho SQL PostgreSQL em um servidor cadastrado usando apenas leitura, parâmetros vinculados e uma amostra com limites de tempo, linhas e bytes. Só aceita tabelas base do catálogo atualizado, relações com colunas de tipos built-in e funções built-in aprovadas; não aceita views, UDFs, extensões nem colunas de tipos customizados. Após sucesso emite uma prévia estruturada e recibo curto de uso único; nunca salva sem confirmação explícita do administrador. Para editar, use mode=update e um queryId existente; nunca invente IDs. Máximo de 3 chamadas de teste SQL e 6 tentativas de execução do rascunho ao banco por execução de chat. Quando um parâmetro obrigatório faltar, pergunte ao administrador em vez de inventá-lo.",
+        "Testa um rascunho SQL PostgreSQL em um servidor cadastrado usando apenas leitura, parâmetros vinculados e uma amostra com limites de tempo, linhas e bytes. Aceita queries analíticas complexas, inclusive com CTEs e múltiplas relações, desde que use somente tabelas base do catálogo atualizado, colunas built-in e funções seguras; não aceita views, UDFs, extensões nem tipos customizados. Revise o esquema de cada tabela e os dados relevantes antes de testar; refine a consulta a partir de erros específicos sem repetir a mesma versão. Após sucesso emite uma prévia estruturada e recibo curto de uso único; nunca salva sem confirmação explícita do administrador. Para editar, use mode=update e um queryId existente; nunca invente IDs. Quando um parâmetro obrigatório faltar, pergunte ao administrador em vez de inventá-lo.",
       schema: inputSchema,
     },
   );
@@ -686,6 +668,5 @@ export function createAiQueryTestTools({
 
 export const AI_QUERY_TEST_LIMITS = {
   maxSqlDraftCharacters: MAX_SQL_DRAFT_CHARACTERS,
-  maxDistinctSqlDrafts: MAX_SQL_DRAFTS,
   maxDatabaseAttempts: MAX_DATABASE_ATTEMPTS,
 } as const;

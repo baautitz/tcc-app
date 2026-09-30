@@ -446,7 +446,7 @@ describe("ferramenta LangChain test_query", () => {
     expect(findSource).toHaveBeenCalledTimes(3);
   });
 
-  it("impõe no backend 3 drafts SQL distintos e no máximo 6 tentativas PostgreSQL", async () => {
+  it("permite refinar a query até o limite de execuções PostgreSQL da rodada", async () => {
     let attempts = 0;
     const runQuery = vi.fn(async (_source, _sql, _values, beforeAttempt) => {
       expect(beforeAttempt(1)).toBe(true);
@@ -457,11 +457,7 @@ describe("ferramenta LangChain test_query", () => {
     });
     const { testQuery } = makeTools({ runQuery });
 
-    for (const sqlText of [
-      "SELECT 1 AS value",
-      "SELECT 2 AS value",
-      "SELECT 3 AS value",
-    ]) {
+    for (const sqlText of Array.from({ length: 6 }, (_, index) => `SELECT ${index + 1} AS value`)) {
       const output = resultObject(
         await testQuery.invoke({
           dataSourceId: sourceId,
@@ -475,23 +471,23 @@ describe("ferramenta LangChain test_query", () => {
     const overLimit = resultObject(
       await testQuery.invoke({
         dataSourceId: sourceId,
-        sqlText: "SELECT 4 AS value",
+        sqlText: "SELECT 7 AS value",
         parameters: [],
         values: {},
       } as never),
     );
 
     expect(AI_QUERY_TEST_LIMITS).toMatchObject({
-      maxDistinctSqlDrafts: 3,
-      maxDatabaseAttempts: 6,
+      maxSqlDraftCharacters: 100_000,
+      maxDatabaseAttempts: 12,
     });
     expect(overLimit).toMatchObject({
       ok: false,
-      code: "SQL_DRAFT_LIMIT_REACHED",
-      askUser: true,
+      code: "DATABASE_ATTEMPT_LIMIT_REACHED",
+      askUser: false,
     });
-    expect(runQuery).toHaveBeenCalledTimes(3);
-    expect(attempts).toBe(6);
+    expect(runQuery).toHaveBeenCalledTimes(6);
+    expect(attempts).toBe(12);
   });
 
   it("serializa falhas de timeout e de transporte sem expor mensagem PostgreSQL bruta", async () => {

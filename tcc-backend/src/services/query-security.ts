@@ -1027,6 +1027,9 @@ export function assertAiReadOnlySql(sqlText: string): void {
     const token = tokens[index]!;
     if (token.kind !== "word" && token.kind !== "quoted_identifier") continue;
     if (isAliasColumnList(tokens, index)) continue;
+    // `AS (` is CTE syntax, not a function call. Treating it as a call
+    // incorrectly sends the SQL keyword `as` through the function allowlist.
+    if (token.kind === "word" && token.value === "as") continue;
     const functionName = normalizeIdentifier(token);
     const previous = tokens[index - 1];
     const next = tokens[index + 1];
