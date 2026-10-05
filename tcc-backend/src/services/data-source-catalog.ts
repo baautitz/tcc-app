@@ -1,3 +1,4 @@
+import { DomainError } from "../lib/domain-error.js";
 import type { DiscoveredTable } from "./external-postgres.js";
 
 export const MAX_DATA_SOURCE_CATALOG_TABLES = 10_000;
@@ -35,9 +36,9 @@ export interface CatalogSourceUpdate {
 
 export interface CatalogSourceSnapshot extends CatalogSourceUpdate {}
 
-export class DataSourceCatalogSnapshotChangedError extends Error {
+export class DataSourceCatalogSnapshotChangedError extends DomainError {
   constructor() {
-    super("O servidor foi alterado durante a operação do catálogo.");
+    super("O servidor foi alterado durante a operação do catálogo.", "SNAPSHOT_CHANGED", "conflict");
     this.name = "DataSourceCatalogSnapshotChangedError";
   }
 }

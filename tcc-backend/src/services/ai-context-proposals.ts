@@ -1,6 +1,8 @@
+import { DomainError } from "../lib/domain-error.js";
 import { tool, type StructuredToolInterface, type ToolRuntime } from "@langchain/core/tools";
 import { z } from "zod";
 import type { AuthenticatedUser } from "./auth.js";
+import { expireIfStale } from "../lib/lifecycle.js";
 
 export const CONTEXT_PROPOSAL_TTL_MS = 10 * 60 * 1000;
 
@@ -56,30 +58,30 @@ export interface AiContextProposalRepository {
   transaction<T>(work: (tx: ContextProposalTransaction) => Promise<T>): Promise<T>;
 }
 
-export class ContextProposalConflictError extends Error {
+export class ContextProposalConflictError extends DomainError {
   constructor(message = "O contexto mudou desde a criação desta proposta. Peça à IA uma nova proposta.") {
-    super(message);
+    super(message, "CONFLICT", "conflict");
     this.name = "ContextProposalConflictError";
   }
 }
 
-export class ContextProposalNotFoundError extends Error {
+export class ContextProposalNotFoundError extends DomainError {
   constructor() {
-    super("Proposta de contexto não encontrada.");
+    super("Proposta de contexto não encontrada.", "NOT_FOUND", "not_found");
     this.name = "ContextProposalNotFoundError";
   }
 }
 
-export class ContextProposalTargetNotFoundError extends Error {
+export class ContextProposalTargetNotFoundError extends DomainError {
   constructor() {
-    super("Servidor ou tabela de destino não existe mais.");
+    super("Servidor ou tabela de destino não existe mais.", "TARGET_NOT_FOUND", "not_found");
     this.name = "ContextProposalTargetNotFoundError";
   }
 }
 
-export class ContextProposalUnavailableError extends Error {
+export class ContextProposalUnavailableError extends DomainError {
   constructor(status: ContextProposalStatus) {
-    super(status === "expired" ? "A proposta expirou. Peça à IA uma nova proposta." : "Esta proposta já foi resolvida.");
+    super(status === "expired" ? "A proposta expirou. Peça à IA uma nova proposta." : "Esta proposta já foi resolvida.", "UNAVAILABLE", "conflict");
     this.name = "ContextProposalUnavailableError";
   }
 }
@@ -111,7 +113,9 @@ export function createAiContextProposalTools(options: {
   currentUser: AuthenticatedUser;
   repository: AiContextProposalRepository;
   onProposal?: (event: ContextProposalProgressEvent) => void | Promise<void>;
+  now?: () => Date;
 }): StructuredToolInterface[] {
+  const now = options.now ?? (() => new Date());
   if (!options.currentUser.isAdmin) throw new Error("Propostas de contexto estão disponíveis apenas para administradores.");
 
   const proposeContextUpdate = tool(async (input, runtime) => {
@@ -130,7 +134,7 @@ export function createAiContextProposalTools(options: {
       currentContext: target.context,
       proposedContext: input.context,
       reason: input.reason,
-      expiresAt: new Date(Date.now() + CONTEXT_PROPOSAL_TTL_MS),
+      expiresAt: new Date(now().getTime() + CONTEXT_PROPOSAL_TTL_MS),
     });
     try {
       await options.onProposal?.({
@@ -165,8 +169,7 @@ export async function getContextProposal(repository: AiContextProposalRepository
   const proposal = await repository.transaction(async (tx) => {
     const current = await tx.lockProposal(proposalId, actorId);
     if (!current) return undefined;
-    if (current.status === "pending" && current.expiresAt.getTime() <= now.getTime()) {
-      await tx.updateProposalStatus(current.id, "expired", now);
+    if (current.status === "pending" && await expireIfStale(current.expiresAt, now, () => tx.updateProposalStatus(current.id, "expired", now))) {
       return { ...current, status: "expired" as const, resolvedAt: now };
     }
     return current;
@@ -184,8 +187,7 @@ export async function approveContextProposal(repository: AiContextProposalReposi
     const proposal = await tx.lockProposal(proposalId, actorId);
     if (!proposal) return { kind: "missing" as const };
     if (proposal.status !== "pending") return { kind: "unavailable" as const, status: proposal.status };
-    if (proposal.expiresAt.getTime() <= now.getTime()) {
-      await tx.updateProposalStatus(proposal.id, "expired", now);
+    if (await expireIfStale(proposal.expiresAt, now, () => tx.updateProposalStatus(proposal.id, "expired", now))) {
       return { kind: "unavailable" as const, status: "expired" as const };
     }
 
@@ -218,8 +220,7 @@ export async function dismissContextProposal(repository: AiContextProposalReposi
     const proposal = await tx.lockProposal(proposalId, actorId);
     if (!proposal) return { kind: "missing" as const };
     if (proposal.status !== "pending") return { kind: "unavailable" as const, status: proposal.status };
-    if (proposal.expiresAt.getTime() <= now.getTime()) {
-      await tx.updateProposalStatus(proposal.id, "expired", now);
+    if (await expireIfStale(proposal.expiresAt, now, () => tx.updateProposalStatus(proposal.id, "expired", now))) {
       return { kind: "unavailable" as const, status: "expired" as const };
     }
     await tx.updateProposalStatus(proposal.id, "dismissed", now);

@@ -1,4 +1,5 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
+import { sha256Hex, stableJson } from "../lib/hash.js";
 import { z } from "zod";
 import {
   dashboardArgumentSchema,
@@ -85,15 +86,6 @@ export const aiDashboardProposalInputSchema = z.object({
 
 export type AiDashboardProposalInput = z.infer<typeof aiDashboardProposalInputSchema>;
 export type DashboardComponentChange = "added" | "modified" | "unchanged";
-
-function stableJson(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
-  if (value && typeof value === "object") {
-    const record = value as Record<string, unknown>;
-    return `{${Object.keys(record).sort((left, right) => left.localeCompare(right, "en-US")).map((key) => `${JSON.stringify(key)}:${stableJson(record[key])}`).join(",")}}`;
-  }
-  return JSON.stringify(value);
-}
 
 function countChanges<T>(
   before: T[],
@@ -321,7 +313,7 @@ export function dashboardProposalPreviewScope(
 }
 
 export function dashboardDocumentFingerprint(document: DashboardDocument): string {
-  return createHash("sha256").update(stableJson(document)).digest("hex");
+  return sha256Hex(stableJson(document));
 }
 
 export function dashboardReferenceFingerprint(
@@ -340,7 +332,7 @@ export function dashboardReferenceFingerprint(
       queryUpdatedAt: reference.queryUpdatedAt.toISOString(),
       sourceUpdatedAt: reference.sourceUpdatedAt.toISOString(),
     }));
-  return createHash("sha256").update(JSON.stringify(canonical)).digest("hex");
+  return sha256Hex(JSON.stringify(canonical));
 }
 
 export function makeDashboardProposalReceiptId(): string {

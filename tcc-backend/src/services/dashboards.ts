@@ -1,9 +1,12 @@
+import { DomainError } from "../lib/domain-error.js";
 import { randomUUID } from "node:crypto";
 import { mkdir, readdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve } from "node:path";
-import { and, eq, inArray, ne } from "drizzle-orm";
-import { db } from "../db/client.js";
-import { dashboards } from "../db/schema.js";
+import {
+  createDashboardsRepository,
+  type DashboardDbExecutor,
+  type DashboardsRepository,
+} from "../repositories/dashboards-repository.js";
 import {
   dashboardCreateSchema,
   dashboardDocumentSchema,
@@ -12,7 +15,6 @@ import {
 export type DashboardDocument = ReturnType<
   typeof dashboardDocumentSchema.parse
 >;
-type DashboardDbExecutor = Pick<typeof db, "select" | "insert" | "delete">;
 
 async function unlinkIfExists(filePath: string): Promise<void> {
   try {
@@ -26,12 +28,12 @@ export function validateDashboardDocument(value: unknown): DashboardDocument {
   return dashboardDocumentSchema.parse(value);
 }
 
-export class DashboardFileCompensationError extends Error {
+export class DashboardFileCompensationError extends DomainError {
   constructor(
     public readonly operationError: unknown,
     public readonly compensationError: unknown,
   ) {
-    super("The dashboard file could not be compensated after the database transaction failed.");
+    super("The dashboard file could not be compensated after the database transaction failed.", "FILE_COMPENSATION_FAILED", "conflict");
     this.name = "DashboardFileCompensationError";
   }
 }
@@ -118,7 +120,7 @@ async function readDashboardFile(filePath: string): Promise<DashboardDocument> {
 
 export async function registerDashboardFile(
   filePath: string,
-  executor: DashboardDbExecutor = db,
+  executor?: DashboardDbExecutor,
 ): Promise<DashboardDocument> {
   const resolvedPath = resolve(filePath);
   if (!isEditableDashboardFilePath(resolvedPath)) {
@@ -129,27 +131,15 @@ export async function registerDashboardFile(
 
   const dashboard = await readDashboardFile(resolvedPath);
   const storedPath = relative(process.cwd(), resolvedPath);
-  await executor
-    .delete(dashboards)
-    .where(
-      and(
-        eq(dashboards.filePath, storedPath),
-        ne(dashboards.dashboardId, dashboard.id),
-      ),
-    );
-  await executor
-    .insert(dashboards)
-    .values({ dashboardId: dashboard.id, filePath: storedPath })
-    .onConflictDoUpdate({
-      target: dashboards.dashboardId,
-      set: { filePath: storedPath },
-    });
+  const repo = createDashboardsRepository(executor);
+  await repo.deleteByPathExceptId(storedPath, dashboard.id);
+  await repo.upsert({ dashboardId: dashboard.id, filePath: storedPath });
   return dashboard;
 }
 
 export async function createDashboardFile(
   input: unknown,
-  executor: DashboardDbExecutor = db,
+  executor?: DashboardDbExecutor,
 ): Promise<{ dashboard: DashboardDocument; rollback: () => Promise<void> }> {
   const metadata = dashboardCreateSchema.parse(input);
   const dashboard = validateDashboardDocument({
@@ -170,12 +160,10 @@ export async function createDashboardFile(
   });
 
   try {
-    await executor
-      .insert(dashboards)
-      .values({
-        dashboardId: dashboard.id,
-        filePath: relative(process.cwd(), filePath),
-      });
+    await createDashboardsRepository(executor).insert({
+      dashboardId: dashboard.id,
+      filePath: relative(process.cwd(), filePath),
+    });
   } catch (error) {
     await unlinkIfExists(filePath);
     throw error;
@@ -185,7 +173,7 @@ export async function createDashboardFile(
 }
 
 export async function syncDashboardDirectory(
-  executor: DashboardDbExecutor = db,
+  executor?: DashboardDbExecutor,
 ): Promise<{
   dashboardIds: string[];
   synchronized: number;
@@ -200,19 +188,13 @@ export async function syncDashboardDirectory(
     dashboardIds.push(dashboard.id);
   }
 
-  const existing = await executor
-    .select({
-      dashboardId: dashboards.dashboardId,
-      filePath: dashboards.filePath,
-    })
-    .from(dashboards);
+  const repo = createDashboardsRepository(executor);
+  const existing = await repo.list();
   const orphanIds = existing
     .filter((row) => !registeredPaths.includes(row.filePath))
     .map((row) => row.dashboardId);
   if (orphanIds.length > 0)
-    await executor
-      .delete(dashboards)
-      .where(inArray(dashboards.dashboardId, orphanIds));
+    await repo.deleteByIds(orphanIds);
 
   return {
     dashboardIds,
@@ -254,10 +236,10 @@ export async function getDashboardFiles(): Promise<
   return dashboardFiles;
 }
 
-export async function getRegisteredDashboardFiles(): Promise<
-  Array<{ dashboard: DashboardDocument; filePath: string }>
-> {
-  const rows = await db.select().from(dashboards);
+export async function getRegisteredDashboardFiles(
+  repo: DashboardsRepository = createDashboardsRepository(),
+): Promise<Array<{ dashboard: DashboardDocument; filePath: string }>> {
+  const rows = await repo.list();
   const files: Array<{ dashboard: DashboardDocument; filePath: string }> = [];
   for (const row of rows) {
     const filePath = resolve(process.cwd(), row.filePath);

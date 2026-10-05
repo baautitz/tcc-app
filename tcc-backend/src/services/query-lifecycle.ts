@@ -1,4 +1,5 @@
-import { createHash } from "node:crypto";
+import { DomainError } from "../lib/domain-error.js";
+import { sha256Hex } from "../lib/hash.js";
 import type { ParameterDefinition } from "../lib/contracts.js";
 
 export const QUERY_TEST_RECEIPT_TTL_MS = 10 * 60 * 1_000;
@@ -65,11 +66,11 @@ export interface QueryLifecycleRepository {
   transaction<T>(operation: (tx: QueryLifecycleTransaction) => Promise<T>): Promise<T>;
 }
 
-export class QueryLifecycleError extends Error {
+export class QueryLifecycleError extends DomainError {
   constructor(
     public readonly code: "SOURCE_NOT_FOUND" | "QUERY_NOT_FOUND" | "RECEIPT_INVALID" | "RECEIPT_STALE" | "QUERY_VERSION_CONFLICT",
   ) {
-    super(code);
+    super(code, code, code.endsWith("NOT_FOUND") ? "not_found" : "conflict");
     this.name = "QueryLifecycleError";
   }
 }
@@ -99,7 +100,7 @@ export function queryDraftFingerprint(input: {
   sqlText: string;
   parameters: ParameterDefinition[];
 }): string {
-  return createHash("sha256").update(canonicalQueryDraft(input)).digest("hex");
+  return sha256Hex(canonicalQueryDraft(input));
 }
 
 export function querySourceTargetHash(source: QueryLifecycleSource): string {
@@ -110,7 +111,7 @@ export function querySourceTargetHash(source: QueryLifecycleSource): string {
     username: source.username,
     encryptedPassword: source.encryptedPassword,
   });
-  return createHash("sha256").update(target).digest("hex");
+  return sha256Hex(target);
 }
 
 export async function issueQueryTestReceipt(

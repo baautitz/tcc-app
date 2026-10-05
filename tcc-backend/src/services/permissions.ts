@@ -1,6 +1,7 @@
-import { and, eq, inArray, notInArray } from "drizzle-orm";
-import { db } from "../db/client.js";
-import { permissions, userPermissions } from "../db/schema.js";
+import {
+  drizzlePermissionsRepository,
+  type PermissionsRepository,
+} from "../repositories/permissions-repository.js";
 
 const API_PERMISSIONS = [
   ["users:read", "Ler usuários"],
@@ -23,54 +24,24 @@ const API_PERMISSIONS = [
 
 type PermissionDefinition = { key: string; name: string; description?: string };
 
-export async function ensureSystemPermissions(): Promise<void> {
+export async function ensureSystemPermissions(
+  repo: PermissionsRepository = drizzlePermissionsRepository,
+): Promise<void> {
   const definitions: PermissionDefinition[] = API_PERMISSIONS.map(
     ([key, name]) => ({ key, name }),
   );
-  const keys = definitions.map((permission) => permission.key);
-
-  for (const definition of definitions) {
-    await db
-      .insert(permissions)
-      .values({ ...definition, system: true })
-      .onConflictDoUpdate({
-        target: permissions.key,
-        set: {
-          name: definition.name,
-          description: definition.description ?? null,
-          system: true,
-        },
-      });
-  }
-
-  await db
-    .delete(permissions)
-    .where(
-      and(eq(permissions.system, true), notInArray(permissions.key, keys)),
-    );
+  for (const definition of definitions) await repo.upsertSystemPermission(definition);
+  await repo.deleteSystemPermissionsNotIn(definitions.map((permission) => permission.key));
 }
 
 export async function assignPermissionKeys(
   userId: string,
   keys: string[],
+  repo: PermissionsRepository = drizzlePermissionsRepository,
 ): Promise<void> {
-  const rows =
-    keys.length === 0
-      ? []
-      : await db
-          .select({ id: permissions.id })
-          .from(permissions)
-          .where(inArray(permissions.key, keys));
-  if (rows.length !== keys.length) {
+  const ids = await repo.findPermissionIdsByKeys(keys);
+  if (ids.length !== keys.length) {
     throw new Error("Uma ou mais permissões informadas não existem.");
   }
-  await db.delete(userPermissions).where(eq(userPermissions.userId, userId));
-  if (rows.length > 0) {
-    await db
-      .insert(userPermissions)
-      .values(
-        rows.map((permission) => ({ userId, permissionId: permission.id })),
-      )
-      .onConflictDoNothing();
-  }
+  await repo.replaceUserPermissions(userId, ids);
 }

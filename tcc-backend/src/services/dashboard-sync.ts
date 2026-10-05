@@ -1,5 +1,7 @@
-import { db } from "../db/client.js";
-import { savedQueries } from "../db/schema.js";
+import {
+  drizzleDashboardSyncRepository,
+  type DashboardSyncRepository,
+} from "../repositories/dashboard-sync-repository.js";
 import {
   dashboardDefinitionSchema,
   parameterDefinitionSchema,
@@ -236,15 +238,15 @@ export function buildDashboardDefinitionFromDocument(
   });
 }
 
-export async function validateDashboardCatalog(): Promise<{
+export async function validateDashboardCatalog(
+  repo: DashboardSyncRepository = drizzleDashboardSyncRepository,
+): Promise<{
   dashboards: number;
   queries: number;
 }> {
   const dashboards = await getRegisteredDashboards();
   const referencedIds = new Set<string>();
-  const catalog = await db
-    .select({ id: savedQueries.id, parameters: savedQueries.parameters })
-    .from(savedQueries);
+  const catalog = await repo.listQueryCatalog();
 
   for (const dashboard of dashboards) {
     const queryIds = [...dashboardQueryReferences(dashboard)];

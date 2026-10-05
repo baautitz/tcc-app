@@ -1,7 +1,6 @@
-import { createHash, randomBytes } from "node:crypto";
-import { and, eq, gt, isNull } from "drizzle-orm";
-import { db } from "../db/client.js";
-import { permissions, sessions, userPermissions, users } from "../db/schema.js";
+import { randomBytes } from "node:crypto";
+import { sha256Hex } from "../lib/hash.js";
+import { drizzleAuthRepository, type AuthRepository } from "../repositories/auth-repository.js";
 import { getEnvironment } from "../config.js";
 
 export interface AuthenticatedUser {
@@ -15,66 +14,44 @@ export interface AuthenticatedUser {
 export const SESSION_COOKIE = "tcc_session";
 
 export function hashSessionToken(token: string): string {
-  return createHash("sha256").update(token).digest("hex");
+  return sha256Hex(token);
 }
 
 export async function createSession(
   userId: string,
+  repo: AuthRepository = drizzleAuthRepository,
+  environment = getEnvironment(),
+  now: () => number = Date.now,
 ): Promise<{ token: string; expiresAt: Date }> {
-  const environment = getEnvironment();
   const token = randomBytes(32).toString("base64url");
   const expiresAt = new Date(
-    Date.now() + environment.SESSION_TTL_DAYS * 24 * 60 * 60 * 1000,
+    now() + environment.SESSION_TTL_DAYS * 24 * 60 * 60 * 1000,
   );
-  await db
-    .insert(sessions)
-    .values({ userId, tokenHash: hashSessionToken(token), expiresAt });
+  await repo.insertSession({ userId, tokenHash: hashSessionToken(token), expiresAt });
   return { token, expiresAt };
 }
 
-export async function revokeSession(token: string | undefined): Promise<void> {
+export async function revokeSession(
+  token: string | undefined,
+  repo: AuthRepository = drizzleAuthRepository,
+): Promise<void> {
   if (!token) return;
-  await db
-    .update(sessions)
-    .set({ revokedAt: new Date() })
-    .where(
-      and(
-        eq(sessions.tokenHash, hashSessionToken(token)),
-        isNull(sessions.revokedAt),
-      ),
-    );
+  await repo.revokeSessionByHash(hashSessionToken(token));
 }
 
 export async function findAuthenticatedUser(
   token: string | undefined,
+  repo: AuthRepository = drizzleAuthRepository,
 ): Promise<AuthenticatedUser | null> {
   if (!token) return null;
-  const session = await db
-    .select({ user: users })
-    .from(sessions)
-    .innerJoin(users, eq(sessions.userId, users.id))
-    .where(
-      and(
-        eq(sessions.tokenHash, hashSessionToken(token)),
-        isNull(sessions.revokedAt),
-        gt(sessions.expiresAt, new Date()),
-        eq(users.active, true),
-      ),
-    )
-    .limit(1);
-  const row = session[0];
-  if (!row) return null;
-  const permissionRows = await db
-    .select({ key: permissions.key })
-    .from(userPermissions)
-    .innerJoin(permissions, eq(userPermissions.permissionId, permissions.id))
-    .where(eq(userPermissions.userId, row.user.id));
+  const user = await repo.findActiveUserByTokenHash(hashSessionToken(token));
+  if (!user) return null;
   return {
-    id: row.user.id,
-    name: row.user.name,
-    email: row.user.email,
-    isAdmin: row.user.isAdmin,
-    permissions: permissionRows.map((permission) => permission.key),
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    isAdmin: user.isAdmin,
+    permissions: await repo.listPermissionKeys(user.id),
   };
 }
 

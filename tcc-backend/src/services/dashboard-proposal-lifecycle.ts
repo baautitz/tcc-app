@@ -1,3 +1,6 @@
+import { DomainError } from "../lib/domain-error.js";
+import { assertLive } from "../lib/lifecycle.js";
+
 export interface DashboardProposalReceiptState {
   actorId: string;
   mode: "create" | "update";
@@ -8,9 +11,9 @@ export interface DashboardProposalReceiptState {
   consumedAt: Date | null;
 }
 
-export class DashboardProposalConflict extends Error {
+export class DashboardProposalConflict extends DomainError {
   constructor(public readonly code: "ACTOR_MISMATCH" | "EXPIRED" | "REPLAY" | "DOCUMENT_CHANGED" | "REFERENCES_CHANGED" | "DASHBOARD_CHANGED" | "TRUNCATION_UNACKNOWLEDGED") {
-    super(code);
+    super(code, code, "conflict");
     this.name = "DashboardProposalConflict";
   }
 }
@@ -41,7 +44,7 @@ export function assertDashboardProposalUsable(
 ): void {
   if (receipt.actorId !== actorId) throw new DashboardProposalConflict("ACTOR_MISMATCH");
   if (receipt.consumedAt) throw new DashboardProposalConflict("REPLAY");
-  if (receipt.expiresAt.getTime() <= now.getTime()) throw new DashboardProposalConflict("EXPIRED");
+  assertLive(receipt.expiresAt, now, () => new DashboardProposalConflict("EXPIRED"));
 }
 
 export function assertDashboardProposalFresh(

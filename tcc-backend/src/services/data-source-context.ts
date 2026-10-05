@@ -1,3 +1,4 @@
+import { DomainError } from "../lib/domain-error.js";
 export interface DataSourceContextTransaction {
   lockSourceUpdatedAt(dataSourceId: string): Promise<Date | undefined>;
   updateTableContext(
@@ -12,23 +13,23 @@ export interface DataSourceContextDatabase {
   transaction<T>(work: (tx: DataSourceContextTransaction) => Promise<T>): Promise<T>;
 }
 
-export class DataSourceContextSourceNotFoundError extends Error {
+export class DataSourceContextSourceNotFoundError extends DomainError {
   constructor() {
-    super("Servidor PostgreSQL não encontrado.");
+    super("Servidor PostgreSQL não encontrado.", "SOURCE_NOT_FOUND", "not_found");
     this.name = "DataSourceContextSourceNotFoundError";
   }
 }
 
-export class DataSourceContextVersionConflictError extends Error {
+export class DataSourceContextVersionConflictError extends DomainError {
   constructor() {
-    super("O servidor foi alterado. Recarregue os dados antes de salvar o contexto.");
+    super("O servidor foi alterado. Recarregue os dados antes de salvar o contexto.", "VERSION_CONFLICT", "conflict");
     this.name = "DataSourceContextVersionConflictError";
   }
 }
 
-export class DataSourceTableContextVersionConflictError extends Error {
+export class DataSourceTableContextVersionConflictError extends DomainError {
   constructor() {
-    super("O contexto da tabela mudou. Recarregue os dados antes de salvar novamente.");
+    super("O contexto da tabela mudou. Recarregue os dados antes de salvar novamente.", "TABLE_VERSION_CONFLICT", "conflict");
     this.name = "DataSourceTableContextVersionConflictError";
   }
 }
