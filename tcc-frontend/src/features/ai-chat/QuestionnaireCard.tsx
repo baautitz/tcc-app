@@ -1,6 +1,16 @@
-import { useMemo, type FormEvent } from "react";
-import { ArrowLeft, ArrowRight, Check, Send } from "lucide-react";
-import { Questionnaire } from "@shadcn/react/questionnaire";
+import {
+  useMemo,
+  type FormEvent,
+} from "react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  Send,
+} from "lucide-react";
+import {
+  Questionnaire,
+} from "@shadcn/react/questionnaire";
 import type { AiQuestionnaire } from "./chat-sse";
 
 export type QuestionnaireAnswers = Record<string, string[]>;

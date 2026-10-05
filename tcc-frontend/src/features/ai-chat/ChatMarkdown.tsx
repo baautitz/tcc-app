@@ -1,15 +1,22 @@
-import { useState, type ReactNode } from "react";
+import {
+  useState,
+  type ReactNode,
+} from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Maximize2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import {
+  Maximize2,
+} from "lucide-react";
+import {
+  Button,
+} from "@/shared/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from "@/shared/ui/dialog";
 import {
   Table,
   TableBody,
@@ -17,7 +24,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
+} from "@/shared/ui/table";
 
 function ExpandableChatTable({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
