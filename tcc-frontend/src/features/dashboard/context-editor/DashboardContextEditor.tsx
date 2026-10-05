@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, FileCode2, Plus, Save, Trash2 } from "lucide-react";
 import { api } from "@/api";
+import { errorMessage } from "@/lib/errors";
+import { componentQuery, dashboardValidationIssues } from "./validate";
+import { JsonEditorDialog } from "./JsonEditorDialog";
+import { ManualOptionsEditor, QueryParameterEditor, componentTypes, parameterTypes, querySelectItems } from "./ParameterEditors";
 import type {
   QueryParameter,
   QueryParameterSource,
@@ -8,236 +12,15 @@ import type {
   DashboardArgument,
   DashboardDocumentComponent,
   DashboardDocument,
-  DashboardOption,
 } from "@/types";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { toast } from "@/components/ui/toast";
-
-const componentTypes: Array<{ value: DashboardDocumentComponent["component"]; label: string }> = [
-  { value: "stat_card", label: "Indicador" },
-  { value: "bar_chart", label: "Gráfico de barras" },
-  { value: "pie_chart", label: "Gráfico de pizza" },
-  { value: "data_table", label: "Tabela" },
-];
-const parameterTypes: Array<{ value: QueryParameter["type"]; label: string }> = [
-  { value: "text", label: "Texto" },
-  { value: "number", label: "Número" },
-  { value: "date", label: "Data" },
-  { value: "boolean", label: "Sim/não" },
-  { value: "multi_select", label: "Múltipla seleção" },
-];
-const parameterTypeLabels = Object.fromEntries(parameterTypes.map((type) => [type.value, type.label])) as Record<QueryParameter["type"], string>;
-
-function errorMessage(reason: unknown): string {
-  return reason instanceof Error ? reason.message : "Não foi possível salvar o dashboard.";
-}
-
-function componentQuery(component: DashboardDocumentComponent): string {
-  return typeof component.props.queryUuid === "string" ? component.props.queryUuid : "";
-}
-
-function initialManualValue(parameter: QueryParameter): string | string[] {
-  if (parameter.type === "multi_select") return [];
-  if (parameter.type === "boolean") return "true";
-  return "";
-}
-
-function querySelectItems(queries: QuerySummary[], selectedId: string, emptyValue: string, emptyLabel: string) {
-  const missingItem = selectedId && !queries.some((query) => query.id === selectedId)
-    ? [{ value: selectedId, label: "Query não encontrada" }]
-    : [];
-  return [
-    { value: emptyValue, label: emptyLabel },
-    ...missingItem,
-    ...queries.map((query) => ({ value: query.id, label: query.name })),
-  ];
-}
-
-function dashboardValidationIssues(dashboard: DashboardDocument, queries: QuerySummary[]): string[] {
-  const queriesById = new Map(queries.map((query) => [query.id, query]));
-  const argumentsByName = new Map(dashboard.workspace.params.map((argument) => [argument.name, argument]));
-  const issues = new Set<string>();
-  const checkQuery = (queryId: string, owner: string) => {
-    if (!queryId) issues.add(`${owner} não tem uma query selecionada.`);
-    else if (!queriesById.has(queryId)) issues.add(`${owner} referencia uma query que não existe no catálogo.`);
-  };
-
-  for (const component of dashboard.ui.components) {
-    const title = String(component.props.title ?? component.id);
-    checkQuery(componentQuery(component), `O componente "${title}"`);
-  }
-  for (const argument of dashboard.workspace.params) {
-    if (argument.lookup) checkQuery(argument.lookup.queryUuid, `A query de opções do argumento "${argument.label}"`);
-  }
-
-  const referencedQueryIds = new Set<string>();
-  dashboard.ui.components.forEach((component) => {
-    const queryId = componentQuery(component);
-    if (queryId) referencedQueryIds.add(queryId);
-  });
-  dashboard.workspace.params.forEach((argument) => {
-    if (argument.lookup?.queryUuid) referencedQueryIds.add(argument.lookup.queryUuid);
-  });
-  dashboard.queryBindings.forEach((binding) => {
-    if (binding.queryUuid) referencedQueryIds.add(binding.queryUuid);
-  });
-
-  const bindingsByQuery = new Map(dashboard.queryBindings.map((binding) => [binding.queryUuid, binding]));
-  for (const binding of dashboard.queryBindings) {
-    const query = queriesById.get(binding.queryUuid);
-    if (!query) {
-      checkQuery(binding.queryUuid, "O mapeamento de parâmetros");
-      continue;
-    }
-    const parametersByName = new Map(query.parameters.map((parameter) => [parameter.name, parameter]));
-    for (const [parameterName, source] of Object.entries(binding.parameters)) {
-      const parameter = parametersByName.get(parameterName);
-      if (!parameter) {
-        issues.add(`O mapeamento "${parameterName}" não foi declarado pela query "${query.name}".`);
-        continue;
-      }
-      if (source.source === "context") {
-        const argument = argumentsByName.get(source.argument);
-        if (!argument) issues.add(`O argumento "${source.argument}" não existe na dashboard.`);
-        else if (argument.type !== parameter.type) issues.add(`O argumento "${argument.label}" não é compatível com o parâmetro "${parameter.label}" da query "${query.name}".`);
-        else if (parameter.required && !argument.required) issues.add(`O parâmetro obrigatório "${parameter.label}" exige um argumento obrigatório na dashboard.`);
-      } else {
-        const value = source.value;
-        const hasValue = Array.isArray(value) ? value.length > 0 : value.trim().length > 0;
-        if (parameter.required && !hasValue) issues.add(`O parâmetro obrigatório "${parameter.label}" da query "${query.name}" precisa de um valor.`);
-        if (parameter.type === "multi_select" && !Array.isArray(value)) issues.add(`O parâmetro "${parameter.label}" da query "${query.name}" precisa de uma lista de valores.`);
-        if (parameter.type !== "multi_select" && Array.isArray(value)) issues.add(`O parâmetro "${parameter.label}" da query "${query.name}" aceita um único valor.`);
-        if (parameter.type === "number" && typeof value === "string" && value.trim() && !Number.isFinite(Number(value))) issues.add(`O valor do parâmetro "${parameter.label}" da query "${query.name}" precisa ser numérico.`);
-        if (parameter.type === "boolean" && value !== "true" && value !== "false") issues.add(`O valor do parâmetro "${parameter.label}" da query "${query.name}" precisa ser verdadeiro ou falso.`);
-        if (parameter.type === "date" && typeof value === "string" && value && !/^\d{4}-\d{2}-\d{2}$/.test(value)) issues.add(`O valor do parâmetro "${parameter.label}" da query "${query.name}" precisa estar no formato AAAA-MM-DD.`);
-      }
-    }
-  }
-
-  for (const queryId of referencedQueryIds) {
-    const query = queriesById.get(queryId);
-    if (!query) continue;
-    const binding = bindingsByQuery.get(queryId);
-    for (const parameter of query.parameters) {
-      if (parameter.required && !binding?.parameters[parameter.name]) {
-        issues.add(`O parâmetro obrigatório "${parameter.label}" da query "${query.name}" não está mapeado.`);
-      }
-    }
-  }
-
-  return [...issues];
-}
-
-function ManualOptionsEditor({ options, onChange }: { options: DashboardOption[]; onChange: (options: DashboardOption[]) => void }) {
-  const savedRows = options.filter((option) => option.label || option.value);
-  const rows = [...savedRows, { label: "", value: "" }];
-
-  const updateOption = (index: number, field: keyof DashboardOption, value: string) => {
-    const next = rows.map((option, rowIndex) => rowIndex === index ? { ...option, [field]: value } : option);
-    onChange([...next.filter((option) => option.label || option.value), { label: "", value: "" }]);
-  };
-
-  const removeOption = (index: number) => {
-    onChange([...savedRows.filter((_, rowIndex) => rowIndex !== index), { label: "", value: "" }]);
-  };
-
-  return (
-    <div className="flex flex-col gap-2">
-      <p className="text-xs font-medium">Opções manuais</p>
-      <div className="grid grid-cols-[1fr_1fr_auto] gap-2 px-2 text-[11px] text-muted-foreground">
-        <span>Label</span><span>Value</span><span className="size-8" aria-hidden="true" />
-      </div>
-      {rows.map((option, index) => {
-        const emptyRow = index === rows.length - 1;
-        return (
-          <div key={emptyRow ? "new-option" : `option-${index}`} className="grid grid-cols-[1fr_1fr_auto] items-center gap-2">
-            <Input aria-label={`Rótulo da opção ${index + 1}`} placeholder="Label" value={option.label} onChange={(event) => updateOption(index, "label", event.target.value)} />
-            <Input aria-label={`Valor da opção ${index + 1}`} placeholder="Value" value={option.value} onChange={(event) => updateOption(index, "value", event.target.value)} />
-            {emptyRow ? <span className="size-8" aria-hidden="true" /> : <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => removeOption(index)} aria-label={`Remover opção ${index + 1}`}><Trash2 /></Button>}
-          </div>
-        );
-      })}
-      <p className="text-xs text-muted-foreground">Preencha o rótulo e o valor. A última linha fica vazia para adicionar outra opção.</p>
-    </div>
-  );
-}
-
-function QueryParameterEditor({
-  parameter,
-  source,
-  argumentsList,
-  onChange,
-}: {
-  parameter: QueryParameter;
-  source?: QueryParameterSource;
-  argumentsList: DashboardArgument[];
-  onChange: (source: QueryParameterSource | undefined) => void;
-}) {
-  const matchingArguments = argumentsList.filter((argument) => argument.type === parameter.type);
-  const mode = source?.source ?? "none";
-
-  const chooseMode = (value: string) => {
-    if (value === "none") return onChange(undefined);
-    if (value === "context") {
-      const argument = matchingArguments[0];
-      if (argument) onChange({ source: "context", argument: argument.name });
-      return;
-    }
-    onChange({ source: "manual", value: initialManualValue(parameter) });
-  };
-
-  const manualValue = source?.source === "manual" ? source.value : initialManualValue(parameter);
-
-  return (
-    <div className="grid gap-3 rounded-md border p-3 md:grid-cols-[minmax(8rem,1fr)_minmax(10rem,1.4fr)_minmax(10rem,1.6fr)] md:items-center">
-      <div>
-        <p className="font-mono text-sm">{parameter.name}{parameter.required ? " *" : ""}</p>
-        <p className="text-xs text-muted-foreground">{parameter.label} · {parameterTypeLabels[parameter.type]}</p>
-      </div>
-      <Select items={[{ value: "none", label: parameter.required ? "Selecione uma origem" : "Sem valor (opcional)" }, { value: "context", label: "Parâmetro do contexto" }, { value: "manual", label: "Valor manual" }]} value={mode} onValueChange={(value) => chooseMode(value ?? "none")}>
-        <SelectTrigger><SelectValue /></SelectTrigger>
-        <SelectContent>
-          <SelectItem value="none" disabled={parameter.required}>{parameter.required ? "Selecione uma origem" : "Sem valor (opcional)"}</SelectItem>
-          <SelectItem value="context" disabled={matchingArguments.length === 0}>Parâmetro do contexto</SelectItem>
-          <SelectItem value="manual">Valor manual</SelectItem>
-        </SelectContent>
-      </Select>
-      {source?.source === "context" ? (
-        <Select items={matchingArguments.map((argument) => ({ value: argument.name, label: `${argument.label} · ${argument.name}` }))} value={source.argument} onValueChange={(value) => value && onChange({ ...source, argument: value })}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>{matchingArguments.map((argument) => <SelectItem key={argument.name} value={argument.name}>{argument.label} · {argument.name}</SelectItem>)}</SelectContent>
-        </Select>
-      ) : source?.source === "manual" ? (
-        parameter.type === "boolean" ? (
-          <Select items={[{ value: "true", label: "Verdadeiro" }, { value: "false", label: "Falso" }]} value={String(manualValue)} onValueChange={(value) => value && onChange({ source: "manual", value })}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent><SelectItem value="true">Verdadeiro</SelectItem><SelectItem value="false">Falso</SelectItem></SelectContent>
-          </Select>
-        ) : (
-          <Input
-            type={parameter.type === "number" ? "number" : parameter.type === "date" ? "date" : "text"}
-            value={Array.isArray(manualValue) ? manualValue.join(", ") : manualValue}
-            placeholder={parameter.type === "multi_select" ? "Valores separados por vírgula" : "Valor fixo"}
-            onChange={(event) => onChange({
-              source: "manual",
-              value: parameter.type === "multi_select"
-                ? event.target.value.split(",").map((item) => item.trim()).filter(Boolean)
-                : event.target.value,
-            })}
-          />
-        )
-      ) : <p className="text-xs text-muted-foreground">{parameter.required ? "Escolha um valor ou argumento." : "A query receberá null."}</p>}
-    </div>
-  );
-}
+import { Alert, AlertDescription, AlertTitle } from "@/shared/ui/alert";
+import { Button } from "@/shared/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
+import { Checkbox } from "@/shared/ui/checkbox";
+import { Input } from "@/shared/ui/input";
+import { Label } from "@/shared/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
+import { toast } from "@/shared/ui/toast";
 
 export function DashboardContextEditor({
   dashboardId,
@@ -396,7 +179,7 @@ export function DashboardContextEditor({
         : "Dashboard salvo no arquivo JSON.");
       return true;
     } catch (reason) {
-      toast.error(errorMessage(reason));
+      toast.error(errorMessage(reason, "Não foi possível salvar o dashboard."));
       return false;
     } finally {
       setSaving(false);
@@ -568,28 +351,15 @@ export function DashboardContextEditor({
             </div>
           )}
       {dashboard && <footer className="flex justify-end border-t pt-5"><Button type="button" onClick={() => void submit()} disabled={saving}><Save /> {saving ? "Salvando…" : "Salvar dashboard"}</Button></footer>}
-      <Dialog open={jsonEditorOpen} onOpenChange={(open) => { if (!saving) setJsonEditorOpen(open); }}>
-        <DialogContent showCloseButton={false} className="flex h-[90vh] max-h-[900px] w-[calc(100%-2rem)] max-w-none flex-col gap-0 overflow-hidden p-0 sm:max-w-6xl">
-          <DialogHeader className="border-b px-6 py-4 pr-14">
-            <DialogTitle className="text-base">Editar JSON do dashboard</DialogTitle>
-            <DialogDescription>Edite a configuração completa. O JSON será validado e salvo no arquivo do dashboard.</DialogDescription>
-          </DialogHeader>
-          <div className="min-h-0 flex-1 p-4 sm:p-6">
-            <Textarea
-              aria-label="JSON do dashboard"
-              spellCheck={false}
-              value={jsonDraft}
-              onChange={(event) => { setJsonDraft(event.target.value); setJsonError(undefined); }}
-              className="h-full min-h-0 resize-none rounded-md bg-muted/30 p-4 font-mono text-xs leading-5 tab-size-2"
-            />
-          </div>
-          {jsonError && <p role="alert" className="px-6 pb-3 text-sm text-destructive">{jsonError}</p>}
-          <DialogFooter className="border-t px-6 py-4">
-            <Button type="button" variant="outline" onClick={() => setJsonEditorOpen(false)} disabled={saving}>Cancelar</Button>
-            <Button type="button" onClick={() => void saveJsonDraft()} disabled={saving}>{saving ? "Validando e salvando…" : "Salvar JSON"}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <JsonEditorDialog
+        open={jsonEditorOpen}
+        saving={saving}
+        draft={jsonDraft}
+        error={jsonError}
+        onDraftChange={(value) => { setJsonDraft(value); setJsonError(undefined); }}
+        onOpenChange={setJsonEditorOpen}
+        onSave={() => void saveJsonDraft()}
+      />
     </div>
   );
 }
