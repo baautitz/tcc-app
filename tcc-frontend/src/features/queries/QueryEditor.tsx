@@ -1,36 +1,25 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Clipboard, FileCode2, Save } from "lucide-react";
 import { api } from "@/api";
-import type { DataSource, QueryParameter, QueryPreview, SavedQuery } from "@/types";
-import { Button } from "@/components/ui/button";
+import { errorMessage } from "@/lib/errors";
+import { useSaveQuery } from "./useSaveQuery";
+import { QueryFormFields } from "./QueryFormFields";
+import { QueryPreviewPanel } from "./QueryPreviewPanel";
+import { parseParameters, parseTestValues, queryFormSchema, type QueryForm, type ReviewedQueryPreview } from "./queryForm";
+import type { DataSource, SavedQuery } from "@/types";
+import { Button } from "@/shared/ui/button";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { FieldGroup } from "@/components/ui/field";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+} from "@/shared/ui/card";
+import { Form } from "@/shared/ui/form";
+import { ScrollArea } from "@/shared/ui/scroll-area";
 import {
   Dialog,
   DialogContent,
@@ -38,58 +27,10 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
-import { toast } from "@/components/ui/toast";
-import { ApiError } from "@/api";
+} from "@/shared/ui/dialog";
+import { Textarea } from "@/shared/ui/textarea";
+import { toast } from "@/shared/ui/toast";
 import { useAuth } from "@/context/AuthContext";
-
-const parameterSchema = z.object({
-  name: z.string().trim().min(1),
-  label: z.string().trim().min(1),
-  type: z.enum(["text", "number", "date", "boolean", "multi_select"]),
-  required: z.boolean(),
-});
-
-const queryFormSchema = z.object({
-  dataSourceId: z.string().uuid("Selecione o servidor PostgreSQL."),
-  name: z
-    .string()
-    .trim()
-    .min(2, "Informe um nome com pelo menos 2 caracteres."),
-  sqlText: z.string().trim().min(8, "Informe uma consulta SELECT."),
-  parameters: z.string().min(2, "Informe um array JSON de parâmetros."),
-});
-
-type QueryForm = z.infer<typeof queryFormSchema>;
-type ReviewedQueryPreview = QueryPreview & { draftKey: string };
-
-function parseParameters(raw: string): QueryParameter[] {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    throw new Error("Os parâmetros devem conter JSON válido.");
-  }
-  return z.array(parameterSchema).parse(parsed);
-}
-
-function parseTestValues(raw: string): Record<string, string | string[]> {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    throw new Error("Os valores de teste devem conter JSON válido.");
-  }
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new Error("Os valores de teste devem ser um objeto JSON.");
-  }
-  return z.record(z.union([z.string(), z.array(z.string())])).parse(parsed);
-}
-
-function errorMessage(reason: unknown): string {
-  return reason instanceof Error ? reason.message : "A operação falhou.";
-}
 
 export function QueryEditor({
   query,
@@ -120,8 +61,7 @@ export function QueryEditor({
   const [testValues, setTestValues] = useState("{}");
   const [preview, setPreview] = useState<ReviewedQueryPreview>();
   const [testing, setTesting] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const savePendingRef = useRef(false);
+  const { pendingRef: savePendingRef, saving, run: runSave, persist, reloadOnConflict, isConflict } = useSaveQuery();
   const watchedSourceId = form.watch("dataSourceId");
   const watchedSqlText = form.watch("sqlText");
   const watchedParameters = form.watch("parameters");
@@ -165,21 +105,18 @@ export function QueryEditor({
       toast.error("Você não tem permissão para salvar esta query.");
       return;
     }
-    savePendingRef.current = true;
-    setSaving(true);
+    await runSave(async () => {
     try {
       const body = {
         ...values,
         parameters: parseParameters(values.parameters),
         testRunId: preview.testRunId,
       };
-      const saved = activeQuery
-        ? await api.updateQuery(activeQuery.id, {
-            ...body,
-            expectedUpdatedAt:
-              preview.intent.queryUpdatedAt ?? activeQuery.updatedAt,
-          })
-        : await api.createQuery(body);
+      const saved = await persist(
+        activeQuery?.id,
+        body,
+        preview.intent.queryUpdatedAt ?? activeQuery?.updatedAt,
+      );
       setCreatedQuery(saved);
       setReloadedQuery(undefined);
       setPreview(undefined);
@@ -191,10 +128,10 @@ export function QueryEditor({
       await onSaved();
       if (query) onOpenChange(false);
     } catch (reason) {
-      if (reason instanceof ApiError && reason.status === 409) {
+      if (isConflict(reason)) {
         if (activeQuery) {
-          try {
-            const latest = await api.savedQuery(activeQuery.id);
+          const latest = await reloadOnConflict(activeQuery.id);
+          if (latest) {
             setReloadedQuery(latest);
             form.reset({
               dataSourceId: latest.dataSourceId,
@@ -202,8 +139,6 @@ export function QueryEditor({
               sqlText: latest.sqlText,
               parameters: JSON.stringify(latest.parameters, null, 2),
             });
-          } catch {
-            // Keep the conflict response actionable even if refreshing also fails.
           }
         }
         setPreview(undefined);
@@ -211,12 +146,10 @@ export function QueryEditor({
           ? "A query mudou desde a prévia. Recarreguei a versão atual; revise e teste novamente."
           : "A prévia expirou ou o servidor mudou. Teste novamente antes de salvar.");
       } else {
-        toast.error(errorMessage(reason));
+        toast.error(errorMessage(reason, "A operação falhou."));
       }
-    } finally {
-      savePendingRef.current = false;
-      setSaving(false);
     }
+    });
   };
 
   const test = async () => {
@@ -245,7 +178,7 @@ export function QueryEditor({
       setPreview({ ...result, draftKey: currentDraftKey });
       toast.success("Query executada com sucesso.");
     } catch (reason) {
-      const text = errorMessage(reason);
+      const text = errorMessage(reason, "A operação falhou.");
       setPreview(undefined);
       toast.error(text);
     } finally {
@@ -282,96 +215,7 @@ export function QueryEditor({
               onSubmit={form.handleSubmit(submit)}
               className="flex flex-col gap-6 p-6"
             >
-              <FieldGroup>
-                <FormField
-                  control={form.control}
-                  name="dataSourceId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Servidor PostgreSQL</FormLabel>
-                      <FormControl>
-                        <Select
-                          items={sources.map((source) => ({
-                            value: source.id,
-                            label: source.name,
-                          }))}
-                          value={field.value || null}
-                          name={field.name}
-                          onValueChange={(value) => field.onChange(value ?? "")}
-                        >
-                          <SelectTrigger disabled={saving}>
-                            <SelectValue placeholder="Selecione" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {sources.map((source) => (
-                              <SelectItem key={source.id} value={source.id}>
-                                {source.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nome</FormLabel>
-                      <FormControl>
-                        <Input {...field} disabled={saving} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="sqlText"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>SQL SELECT</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          {...field}
-                          className="min-h-48"
-                          spellCheck={false}
-                          disabled={saving}
-                        />
-                      </FormControl>
-                      <p className="text-xs text-muted-foreground">
-                        Use placeholders como {"{{start_date}}"}; os valores são
-                        enviados como parâmetros bind do PostgreSQL.
-                      </p>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="parameters"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Parâmetros aceitos (JSON)</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          {...field}
-                          className="min-h-36 font-mono text-xs"
-                          spellCheck={false}
-                          disabled={saving}
-                        />
-                      </FormControl>
-                      <p className="text-xs text-muted-foreground">
-                        Cada entrada define name, label, type e required.
-                      </p>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </FieldGroup>
+              <QueryFormFields form={form} sources={sources} saving={saving} />
 
               <Card>
                 <CardHeader>
@@ -405,41 +249,7 @@ export function QueryEditor({
                       )}
                     </Button>
                   </div>
-                  {preview && preview.draftKey === currentDraftKey && (
-                    <div className="flex flex-col gap-3 border bg-muted/40 p-3 text-xs">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <p className="font-medium">
-                          Prévia de {preview.intent.mode === "update" ? "edição" : "nova query"} · {sources.find((source) => source.id === preview.dataSource.id)?.name ?? preview.dataSource.name}
-                        </p>
-                        <span className="text-muted-foreground">
-                          {preview.rowCount}/{preview.rowLimit} linhas · {preview.bytes}/{preview.byteLimit} bytes
-                          {preview.truncated ? ` · truncada (${preview.truncationReason})` : ""}
-                        </span>
-                      </div>
-                      <p><strong>Nome:</strong> {watchedName}</p>
-                      <div>
-                        <p className="mb-1 font-medium">SQL testado</p>
-                        <pre className="max-h-40 overflow-auto border bg-background p-2 font-mono">{preview.sqlText}</pre>
-                      </div>
-                      <div className="grid gap-3 md:grid-cols-2">
-                        <div>
-                          <p className="mb-1 font-medium">Parâmetros</p>
-                          <pre className="max-h-28 overflow-auto border bg-background p-2">{JSON.stringify(preview.parameters, null, 2)}</pre>
-                        </div>
-                        <div>
-                          <p className="mb-1 font-medium">Valores usados no teste</p>
-                          <pre className="max-h-28 overflow-auto border bg-background p-2">{JSON.stringify(preview.testValues, null, 2)}</pre>
-                        </div>
-                      </div>
-                      <div>
-                        <p className="mb-1 font-medium">Amostra retornada</p>
-                        <pre className="max-h-48 overflow-auto border bg-background p-2">{JSON.stringify(preview.rows, null, 2)}</pre>
-                      </div>
-                      <p className="text-muted-foreground">
-                        O teste não salva valores dos parâmetros. Confirme esta definição para gravar a query.
-                      </p>
-                    </div>
-                  )}
+                  {preview && preview.draftKey === currentDraftKey && <QueryPreviewPanel preview={preview} sources={sources} name={watchedName} />}
                 </CardContent>
               </Card>
 
