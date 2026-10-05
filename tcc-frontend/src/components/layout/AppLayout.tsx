@@ -23,7 +23,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
   useSidebar,
-} from "@/components/ui/sidebar";
+} from "@/shared/ui/sidebar";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -31,7 +31,7 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+} from "@/shared/ui/breadcrumb";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,13 +40,13 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
-import { toast } from "@/components/ui/toast";
-import { AiChatDock, AiChatTrigger } from "@/components/ai/AiChatDock";
+} from "@/shared/ui/dropdown-menu";
+import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
+import { Separator } from "@/shared/ui/separator";
+import { toast } from "@/shared/ui/toast";
+import { AiChatDock, AiChatTrigger } from "@/features/ai-chat/AiChatDock";
 import { useAiChat } from "@/context/AiChatContext";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { useIsMobile } from "@/shared/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 
 function SidebarAutoClose() {
