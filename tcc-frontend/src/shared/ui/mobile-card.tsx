@@ -1,6 +1,6 @@
 import React from "react";
-import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
+import { Card, CardContent, CardFooter } from "@/shared/ui/card";
+import { Separator } from "@/shared/ui/separator";
 
 interface MobileCardField {
   label: string;
