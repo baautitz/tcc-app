@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useSaveQuery } from "@/features/queries/useSaveQuery";
+import { useSaveQuery } from "@/modules/queries/hooks/useSaveQuery";
 import { useAuth } from "@/modules/identity/hooks/AuthContext";
 import { toast } from "@/shared/ui/toast";
 import type { ChatItem, ChatMessage, QueryPreviewItem } from "../chat-items";

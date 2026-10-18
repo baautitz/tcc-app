@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { QueryParameter, QueryPreview } from "@/types";
+import type { QueryParameter, QueryPreview } from "@/modules/queries/model/types";
 
 const parameterSchema = z.object({
   name: z.string().trim().min(1),

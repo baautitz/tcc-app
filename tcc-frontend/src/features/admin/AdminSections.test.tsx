@@ -6,6 +6,7 @@ import { CurrentViewRefreshProvider } from "@/shared/context/CurrentViewRefreshC
 import { api } from "@/api";
 import { dataSourcesApi } from "@/modules/data-sources/api/data-sources.api";
 import { identityApi } from "@/modules/identity/api/identity.api";
+import { queriesApi } from "@/modules/queries/api/queries.api";
 import { ImperativeUIProvider } from "@/shared/context/ImperativeUIContext";
 import { AdminSectionPage } from "./AdminPage";
 
@@ -18,15 +19,14 @@ vi.mock("@/modules/data-sources/api/data-sources.api", () => {
   const list = () => vi.fn(() => Promise.resolve([]));
   return { dataSourcesApi: { dataSources: list() } };
 });
-vi.mock("@/api", () => {
+vi.mock("@/modules/queries/api/queries.api", () => {
   const list = () => vi.fn(() => Promise.resolve([]));
-  return {
-    api: { queries: list() },
-  };
+  return { queriesApi: { queries: list() } };
 });
+vi.mock("@/api", () => ({ api: {} }));
 
 const calls = () =>
-  Object.entries({ ...api, ...identityApi, ...dataSourcesApi } as unknown as Record<string, ReturnType<typeof vi.fn>>)
+  Object.entries({ ...api, ...identityApi, ...dataSourcesApi, ...queriesApi } as unknown as Record<string, ReturnType<typeof vi.fn>>)
     .filter(([, fn]) => fn.mock.calls.length > 0)
     .map(([name]) => name)
     .sort();

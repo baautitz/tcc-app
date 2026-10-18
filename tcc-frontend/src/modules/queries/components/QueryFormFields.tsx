@@ -5,7 +5,7 @@ import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/shar
 import { Input } from "@/shared/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
 import { Textarea } from "@/shared/ui/textarea";
-import type { QueryForm } from "./queryForm";
+import type { QueryForm } from "@/modules/queries/model/queryForm";
 
 export function QueryFormFields({ form, sources, saving }: { form: UseFormReturn<QueryForm>; sources: DataSource[]; saving: boolean }) {
   return (

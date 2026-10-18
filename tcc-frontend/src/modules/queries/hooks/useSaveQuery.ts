@@ -1,8 +1,9 @@
 import { useRef, useState } from "react";
-import { api, ApiError } from "@/api";
-import type { SavedQuery } from "@/types";
+import { ApiError } from "@/api";
+import { queriesApi } from "@/modules/queries/api/queries.api";
+import type { SavedQuery } from "@/modules/queries/model/types";
 
-type Body = Parameters<typeof api.createQuery>[0];
+type Body = Parameters<typeof queriesApi.createQuery>[0];
 
 /** Shared save plumbing: pending guard, create/update dispatch and 409 refresh. */
 export function useSaveQuery() {
@@ -22,12 +23,12 @@ export function useSaveQuery() {
   };
 
   const persist = (id: string | undefined, body: Body, expectedUpdatedAt?: string): Promise<SavedQuery> =>
-    id ? api.updateQuery(id, { ...body, expectedUpdatedAt: expectedUpdatedAt! }) : api.createQuery(body);
+    id ? queriesApi.updateQuery(id, { ...body, expectedUpdatedAt: expectedUpdatedAt! }) : queriesApi.createQuery(body);
 
   /** On a 409 for an existing query, fetches the latest version (undefined if it fails). */
   const reloadOnConflict = async (id: string): Promise<SavedQuery | undefined> => {
     try {
-      return await api.savedQuery(id);
+      return await queriesApi.savedQuery(id);
     } catch {
       return undefined;
     }

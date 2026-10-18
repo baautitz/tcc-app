@@ -1,6 +1,6 @@
 import type { Section } from "./SectionLayout";
 import { PermissionsSection } from "@/modules/identity/pages/PermissionsSection";
-import { QueriesSection } from "./queries/QueriesSection";
+import { QueriesSection } from "@/modules/queries/pages/QueriesSection";
 import { SourcesSection } from "@/modules/data-sources/pages/SourcesSection";
 import { UsersSection } from "@/modules/identity/pages/UsersSection";
 

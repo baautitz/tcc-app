@@ -1,16 +1,16 @@
 import { useState } from "react";
-import { api } from "@/api";
 import type { DataSource } from "@/modules/data-sources/model/types";
-import type { QuerySummary, SavedQuery } from "@/types";
+import type { QuerySummary, SavedQuery } from "@/modules/queries/model/types";
+import { queriesApi } from "@/modules/queries/api/queries.api";
 import { dataSourcesApi } from "@/modules/data-sources/api/data-sources.api";
 import { toast } from "@/shared/ui/toast";
 import { useIsMobile } from "@/shared/hooks/use-mobile";
 import { errorMessage } from "@/shared/lib/errors";
-import { QueryEditor } from "@/features/queries/QueryEditor";
+import { QueryEditor } from "@/modules/queries/pages/QueryEditor";
 import { useLoad } from "@/shared/crud/useLoad";
 import { useRemove } from "@/shared/crud/useRemove";
-import { SectionLayout } from "../SectionLayout";
-import { QueriesTable } from "./QueriesTable";
+import { SectionLayout } from "@/features/admin/SectionLayout";
+import { QueriesTable } from "@/modules/queries/components/QueriesTable";
 
 export function QueriesSection() {
   const isMobile = useIsMobile();
@@ -18,7 +18,7 @@ export function QueriesSection() {
   const { data, loading, error, load } = useLoad(
     async () => {
       const [queries, sources] = await Promise.all([
-        api.queries(),
+        queriesApi.queries(),
         dataSourcesApi.dataSources(),
       ]);
       return { queries, sources };
@@ -33,7 +33,7 @@ export function QueriesSection() {
   const edit = async (id: string) => {
     try {
       setSheet({ open: true });
-      const result = await api.savedQuery(id);
+      const result = await queriesApi.savedQuery(id);
       setSheet({ open: true, value: result });
     } catch (reason) {
       toast.error(errorMessage(reason));
@@ -56,7 +56,7 @@ export function QueriesSection() {
         onDelete={(value) =>
           void remove(
             value.name,
-            () => api.deleteQuery(value.id),
+            () => queriesApi.deleteQuery(value.id),
             "Se a query estiver vinculada a dashboards, os componentes e mapeamentos que dependem dela também serão removidos. Os dashboards serão mantidos.",
           )
         }

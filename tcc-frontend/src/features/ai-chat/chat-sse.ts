@@ -2,8 +2,8 @@ import type {
   AiContextProposal,
   DashboardDefinition,
   DashboardDocument,
-  QueryPreview,
 } from "../../types";
+import type { QueryPreview } from "@/modules/queries/model/types";
 
 type DashboardPreviewQuery = {
   rows: Record<string, unknown>[];

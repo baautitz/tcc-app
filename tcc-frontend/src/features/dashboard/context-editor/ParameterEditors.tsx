@@ -1,12 +1,11 @@
 import { Trash2 } from "lucide-react";
 import type {
-  QueryParameter,
   QueryParameterSource,
-  QuerySummary,
   DashboardArgument,
   DashboardDocumentComponent,
   DashboardOption,
 } from "@/types";
+import type { QueryParameter, QuerySummary } from "@/modules/queries/model/types";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";

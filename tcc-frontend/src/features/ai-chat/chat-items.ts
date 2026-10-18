@@ -1,4 +1,5 @@
-import type { QueryPreview, AiContextProposal, DashboardDefinition, DashboardDocument } from "@/types";
+import type { AiContextProposal, DashboardDefinition, DashboardDocument } from "@/types";
+import type { QueryPreview } from "@/modules/queries/model/types";
 import type { QuestionnaireChatItem } from "./QuestionnaireCard";
 
 export type ChatMessage = {

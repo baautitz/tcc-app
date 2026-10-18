@@ -3,14 +3,14 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Clipboard, FileCode2, Save } from "lucide-react";
-import { api } from "@/api";
+import { queriesApi } from "@/modules/queries/api/queries.api";
 import { errorMessage } from "@/shared/lib/errors";
-import { useSaveQuery } from "./useSaveQuery";
-import { QueryFormFields } from "./QueryFormFields";
-import { QueryPreviewPanel } from "./QueryPreviewPanel";
-import { parseParameters, parseTestValues, queryFormSchema, type QueryForm, type ReviewedQueryPreview } from "./queryForm";
+import { useSaveQuery } from "@/modules/queries/hooks/useSaveQuery";
+import { QueryFormFields } from "@/modules/queries/components/QueryFormFields";
+import { QueryPreviewPanel } from "@/modules/queries/components/QueryPreviewPanel";
+import { parseParameters, parseTestValues, queryFormSchema, type QueryForm, type ReviewedQueryPreview } from "@/modules/queries/model/queryForm";
 import type { DataSource } from "@/modules/data-sources/model/types";
-import type { SavedQuery } from "@/types";
+import type { SavedQuery } from "@/modules/queries/model/types";
 import { Button } from "@/shared/ui/button";
 import {
   Card,
@@ -165,7 +165,7 @@ export function QueryEditor({
         .parse(form.getValues());
       const parameters = parseParameters(values.parameters);
       const testValueRecord = parseTestValues(testValues);
-      const result = await api.testQueryDraft({
+      const result = await queriesApi.testQueryDraft({
         dataSourceId: values.dataSourceId,
         sqlText: values.sqlText,
         parameters,

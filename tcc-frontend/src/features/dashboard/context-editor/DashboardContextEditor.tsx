@@ -6,13 +6,12 @@ import { componentQuery, dashboardValidationIssues } from "./validate";
 import { JsonEditorDialog } from "./JsonEditorDialog";
 import { ManualOptionsEditor, QueryParameterEditor, componentTypes, parameterTypes, querySelectItems } from "./ParameterEditors";
 import type {
-  QueryParameter,
   QueryParameterSource,
-  QuerySummary,
   DashboardArgument,
   DashboardDocumentComponent,
   DashboardDocument,
 } from "@/types";
+import type { QueryParameter, QuerySummary } from "@/modules/queries/model/types";
 import { Alert, AlertDescription, AlertTitle } from "@/shared/ui/alert";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";

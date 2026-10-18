@@ -1,4 +1,4 @@
-import type { QuerySummary } from "@/types";
+import type { QuerySummary } from "@/modules/queries/model/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { MobileCard } from "@/shared/ui/mobile-card";
 import { Skeleton } from "@/shared/ui/skeleton";

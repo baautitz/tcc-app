@@ -1,5 +1,5 @@
 import type { DataSource } from "@/modules/data-sources/model/types";
-import type { ReviewedQueryPreview } from "./queryForm";
+import type { ReviewedQueryPreview } from "@/modules/queries/model/queryForm";
 
 export function QueryPreviewPanel({ preview, sources, name }: { preview: ReviewedQueryPreview; sources: DataSource[]; name: string }) {
   return (

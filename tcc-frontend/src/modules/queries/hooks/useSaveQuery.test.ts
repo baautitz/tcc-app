@@ -1,12 +1,12 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { api, ApiError } from "@/api";
-import { useSaveQuery } from "./useSaveQuery";
+import { ApiError } from "@/api";
+import { queriesApi } from "@/modules/queries/api/queries.api";
+import { useSaveQuery } from "@/modules/queries/hooks/useSaveQuery";
 
-vi.mock("@/api", async (orig) => {
-  const mod = await orig<typeof import("@/api")>();
-  return { ...mod, api: { createQuery: vi.fn(), updateQuery: vi.fn(), savedQuery: vi.fn() } };
-});
+vi.mock("@/modules/queries/api/queries.api", () => ({
+  queriesApi: { createQuery: vi.fn(), updateQuery: vi.fn(), savedQuery: vi.fn() },
+}));
 
 const body = { name: "q" } as any;
 beforeEach(() => vi.clearAllMocks());
@@ -14,12 +14,12 @@ beforeEach(() => vi.clearAllMocks());
 describe("useSaveQuery", () => {
   it("persist cria sem id e atualiza com id + expectedUpdatedAt", async () => {
     const { result } = renderHook(() => useSaveQuery());
-    (api.createQuery as any).mockResolvedValue({ id: "n" });
-    (api.updateQuery as any).mockResolvedValue({ id: "1" });
+    (queriesApi.createQuery as any).mockResolvedValue({ id: "n" });
+    (queriesApi.updateQuery as any).mockResolvedValue({ id: "1" });
     await result.current.persist(undefined, body);
-    expect(api.createQuery).toHaveBeenCalledWith(body);
+    expect(queriesApi.createQuery).toHaveBeenCalledWith(body);
     await result.current.persist("1", body, "t0");
-    expect(api.updateQuery).toHaveBeenCalledWith("1", { ...body, expectedUpdatedAt: "t0" });
+    expect(queriesApi.updateQuery).toHaveBeenCalledWith("1", { ...body, expectedUpdatedAt: "t0" });
   });
 
   it("run liga saving/pendingRef durante a execução e desliga mesmo com erro", async () => {
@@ -40,7 +40,7 @@ describe("useSaveQuery", () => {
 
   it("reloadOnConflict devolve a query ou undefined se falhar", async () => {
     const { result } = renderHook(() => useSaveQuery());
-    (api.savedQuery as any).mockResolvedValueOnce({ id: "1" }).mockRejectedValueOnce(new Error("x"));
+    (queriesApi.savedQuery as any).mockResolvedValueOnce({ id: "1" }).mockRejectedValueOnce(new Error("x"));
     expect(await result.current.reloadOnConflict("1")).toEqual({ id: "1" });
     expect(await result.current.reloadOnConflict("1")).toBeUndefined();
   });

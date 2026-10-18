@@ -31,7 +31,8 @@ import {
 import {
   cn,
 } from "@/shared/lib/utils";
-import type { AiContextProposal, QueryPreview } from "@/types";
+import type { AiContextProposal } from "@/types";
+import type { QueryPreview } from "@/modules/queries/model/types";
 import type { DashboardDefinition, DashboardDocument } from "@/types";
 import {
   QuestionnaireCard,
