@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 export const componentTypes: Array<{ value: DashboardDocumentComponent["component"]; label: string }> = [
   { value: "stat_card", label: "Indicador" },
   { value: "bar_chart", label: "Gráfico de barras" },
+  { value: "line_chart", label: "Gráfico de linhas" },
   { value: "pie_chart", label: "Gráfico de pizza" },
   { value: "data_table", label: "Tabela" },
 ];

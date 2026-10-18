@@ -37,7 +37,7 @@ const make = (type: string): DashboardComponent =>
 const rows = [{ nome: "A", total: 3 }, { nome: "B", total: 5 }];
 
 describe("registry de renderers", () => {
-  it.each(["stat_card", "bar_chart", "pie_chart", "data_table"])(
+  it.each(["stat_card", "bar_chart", "line_chart", "pie_chart", "data_table"])(
     "%s renderiza com dados mínimos",
     (type) => {
       const { container } = render(

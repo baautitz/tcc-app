@@ -22,7 +22,7 @@ export type DashboardSummary = {
 
 export type DashboardComponent = {
   id: string;
-  type: "stat_card" | "bar_chart" | "pie_chart" | "data_table";
+  type: "stat_card" | "bar_chart" | "line_chart" | "pie_chart" | "data_table";
   title: string;
   queryUuid: string;
   layoutProps: { colSpan: number; rowSpan: number };
