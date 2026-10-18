@@ -30,7 +30,7 @@ import {
 } from "@/shared/ui/marker";
 import {
   cn,
-} from "@/lib/utils";
+} from "@/shared/lib/utils";
 import type { AiContextProposal, QueryPreview } from "@/types";
 import type { DashboardDefinition, DashboardDocument } from "@/types";
 import {

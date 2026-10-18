@@ -15,9 +15,9 @@ import type {
   User,
 } from "@/types";
 
-import { request } from "./client";
+import { request } from "@/shared/api/client";
 
-import { stream } from "./client";
+import { stream } from "@/shared/api/client";
 
 export const api = {
   streamAiChat: (body: unknown, signal: AbortSignal) =>

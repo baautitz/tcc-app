@@ -5,7 +5,7 @@ import { Database } from "lucide-react";
 import { api, ApiError } from "@/api";
 import type { DataSource, DataSourceTable } from "@/types";
 import { useEntityForm } from "@/shared/crud/useEntityForm";
-import { errorMessage } from "@/lib/errors";
+import { errorMessage } from "@/shared/lib/errors";
 import { toast } from "@/shared/ui/toast";
 import { Button } from "@/shared/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/shared/ui/form";

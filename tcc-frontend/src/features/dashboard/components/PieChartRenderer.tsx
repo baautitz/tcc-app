@@ -1,6 +1,6 @@
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { Card, CardContent } from "@/shared/ui/card";
-import { formatValue } from "@/lib/utils";
+import { formatValue } from "@/shared/lib/utils";
 import { colors } from "../lib";
 import { chartEmptyMessage, chartRowsFor } from "./ChartRows";
 import { ComponentError, ComponentPreviewHeader } from "./ComponentFrame";

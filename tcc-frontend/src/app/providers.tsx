@@ -2,8 +2,8 @@ import type { ReactNode } from "react";
 import { BrowserRouter } from "react-router-dom";
 import { AuthProvider } from "@/context/AuthContext";
 import { AiChatProvider } from "@/context/AiChatContext";
-import { CurrentViewRefreshProvider } from "@/context/CurrentViewRefreshContext";
-import { ImperativeUIProvider } from "@/context/ImperativeUIContext";
+import { CurrentViewRefreshProvider } from "@/shared/context/CurrentViewRefreshContext";
+import { ImperativeUIProvider } from "@/shared/context/ImperativeUIContext";
 import { Toaster } from "@/shared/ui/toast";
 import { TooltipProvider } from "@/shared/ui/tooltip";
 

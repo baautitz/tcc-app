@@ -3,7 +3,7 @@ import { afterEach } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Dashboard } from "@/types";
-import { CurrentViewRefreshProvider } from "@/context/CurrentViewRefreshContext";
+import { CurrentViewRefreshProvider } from "@/shared/context/CurrentViewRefreshContext";
 import { DashboardPage } from "./DashboardPage";
 
 const pending: Array<{ id: string; resolve: (v: unknown) => void }> = [];

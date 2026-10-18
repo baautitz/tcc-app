@@ -7,7 +7,7 @@ import {
 } from "@shadcn/react/message-scroller";
 import { ArrowDown } from "lucide-react";
 import { Button } from "@/shared/ui/button";
-import { cn } from "@/lib/utils";
+import { cn } from "@/shared/lib/utils";
 
 function MessageScrollerProvider(
   props: React.ComponentProps<typeof MessageScrollerPrimitive.Provider>,

@@ -1,5 +1,5 @@
 import { createContext, useContext, type HTMLAttributes, type ReactNode } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/shared/lib/utils";
 type TabsContextValue = { value: string; onValueChange: (value: string) => void };
 const TabsContext = createContext<TabsContextValue | null>(null);
 function Tabs({ value, onValueChange, className, children }: { value: string; onValueChange: (value: string) => void; className?: string; children: ReactNode }) { return <TabsContext.Provider value={{ value, onValueChange }}><div data-slot="tabs" className={cn("flex flex-col gap-4", className)}>{children}</div></TabsContext.Provider>; }

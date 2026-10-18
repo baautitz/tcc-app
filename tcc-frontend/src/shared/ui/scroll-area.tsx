@@ -1,4 +1,4 @@
 import type { HTMLAttributes } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/shared/lib/utils";
 function ScrollArea({ className, ...props }: HTMLAttributes<HTMLDivElement>) { return <div data-slot="scroll-area" className={cn("overflow-y-auto", className)} {...props} />; }
 export { ScrollArea };

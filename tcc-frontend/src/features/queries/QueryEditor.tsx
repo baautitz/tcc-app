@@ -4,7 +4,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Clipboard, FileCode2, Save } from "lucide-react";
 import { api } from "@/api";
-import { errorMessage } from "@/lib/errors";
+import { errorMessage } from "@/shared/lib/errors";
 import { useSaveQuery } from "./useSaveQuery";
 import { QueryFormFields } from "./QueryFormFields";
 import { QueryPreviewPanel } from "./QueryPreviewPanel";

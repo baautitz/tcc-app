@@ -47,7 +47,7 @@ import { toast } from "@/shared/ui/toast";
 import { AiChatDock, AiChatTrigger } from "@/features/ai-chat/AiChatDock";
 import { useAiChat } from "@/context/AiChatContext";
 import { useIsMobile } from "@/shared/hooks/use-mobile";
-import { cn } from "@/lib/utils";
+import { cn } from "@/shared/lib/utils";
 
 function SidebarAutoClose() {
   const { setOpenMobile } = useSidebar();

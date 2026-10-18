@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, FileCode2, Plus, Save, Trash2 } from "lucide-react";
 import { api } from "@/api";
-import { errorMessage } from "@/lib/errors";
+import { errorMessage } from "@/shared/lib/errors";
 import { componentQuery, dashboardValidationIssues } from "./validate";
 import { JsonEditorDialog } from "./JsonEditorDialog";
 import { ManualOptionsEditor, QueryParameterEditor, componentTypes, parameterTypes, querySelectItems } from "./ParameterEditors";

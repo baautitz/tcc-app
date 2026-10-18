@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, type Dispatch, type SetStateAction } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/shared/ui/toast";
-import { useCurrentViewRefresh } from "@/context/CurrentViewRefreshContext";
+import { useCurrentViewRefresh } from "@/shared/context/CurrentViewRefreshContext";
 import {
   choseDynamicPeriod,
   previewUsesDateParameters,

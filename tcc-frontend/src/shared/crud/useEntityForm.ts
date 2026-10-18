@@ -7,7 +7,7 @@ import {
   type UseFormReturn,
 } from "react-hook-form";
 import { toast } from "@/shared/ui/toast";
-import { errorMessage } from "@/lib/errors";
+import { errorMessage } from "@/shared/lib/errors";
 
 /**
  * Estado de formulário de entidade: cria o form, reseta ao trocar entidade/abrir

@@ -1,6 +1,6 @@
 import { toast } from "@/shared/ui/toast";
-import { useImperativeUI } from "@/context/ImperativeUIContext";
-import { errorMessage } from "@/lib/errors";
+import { useImperativeUI } from "@/shared/context/ImperativeUIContext";
+import { errorMessage } from "@/shared/lib/errors";
 
 /** Confirmação + exclusão + toast + recarga da lista. */
 export function useRemove(reload: () => Promise<void>) {

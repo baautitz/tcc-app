@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { api, ApiError } from "@/api";
-import { useCurrentViewRefresh } from "@/context/CurrentViewRefreshContext";
+import { useCurrentViewRefresh } from "@/shared/context/CurrentViewRefreshContext";
 import { toast } from "@/shared/ui/toast";
 import type { AiContextProposal } from "@/types";
 

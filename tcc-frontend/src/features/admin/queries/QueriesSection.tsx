@@ -3,7 +3,7 @@ import { api } from "@/api";
 import type { DataSource, QuerySummary, SavedQuery } from "@/types";
 import { toast } from "@/shared/ui/toast";
 import { useIsMobile } from "@/shared/hooks/use-mobile";
-import { errorMessage } from "@/lib/errors";
+import { errorMessage } from "@/shared/lib/errors";
 import { QueryEditor } from "@/features/queries/QueryEditor";
 import { useLoad } from "@/shared/crud/useLoad";
 import { useRemove } from "@/shared/crud/useRemove";

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { useRegisterCurrentViewRefresh } from "@/context/CurrentViewRefreshContext";
-import { errorMessage } from "@/lib/errors";
+import { useRegisterCurrentViewRefresh } from "@/shared/context/CurrentViewRefreshContext";
+import { errorMessage } from "@/shared/lib/errors";
 
 /** Carrega dados da seção uma vez, expõe loading/erro e registra o refresh da view. */
 export function useLoad<T>(

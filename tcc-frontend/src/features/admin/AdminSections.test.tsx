@@ -2,9 +2,9 @@ import { cleanup } from "@testing-library/react";
 import { afterEach } from "vitest";
 import { render, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { CurrentViewRefreshProvider } from "@/context/CurrentViewRefreshContext";
+import { CurrentViewRefreshProvider } from "@/shared/context/CurrentViewRefreshContext";
 import { api } from "@/api";
-import { ImperativeUIProvider } from "@/context/ImperativeUIContext";
+import { ImperativeUIProvider } from "@/shared/context/ImperativeUIContext";
 import { AdminSectionPage } from "./AdminPage";
 
 vi.mock("@/context/AuthContext", () => ({ useAuth: () => ({ user: { isAdmin: true } }) }));

@@ -7,7 +7,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/shared/ui/table";
-import { formatValue } from "@/lib/utils";
+import { formatValue } from "@/shared/lib/utils";
 import { componentColumns } from "../lib";
 import { ComponentPreviewHeader } from "./ComponentFrame";
 import type { Renderer } from "./renderers";

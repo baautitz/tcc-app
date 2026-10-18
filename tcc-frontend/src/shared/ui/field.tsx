@@ -1,5 +1,5 @@
 import type { HTMLAttributes } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/shared/lib/utils";
 import { Label } from "@/shared/ui/label";
 function FieldGroup({ className, ...props }: HTMLAttributes<HTMLDivElement>) { return <div data-slot="field-group" className={cn("flex w-full flex-col gap-5", className)} {...props} />; }
 function Field({ className, ...props }: HTMLAttributes<HTMLDivElement>) { return <div data-slot="field" role="group" className={cn("flex w-full flex-col gap-2", className)} {...props} />; }

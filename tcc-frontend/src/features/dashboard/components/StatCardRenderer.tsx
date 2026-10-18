@@ -1,5 +1,5 @@
 import { Card, CardContent } from "@/shared/ui/card";
-import { formatCurrencyValue, formatValue } from "@/lib/utils";
+import { formatCurrencyValue, formatValue } from "@/shared/lib/utils";
 import { propertyString } from "../lib";
 import { ComponentPreviewHeader } from "./ComponentFrame";
 import type { Renderer } from "./renderers";
