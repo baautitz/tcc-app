@@ -31,13 +31,13 @@ const h = vi.hoisted(() => {
   return { state, fakeDb };
 });
 
-vi.mock("../shared/db/client.js", () => ({ db: h.fakeDb, pool: {} }));
-vi.mock("../modules/identity/application/auth.js", async (orig) => ({
-  ...(await orig<typeof import("../modules/identity/application/auth.js")>()),
+vi.mock("../../src/shared/db/client.js", () => ({ db: h.fakeDb, pool: {} }));
+vi.mock("../../src/modules/identity/application/auth.js", async (orig) => ({
+  ...(await orig<typeof import("../../src/modules/identity/application/auth.js")>()),
   findAuthenticatedUser: vi.fn(async (token?: string) => (token ? h.state.user : null)),
 }));
-vi.mock("../modules/ai/application/agent/ai-agent.js", async (orig) => ({
-  ...(await orig<typeof import("../modules/ai/application/agent/ai-agent.js")>()),
+vi.mock("../../src/modules/ai/application/agent/ai-agent.js", async (orig) => ({
+  ...(await orig<typeof import("../../src/modules/ai/application/agent/ai-agent.js")>()),
   resolveAiConfiguration: vi.fn(() => ({
     enabled: true, baseURL: "https://ai.test/v1", apiKey: "secret-key", model: "m", requestTimeoutMs: 60_000,
   })),
@@ -46,7 +46,7 @@ vi.mock("../modules/ai/application/agent/ai-agent.js", async (orig) => ({
   })),
 }));
 
-import { app } from "../app.js";
+import { app } from "../../src/app.js";
 
 const UUID = "11111111-1111-4111-8111-111111111111";
 const admin = { id: UUID, name: "Admin", email: "a@x.com", isAdmin: true, permissions: [] };

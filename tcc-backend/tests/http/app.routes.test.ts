@@ -31,30 +31,30 @@ const h = vi.hoisted(() => {
   return { state, fakeDb };
 });
 
-vi.mock("../shared/db/client.js", () => ({ db: h.fakeDb, pool: {} }));
-vi.mock("../modules/identity/application/auth.js", async (orig) => ({
-  ...(await orig<typeof import("../modules/identity/application/auth.js")>()),
+vi.mock("../../src/shared/db/client.js", () => ({ db: h.fakeDb, pool: {} }));
+vi.mock("../../src/modules/identity/application/auth.js", async (orig) => ({
+  ...(await orig<typeof import("../../src/modules/identity/application/auth.js")>()),
   findAuthenticatedUser: vi.fn(async (token?: string) => (token ? h.state.user : null)),
   createSession: vi.fn(async () => ({ token: "tok", expiresAt: new Date(Date.now() + 1e6) })),
   revokeSession: vi.fn(async () => {}),
 }));
-vi.mock("../shared/lib/passwords.js", () => ({
+vi.mock("../../src/shared/lib/passwords.js", () => ({
   hashPassword: (p: string) => `hash:${p}`,
   verifyPassword: (p: string, hash: string) => hash === `hash:${p}`,
 }));
-vi.mock("../modules/identity/application/permissions.js", () => ({ assignPermissionKeys: vi.fn(async () => {}), ensureSystemPermissions: vi.fn() }));
-vi.mock("../modules/dashboards/domain/dashboards.js", async (orig) => ({
-  ...(await orig<typeof import("../modules/dashboards/domain/dashboards.js")>()),
+vi.mock("../../src/modules/identity/application/permissions.js", () => ({ assignPermissionKeys: vi.fn(async () => {}), ensureSystemPermissions: vi.fn() }));
+vi.mock("../../src/modules/dashboards/domain/dashboards.js", async (orig) => ({
+  ...(await orig<typeof import("../../src/modules/dashboards/domain/dashboards.js")>()),
   getRegisteredDashboards: vi.fn(async () => h.state.dashboards),
   syncDashboardDirectory: vi.fn(async () => ({ synced: 0 })),
 }));
-vi.mock("../modules/data-sources/infrastructure/external-pg/index.js", async (orig) => ({
-  ...(await orig<typeof import("../modules/data-sources/infrastructure/external-pg/index.js")>()),
+vi.mock("../../src/modules/data-sources/infrastructure/external-pg/index.js", async (orig) => ({
+  ...(await orig<typeof import("../../src/modules/data-sources/infrastructure/external-pg/index.js")>()),
   runReadOnlyQuery: vi.fn(async () => [{ n: 1 }]),
 }));
 
-import { app } from "../app.js";
-import { encryptCredential } from "../shared/lib/credentials.js";
+import { app } from "../../src/app.js";
+import { encryptCredential } from "../../src/shared/lib/credentials.js";
 
 const UUID = "11111111-1111-4111-8111-111111111111";
 const UUID2 = "22222222-2222-4222-8222-222222222222";

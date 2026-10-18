@@ -32,18 +32,18 @@ const h = vi.hoisted(() => {
   return { state, fakeDb };
 });
 
-vi.mock("../shared/db/client.js", () => ({ db: h.fakeDb, pool: {} }));
-vi.mock("../modules/identity/application/auth.js", async (orig) => ({
-  ...(await orig<typeof import("../modules/identity/application/auth.js")>()),
+vi.mock("../../src/shared/db/client.js", () => ({ db: h.fakeDb, pool: {} }));
+vi.mock("../../src/modules/identity/application/auth.js", async (orig) => ({
+  ...(await orig<typeof import("../../src/modules/identity/application/auth.js")>()),
   findAuthenticatedUser: vi.fn(async (token?: string) => (token ? h.state.user : null)),
 }));
-vi.mock("../modules/data-sources/infrastructure/external-pg/index.js", async (orig) => ({
-  ...(await orig<typeof import("../modules/data-sources/infrastructure/external-pg/index.js")>()),
+vi.mock("../../src/modules/data-sources/infrastructure/external-pg/index.js", async (orig) => ({
+  ...(await orig<typeof import("../../src/modules/data-sources/infrastructure/external-pg/index.js")>()),
   runReadOnlyQuery: vi.fn(async () => [{ n: 1 }]),
   runBoundedReadOnlyQueryWithRetry: vi.fn(async () => ({ rows: [{ n: 1 }], truncated: false })),
   inspectReadOnlyPostgres: vi.fn(async () => [{ schemaName: "public", tableName: "t" }]),
 }));
-vi.mock("../modules/queries/infrastructure/query-lifecycle-repository.js", () => ({
+vi.mock("../../src/modules/queries/infrastructure/query-lifecycle-repository.js", () => ({
   createQueryLifecycleRepository: () => ({
     transaction: async (op: (tx: unknown) => unknown) => op({
       lockSource: async (id: string) => (h.state.lifecycle.source?.id === id ? h.state.lifecycle.source : undefined),
@@ -72,37 +72,37 @@ vi.mock("../modules/queries/infrastructure/query-lifecycle-repository.js", () =>
     }),
   }),
 }));
-vi.mock("../modules/dashboards/domain/dashboards.js", async (orig) => ({
-  ...(await orig<typeof import("../modules/dashboards/domain/dashboards.js")>()),
+vi.mock("../../src/modules/dashboards/domain/dashboards.js", async (orig) => ({
+  ...(await orig<typeof import("../../src/modules/dashboards/domain/dashboards.js")>()),
   getDashboardFiles: vi.fn(async () => h.state.dashboardFiles),
   withDashboardFileCompensation: vi.fn(async (op: () => unknown) => op()),
   writeDashboardDocumentAtomically: vi.fn(async () => async () => {}),
 }));
-vi.mock("../modules/dashboards/application/dashboard-admin.js", async (orig) => ({
-  ...(await orig<typeof import("../modules/dashboards/application/dashboard-admin.js")>()),
+vi.mock("../../src/modules/dashboards/application/dashboard-admin.js", async (orig) => ({
+  ...(await orig<typeof import("../../src/modules/dashboards/application/dashboard-admin.js")>()),
   saveDashboardDocument: vi.fn(async () => {}),
 }));
-vi.mock("../modules/dashboards/application/dashboard-proposal-commit.js", () => ({
+vi.mock("../../src/modules/dashboards/application/dashboard-proposal-commit.js", () => ({
   previewDashboardProposal: vi.fn(),
   commitDashboardProposal: vi.fn(),
 }));
-vi.mock("../modules/data-sources/domain/data-source-catalog.js", async (orig) => ({
-  ...(await orig<typeof import("../modules/data-sources/domain/data-source-catalog.js")>()),
+vi.mock("../../src/modules/data-sources/domain/data-source-catalog.js", async (orig) => ({
+  ...(await orig<typeof import("../../src/modules/data-sources/domain/data-source-catalog.js")>()),
   reconcileDataSourceCatalog: vi.fn(async () => {}),
 }));
 
 const RECEIPT = "33333333-3333-4333-8333-333333333333";
 const NEWQ = "44444444-4444-4444-8444-444444444444";
 
-import { app } from "../app.js";
-import { dashboardDocumentSchema } from "../shared/lib/contracts.js";
-import { encryptCredential } from "../shared/lib/credentials.js";
-import { dashboardDocumentFingerprint } from "../modules/dashboards/domain/dashboard-proposals.js";
-import { runBoundedReadOnlyQueryWithRetry, inspectReadOnlyPostgres } from "../modules/data-sources/infrastructure/external-pg/index.js";
-import { saveDashboardDocument } from "../modules/dashboards/application/dashboard-admin.js";
-import { writeDashboardDocumentAtomically } from "../modules/dashboards/domain/dashboards.js";
-import { commitDashboardProposal, previewDashboardProposal } from "../modules/dashboards/application/dashboard-proposal-commit.js";
-import { reconcileDataSourceCatalog } from "../modules/data-sources/domain/data-source-catalog.js";
+import { app } from "../../src/app.js";
+import { dashboardDocumentSchema } from "../../src/shared/lib/contracts.js";
+import { encryptCredential } from "../../src/shared/lib/credentials.js";
+import { dashboardDocumentFingerprint } from "../../src/modules/dashboards/domain/dashboard-proposals.js";
+import { runBoundedReadOnlyQueryWithRetry, inspectReadOnlyPostgres } from "../../src/modules/data-sources/infrastructure/external-pg/index.js";
+import { saveDashboardDocument } from "../../src/modules/dashboards/application/dashboard-admin.js";
+import { writeDashboardDocumentAtomically } from "../../src/modules/dashboards/domain/dashboards.js";
+import { commitDashboardProposal, previewDashboardProposal } from "../../src/modules/dashboards/application/dashboard-proposal-commit.js";
+import { reconcileDataSourceCatalog } from "../../src/modules/data-sources/domain/data-source-catalog.js";
 
 const UUID = "11111111-1111-4111-8111-111111111111";
 const UUID2 = "22222222-2222-4222-8222-222222222222";
