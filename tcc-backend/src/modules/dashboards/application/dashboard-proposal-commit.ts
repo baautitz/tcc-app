@@ -5,7 +5,7 @@ import { z } from "zod";
 
 import { dashboardFilesRepository } from "../infrastructure/dashboard-files-repository.js";
 import { withDashboardFilesLock } from "../../../shared/db/db-executor.js";
-import { savedQueriesRepository } from "../../queries/infrastructure/saved-queries-repository.js";
+import { savedQueriesPort } from "../../queries/application/saved-queries.js";
 import {
   
   
@@ -40,7 +40,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 export async function previewDashboardProposal(currentUser: AuthenticatedUser, receiptId: string, input: { contextValues: Record<string, string | string[]>; componentIds: string[] }) {
-  const receipt = await savedQueriesRepository.findReceipt(receiptId);
+  const receipt = await savedQueriesPort().findReceipt(receiptId);
   if (!receipt) throw new ApiError(409, "A prévia expirou. Gere uma nova proposta.");
   try {
     assertDashboardProposalUsable({ ...receipt, mode: receipt.mode as "create" | "update" }, currentUser.id, new Date());
@@ -61,7 +61,7 @@ export async function previewDashboardProposal(currentUser: AuthenticatedUser, r
   const referenceIds = [...dashboardQueryReferences(document)];
   if (referenceIds.length === 0) throw new ApiError(409, "A proposta não possui queries salvas.");
 
-  const queryRows = await savedQueriesRepository.listWithSourcesByIds(referenceIds);
+  const queryRows = await savedQueriesPort().listWithSourcesByIds(referenceIds);
   if (queryRows.length !== referenceIds.length) throw new ApiError(409, "Uma query da proposta foi removida. Gere uma nova prévia.");
   const referencesFingerprint = dashboardReferenceFingerprint(queryRows.map(({ query, source }) => ({
     queryId: query.id,
@@ -211,7 +211,7 @@ export async function commitDashboardProposal(currentUser: AuthenticatedUser, re
       }
       const referenceIds = [...dashboardQueryReferences(document)];
       if (referenceIds.length === 0) throw new ApiError(409, "A proposta não possui queries salvas.");
-      const queryRows = await savedQueriesRepository.listWithSourcesByIds(referenceIds, tx);
+      const queryRows = await savedQueriesPort().listWithSourcesByIds(referenceIds, tx);
       if (queryRows.length !== referenceIds.length) {
         throw new ApiError(409, "Uma query da proposta foi removida. Gere a prévia novamente.");
       }

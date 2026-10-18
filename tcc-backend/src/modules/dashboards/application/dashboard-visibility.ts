@@ -1,7 +1,7 @@
 
 
 import { dashboardAccessRepository } from "../infrastructure/dashboard-access-repository.js";
-import { savedQueriesRepository } from "../../queries/infrastructure/saved-queries-repository.js";
+import { savedQueriesPort } from "../../queries/application/saved-queries.js";
 
 import type { AuthenticatedUser } from "../../identity/domain/auth-user.js";
 
@@ -29,7 +29,7 @@ export async function assertDashboardAccess(currentUser: AuthenticatedUser, dash
 
 export async function accessibleQueryIds(currentUser: AuthenticatedUser): Promise<Set<string>> {
   if (currentUser.isAdmin) {
-    const rows = await savedQueriesRepository.listAllIds();
+    const rows = await savedQueriesPort().listAllIds();
     return new Set(rows.map((row) => row.id));
   }
   const dashboardsForUser = await getAccessibleDashboards(currentUser);

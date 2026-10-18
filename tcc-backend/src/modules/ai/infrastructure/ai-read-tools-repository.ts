@@ -6,7 +6,7 @@ import { externalSource } from "../../data-sources/application/external-source.j
 import type { AiReadSource, AiReadTable, AiReadTableName } from "../application/tools/ai-read-tools.js";
 import { MAX_DATA_SOURCE_CATALOG_TABLES } from "../../data-sources/domain/data-source-catalog.js";
 import { issueQueryTestReceipt, querySourceTargetHash } from "../../queries/domain/query-lifecycle.js";
-import { createQueryLifecycleRepository } from "../../queries/infrastructure/query-lifecycle-repository.js";
+import { savedQueriesPort } from "../../queries/application/saved-queries.js";
 
 function aiReadSource(source: typeof dataSources.$inferSelect): AiReadSource {
   return {
@@ -69,7 +69,7 @@ export function createAiReadToolsRepository() {
       return query;
     },
     createTestReceipt(input: Parameters<typeof issueQueryTestReceipt>[1]) {
-      return issueQueryTestReceipt(createQueryLifecycleRepository(), input);
+      return issueQueryTestReceipt(savedQueriesPort().createLifecycleRepository(), input);
     },
     async listCatalogTables(dataSourceId: string) {
       const tables = await db.select({

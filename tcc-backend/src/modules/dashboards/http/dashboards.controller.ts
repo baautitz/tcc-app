@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { } from "../../../shared/config/config.js";
 import { dashboardAccessRepository } from "../infrastructure/dashboard-access-repository.js";
-import { savedQueriesRepository } from "../../queries/infrastructure/saved-queries-repository.js";
+import { savedQueriesPort } from "../../queries/application/saved-queries.js";
 import {
   
   
@@ -126,7 +126,7 @@ export async function getDashboard(context: AppContext) {
   await assertDashboardAccess(currentUser, dashboardId);
   const queryIds = [...dashboardQueryReferences(dashboard)];
   const catalogQueries = queryIds.length
-    ? await savedQueriesRepository.listParametersByIds(queryIds)
+    ? await savedQueriesPort().listParametersByIds(queryIds)
     : [];
   let definition;
   try {
