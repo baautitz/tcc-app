@@ -104,11 +104,10 @@ describe("rota de chat IA SSE", () => {
     });
 
     expect(response.status).toBe(200);
-    expect(capturedPrompt).toContain("QA antes de responder");
+    expect(capturedPrompt).toContain("Regras de ouro");
     expect(capturedPrompt).toContain("Vendas por cidade — agosto de 2017");
-    expect(capturedPrompt).toContain("leia o dashboard atual e seus filtros reais agora");
-    expect(capturedPrompt).toContain("Use testRunId apenas para identificar o cartão pendente");
-    expect(capturedPrompt).toContain("não pare com uma recusa por falta de UUID");
+    expect(capturedPrompt).toContain("leia o dashboard e seus filtros reais");
+    expect(capturedPrompt).toContain("Use testRunId só para identificar o cartão pendente");
   });
 
   it("retorna 503 claro quando a IA não está configurada e não inicia SSE", async () => {

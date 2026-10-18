@@ -109,6 +109,7 @@ describe("ferramenta LangChain test_query", () => {
     const output = resultObject(
       await testQuery.invoke({
         dataSourceId: sourceId,
+        purpose: "quick_query",
         sqlText:
           "SELECT count(*) AS total FROM public.orders WHERE created_at >= {{start_date}}",
         parameters: [
@@ -153,6 +154,7 @@ describe("ferramenta LangChain test_query", () => {
     const output = resultObject(await testQuery.invoke({
       dataSourceId: sourceId,
       sqlText: "SELECT count(*) FROM public.orders",
+      purpose: "quick_query",
       parameters: [],
       values: {},
     } as never, { toolCallId: "tool-call-1" } as never));
@@ -201,6 +203,7 @@ describe("ferramenta LangChain test_query", () => {
       mode: "update",
       queryId: targetId,
       sqlText: "SELECT count(*) FROM public.orders",
+      purpose: "quick_query",
       parameters: [],
       values: {},
     } as never));
@@ -243,6 +246,7 @@ describe("ferramenta LangChain test_query", () => {
         {
           dataSourceId: sourceId,
           sqlText: "SELECT count(*) FROM public.orders",
+          purpose: "quick_query",
           parameters: [],
           values: {},
         },
@@ -267,6 +271,7 @@ describe("ferramenta LangChain test_query", () => {
     const output = resultObject(
       await testQuery.invoke({
         dataSourceId: sourceId,
+        purpose: "quick_query",
         sqlText:
           "SELECT * FROM public.orders WHERE created_at >= {{start_date}}",
         parameters: [
@@ -301,6 +306,7 @@ describe("ferramenta LangChain test_query", () => {
     const invalidDate = resultObject(
       await testQuery.invoke({
         dataSourceId: sourceId,
+        purpose: "quick_query",
         sqlText: "SELECT {{start_date}} AS period",
         parameters: [
           { name: "start_date", label: "Data", type: "date", required: false },
@@ -316,6 +322,7 @@ describe("ferramenta LangChain test_query", () => {
     const customFunction = resultObject(
       await testQuery.invoke({
         dataSourceId: sourceId,
+        purpose: "quick_query",
         sqlText: "SELECT public.send_webhook('https://example.test')",
         parameters: [],
         values: {},
@@ -326,6 +333,7 @@ describe("ferramenta LangChain test_query", () => {
     const unknownView = resultObject(
       await testQuery.invoke({
         dataSourceId: sourceId,
+        purpose: "quick_query",
         sqlText: "SELECT * FROM public.unregistered_view",
         parameters: [],
         values: {},
@@ -373,6 +381,7 @@ describe("ferramenta LangChain test_query", () => {
       const output = resultObject(
         await testQuery.invoke({
           dataSourceId: sourceId,
+          purpose: "quick_query",
           sqlText,
           parameters: [],
           values: {},
@@ -408,6 +417,7 @@ describe("ferramenta LangChain test_query", () => {
       await testQuery.invoke({
         dataSourceId: sourceId,
         sqlText: "SELECT count(*) FROM public.orders",
+        purpose: "quick_query",
         parameters: [],
         values: {},
       } as never),
@@ -435,6 +445,7 @@ describe("ferramenta LangChain test_query", () => {
       await testQuery.invoke({
         dataSourceId: sourceId,
         sqlText: "SELECT count(*) FROM public.orders",
+        purpose: "quick_query",
         parameters: [],
         values: {},
       } as never),
@@ -461,6 +472,7 @@ describe("ferramenta LangChain test_query", () => {
       const output = resultObject(
         await testQuery.invoke({
           dataSourceId: sourceId,
+          purpose: "quick_query",
           sqlText,
           parameters: [],
           values: {},
@@ -471,6 +483,7 @@ describe("ferramenta LangChain test_query", () => {
     const overLimit = resultObject(
       await testQuery.invoke({
         dataSourceId: sourceId,
+        purpose: "quick_query",
         sqlText: "SELECT 7 AS value",
         parameters: [],
         values: {},
@@ -507,6 +520,7 @@ describe("ferramenta LangChain test_query", () => {
       await testQuery.invoke({
         dataSourceId: sourceId,
         sqlText: "SELECT count(*) FROM public.orders",
+        purpose: "quick_query",
         parameters: [],
         values: {},
       } as never),

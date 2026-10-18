@@ -20,8 +20,8 @@ export const inputSchema = z
     mode: z.enum(["create", "update"]).default("create").describe(
       "A intenção da revisão: create para salvar nova query ou update para editar uma query existente.",
     ),
-    purpose: z.enum(["dashboard", "quick_query"]).default("quick_query").describe(
-      "Use dashboard sempre que o administrador pedir para adicionar/criar um gráfico, tabela, indicador ou métrica em um dashboard, inclusive quando indicar a posição em relação a um componente existente (por exemplo, ao lado, acima ou abaixo), mesmo que a query seja criada primeiro. Use quick_query somente para consulta/análise sem pedido de alteração do dashboard.",
+    purpose: z.enum(["dashboard", "quick_query"]).describe(
+      "Obrigatório. Use dashboard sempre que o administrador pedir para adicionar/criar um gráfico, tabela, indicador ou métrica em um dashboard, inclusive quando indicar a posição em relação a um componente existente (por exemplo, ao lado, acima ou abaixo), mesmo que a query seja criada primeiro. Use quick_query somente para consulta/análise sem pedido de alteração do dashboard.",
     ),
     queryId: z.string().uuid().optional().describe(
       "ID da query existente que será editada; obrigatório quando mode=update. Nunca invente este ID.",
