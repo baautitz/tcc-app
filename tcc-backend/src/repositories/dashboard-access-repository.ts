@@ -1,6 +1,6 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
-import { db } from "../db/client.js";
-import { dashboardUsers, users } from "../db/schema.js";
+import { db } from "../shared/db/client.js";
+import { dashboardUsers, users } from "../shared/db/schema.js";
 
 export const dashboardAccessRepository = {
   async listAssignedDashboardIds(userId: string) {

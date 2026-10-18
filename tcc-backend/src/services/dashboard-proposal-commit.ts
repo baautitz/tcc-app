@@ -3,7 +3,7 @@
 import { z } from "zod";
 
 import { dashboardFilesRepository } from "../repositories/dashboard-files-repository.js";
-import { withDashboardFilesLock } from "../repositories/db-executor.js";
+import { withDashboardFilesLock } from "../shared/db/db-executor.js";
 import { savedQueriesRepository } from "../repositories/saved-queries-repository.js";
 import {
   
@@ -19,7 +19,7 @@ import {
   
   
   
-} from "../lib/contracts.js";
+} from "../shared/lib/contracts.js";
 
 import { AI_QUERY_MAX_BYTES, AI_QUERY_MAX_ROWS, runBoundedReadOnlyQueryWithRetry } from "./external-postgres.js";
 import { type AuthenticatedUser } from "./auth.js";
@@ -33,7 +33,7 @@ import { querySourceTargetHash } from "./query-lifecycle.js";
 import { validateDashboardPreviewFields } from "./ai-dashboard-tools.js";
 import { dashboardDocumentFingerprint, dashboardProposalPreviewScope, dashboardReferenceFingerprint } from "./ai-dashboard-proposals.js";
 import { assertDashboardPreviewAcknowledged, assertDashboardProposalFresh, assertDashboardProposalUsable, isDashboardProposalAlreadyApplied } from "./dashboard-proposal-lifecycle.js";
-import { ApiError } from "../lib/domain-error.js";
+import { ApiError } from "../shared/lib/domain-error.js";
 import { sourceConnection } from "../repositories/source-connection.js";
 
 import { readFile } from "node:fs/promises";

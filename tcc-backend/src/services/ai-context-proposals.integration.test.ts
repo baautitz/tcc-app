@@ -2,10 +2,10 @@ import { randomUUID } from "node:crypto";
 import { eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { app } from "../app.js";
-import { getEnvironment } from "../config.js";
-import { db, pool } from "../db/client.js";
-import { aiContextProposals, dataSourceTables, dataSources, users } from "../db/schema.js";
-import { encryptCredential } from "../lib/credentials.js";
+import { getEnvironment } from "../shared/config/config.js";
+import { db, pool } from "../shared/db/client.js";
+import { aiContextProposals, dataSourceTables, dataSources, users } from "../shared/db/schema.js";
+import { encryptCredential } from "../shared/lib/credentials.js";
 import { createSession } from "./auth.js";
 
 const integrationDescribe = describe.runIf(process.env.TCC_POSTGRES_INTEGRATION === "1");

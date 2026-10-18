@@ -3,7 +3,7 @@
 import { z } from "zod";
 
 import { dashboardFilesRepository } from "../repositories/dashboard-files-repository.js";
-import { withDashboardFilesLock } from "../repositories/db-executor.js";
+import { withDashboardFilesLock } from "../shared/db/db-executor.js";
 import {
   
   
@@ -18,13 +18,13 @@ import {
   
   
   
-} from "../lib/contracts.js";
+} from "../shared/lib/contracts.js";
 
 import { createDashboardFile, DashboardFileCompensationError, isEditableDashboardFilePath, syncDashboardDirectory, withDashboardFileCompensation, writeDashboardDocumentAtomically } from "./dashboards.js";
 
 import { dashboardDocumentFingerprint } from "./ai-dashboard-proposals.js";
 
-import { ApiError } from "../lib/domain-error.js";
+import { ApiError } from "../shared/lib/domain-error.js";
 
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";

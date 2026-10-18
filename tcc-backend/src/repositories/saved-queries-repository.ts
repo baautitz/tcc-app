@@ -1,7 +1,7 @@
 import { asc, eq, inArray } from "drizzle-orm";
-import { db } from "../db/client.js";
-import { dashboardProposalReceipts, dataSources, savedQueries } from "../db/schema.js";
-import type { DbExecutor } from "./db-executor.js";
+import { db } from "../shared/db/client.js";
+import { dashboardProposalReceipts, dataSources, savedQueries } from "../shared/db/schema.js";
+import type { DbExecutor } from "../shared/db/db-executor.js";
 
 export const savedQueriesRepository = {
   async listSummaries() {

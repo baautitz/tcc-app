@@ -3,7 +3,7 @@ import { getSourceOrThrow } from "./data-source-admin.js";
 import { z } from "zod";
 
 import { savedQueriesRepository } from "../repositories/saved-queries-repository.js";
-import { withDashboardFilesLock } from "../repositories/db-executor.js";
+import { withDashboardFilesLock } from "../shared/db/db-executor.js";
 import {
   
   
@@ -18,7 +18,7 @@ import {
   
   
   type ParameterDefinition,
-} from "../lib/contracts.js";
+} from "../shared/lib/contracts.js";
 
 import { runReadOnlyQuery } from "./external-postgres.js";
 
@@ -26,7 +26,7 @@ import { DashboardFileCompensationError, getDashboardFiles, withDashboardFileCom
 
 import { assertParameterDefinitions, assertReadOnlySql, assertSqlParameters, bindQueryParameters } from "./query-security.js";
 
-import { ApiError } from "../lib/domain-error.js";
+import { ApiError } from "../shared/lib/domain-error.js";
 import { sourceConnection } from "../repositories/source-connection.js";
 
 export function parseParameters(value: unknown): ParameterDefinition[] {

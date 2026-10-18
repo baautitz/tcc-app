@@ -1,6 +1,6 @@
 import { and, eq, inArray, notInArray } from "drizzle-orm";
-import { db } from "../db/client.js";
-import { permissions, userPermissions } from "../db/schema.js";
+import { db } from "../shared/db/client.js";
+import { permissions, userPermissions } from "../shared/db/schema.js";
 
 export interface PermissionsRepository {
   upsertSystemPermission(def: { key: string; name: string; description?: string }): Promise<void>;

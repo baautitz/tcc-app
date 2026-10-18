@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { authentication, permissionRequired, type AppVariables } from "../middleware/auth.js";
+import { authentication, permissionRequired, type AppVariables } from "../shared/middleware/auth.js";
 import { createUser, deleteUser, listUsers, updateUser } from "../controllers/users.js";
 
 export const userRoutes = new Hono<{ Variables: AppVariables }>();

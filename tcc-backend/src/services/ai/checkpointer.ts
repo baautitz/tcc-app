@@ -1,5 +1,5 @@
 import { PostgresSaver } from "@langchain/langgraph-checkpoint-postgres";
-import { pool } from "../../db/client.js";
+import { pool } from "../../shared/db/client.js";
 
 let checkpointer: Promise<PostgresSaver> | undefined;
 

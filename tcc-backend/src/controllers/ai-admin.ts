@@ -1,7 +1,7 @@
 
 
 import { z } from "zod";
-import { } from "../config.js";
+import { } from "../shared/config/config.js";
 
 import { createAiChatHandler } from "../services/ai-chat.js";
 import { createAiReadTools } from "../services/ai-read-tools.js";
@@ -10,7 +10,7 @@ import { createAiQuestionnaireTools } from "../services/ai-questionnaire.js";
 
 import { createAiDashboardTools } from "../services/ai-dashboard-tools.js";
 
-import { throwApiError } from "../lib/domain-error.js";
+import { throwApiError } from "../shared/lib/domain-error.js";
 
 import { createAiReadToolsRepository } from "../repositories/ai-read-tools.js";
 import { createAiContextProposalRepository } from "../repositories/ai-context-proposals.js";
@@ -19,7 +19,7 @@ import { createAiDashboardToolsRepository } from "../repositories/ai-dashboard-t
 
 import { approveContextProposal, createAiContextProposalTools, dismissContextProposal, getContextProposal, listPendingContextProposals } from "../services/ai-context-proposals.js";
 
-import type { AppContext } from "../middleware/auth.js";
+import type { AppContext } from "../shared/middleware/auth.js";
 
 export const aiChat = createAiChatHandler({
   createTools: ({ currentUser, pageContext, onToolEvent }) => {

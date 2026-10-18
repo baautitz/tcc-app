@@ -1,6 +1,6 @@
 import { ChatOpenAI } from "@langchain/openai";
-import { DomainError } from "../../lib/domain-error.js";
-import { getEnvironment, type Environment } from "../../config.js";
+import { DomainError } from "../../shared/lib/domain-error.js";
+import { getEnvironment, type Environment } from "../../shared/config/config.js";
 
 type AiEnvironment = Pick<Environment, "AI_BASE_URL" | "AI_API_KEY" | "AI_MODEL" | "AI_REQUEST_TIMEOUT_MS">;
 

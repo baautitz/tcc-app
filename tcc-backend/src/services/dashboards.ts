@@ -1,4 +1,4 @@
-import { DomainError } from "../lib/domain-error.js";
+import { DomainError } from "../shared/lib/domain-error.js";
 import { randomUUID } from "node:crypto";
 import { mkdir, readdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve } from "node:path";
@@ -10,7 +10,7 @@ import {
 import {
   dashboardCreateSchema,
   dashboardDocumentSchema,
-} from "../lib/contracts.js";
+} from "../shared/lib/contracts.js";
 
 export type DashboardDocument = ReturnType<
   typeof dashboardDocumentSchema.parse

@@ -1,5 +1,5 @@
 import type { z } from "zod";
-import type { parameterDefinitionSchema } from "../../lib/contracts.js";
+import type { parameterDefinitionSchema } from "../../shared/lib/contracts.js";
 import type { AuthenticatedUser } from "../auth.js";
 import type { DiscoveredColumn, DiscoveredTable, ExternalPostgresConfig } from "../external-postgres.js";
 import type { runBoundedReadOnlyQuery as defaultRunBoundedReadOnlyQuery } from "../external-postgres.js";
@@ -82,7 +82,7 @@ export type AiToolProgressEvent =
       dashboardId: string;
       expectedDashboardFingerprint: string | null;
       document: import("../dashboards.js").DashboardDocument;
-      definition: import("../../lib/contracts.js").DashboardDefinition;
+      definition: import("../../shared/lib/contracts.js").DashboardDefinition;
       changeSummary: string[];
       componentChanges: Record<string, "added" | "modified" | "unchanged">;
       queries: Record<string, {

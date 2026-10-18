@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { adminRequired, authentication, type AppVariables } from "../middleware/auth.js";
+import { adminRequired, authentication, type AppVariables } from "../shared/middleware/auth.js";
 import { aiChat, approveProposal, dismissProposal, getContextProposalById, listContextProposals } from "../controllers/ai-admin.js";
 import { commitProposal, previewProposal } from "../controllers/dashboards.js";
 

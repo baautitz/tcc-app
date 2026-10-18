@@ -1,6 +1,6 @@
 import { tool, type StructuredToolInterface, type ToolRuntime } from "@langchain/core/tools";
 import { z } from "zod";
-import { dashboardDocumentSchema, parameterDefinitionSchema } from "../../lib/contracts.js";
+import { dashboardDocumentSchema, parameterDefinitionSchema } from "../../shared/lib/contracts.js";
 import type { AuthenticatedUser } from "../auth.js";
 import { buildDashboardDefinitionFromDocument, dashboardQueryReferences, type DashboardQueryMetadata } from "../dashboard-sync.js";
 import { AI_QUERY_MAX_BYTES, AI_QUERY_MAX_ROWS } from "../external-postgres.js";

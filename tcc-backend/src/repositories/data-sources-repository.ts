@@ -1,7 +1,7 @@
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
-import { db } from "../db/client.js";
-import { dataSources, dataSourceTables, savedQueries } from "../db/schema.js";
-import { ApiError } from "../lib/domain-error.js";
+import { db } from "../shared/db/client.js";
+import { dataSources, dataSourceTables, savedQueries } from "../shared/db/schema.js";
+import { ApiError } from "../shared/lib/domain-error.js";
 import type { reconcileDataSourceCatalog } from "../services/data-source-catalog.js";
 import type { updateTableContextIfSourceVersionMatches } from "../services/data-source-context.js";
 

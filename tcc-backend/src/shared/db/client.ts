@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import { getEnvironment } from "../config.js";
+import { getEnvironment } from "../config/config.js";
 
 const environment = getEnvironment();
 

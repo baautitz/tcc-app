@@ -1,7 +1,7 @@
 
 
 import { z } from "zod";
-import { getEnvironment } from "../config.js";
+import { getEnvironment } from "../shared/config/config.js";
 import { dataSourcesRepository } from "../repositories/data-sources-repository.js";
 import {
   
@@ -17,19 +17,19 @@ import {
   sourceInputSchema,
   sourceUpdateInputSchema,
   
-} from "../lib/contracts.js";
-import { encryptCredential } from "../lib/credentials.js";
+} from "../shared/lib/contracts.js";
+import { encryptCredential } from "../shared/lib/credentials.js";
 
 import { inspectReadOnlyPostgres } from "../services/external-postgres.js";
 
 import { hasDataSourceTargetChanged, MAX_DATA_SOURCE_CATALOG_TABLES, type CatalogSourceUpdate } from "../services/data-source-catalog.js";
 import { sourceContextRevisionChanged } from "../services/data-source-context.js";
 
-import { ApiError } from "../lib/domain-error.js";
+import { ApiError } from "../shared/lib/domain-error.js";
 import { sourceConnection } from "../repositories/source-connection.js";
 
-import type { AppContext } from "../middleware/auth.js";
-import { jsonBody } from "../middleware/json-body.js";
+import type { AppContext } from "../shared/middleware/auth.js";
+import { jsonBody } from "../shared/middleware/json-body.js";
 
 import { catalogSourceSnapshot, safeSource, getSourceOrThrow, catalogSourceTables, updateCatalogTableContext } from "../services/data-source-admin.js";
 

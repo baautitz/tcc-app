@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { parameterDefinitionSchema } from "../../lib/contracts.js";
+import { parameterDefinitionSchema } from "../../shared/lib/contracts.js";
 import type { AiChatRole } from "../ai-agent.js";
 
 const chatMessageSchema = z

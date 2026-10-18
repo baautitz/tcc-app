@@ -32,7 +32,7 @@ const h = vi.hoisted(() => {
   return { state, fakeDb };
 });
 
-vi.mock("../db/client.js", () => ({ db: h.fakeDb, pool: {} }));
+vi.mock("../shared/db/client.js", () => ({ db: h.fakeDb, pool: {} }));
 vi.mock("../services/auth.js", async (orig) => ({
   ...(await orig<typeof import("../services/auth.js")>()),
   findAuthenticatedUser: vi.fn(async (token?: string) => (token ? h.state.user : null)),
@@ -95,8 +95,8 @@ const RECEIPT = "33333333-3333-4333-8333-333333333333";
 const NEWQ = "44444444-4444-4444-8444-444444444444";
 
 import { app } from "../app.js";
-import { dashboardDocumentSchema } from "../lib/contracts.js";
-import { encryptCredential } from "../lib/credentials.js";
+import { dashboardDocumentSchema } from "../shared/lib/contracts.js";
+import { encryptCredential } from "../shared/lib/credentials.js";
 import { dashboardDocumentFingerprint } from "../services/ai-dashboard-proposals.js";
 import { runBoundedReadOnlyQueryWithRetry, inspectReadOnlyPostgres } from "../services/external-postgres.js";
 import { saveDashboardDocument } from "../services/dashboard-admin.js";

@@ -1,6 +1,6 @@
 import type { Handler } from "hono";
 import type { StructuredToolInterface } from "@langchain/core/tools";
-import { getEnvironment, type Environment } from "../config.js";
+import { getEnvironment, type Environment } from "../shared/config/config.js";
 import {
   createAiAgent,
   resolveAiConfiguration,

@@ -1,5 +1,5 @@
-import { DomainError } from "../lib/domain-error.js";
-import { assertLive } from "../lib/lifecycle.js";
+import { DomainError } from "../shared/lib/domain-error.js";
+import { assertLive } from "../shared/lib/lifecycle.js";
 
 export interface DashboardProposalReceiptState {
   actorId: string;

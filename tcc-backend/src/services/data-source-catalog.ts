@@ -1,4 +1,4 @@
-import { DomainError } from "../lib/domain-error.js";
+import { DomainError } from "../shared/lib/domain-error.js";
 import type { DiscoveredTable } from "./external-postgres.js";
 
 export const MAX_DATA_SOURCE_CATALOG_TABLES = 10_000;

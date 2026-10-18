@@ -1,6 +1,6 @@
 import { and, asc, eq, gt } from "drizzle-orm";
-import { db } from "../db/client.js";
-import { aiContextProposals, dataSourceTables, dataSources } from "../db/schema.js";
+import { db } from "../shared/db/client.js";
+import { aiContextProposals, dataSourceTables, dataSources } from "../shared/db/schema.js";
 import type { AiContextProposal, AiContextProposalRepository, ContextProposalTarget, ContextProposalTargetType } from "../services/ai-context-proposals.js";
 
 export function createAiContextProposalRepository(now: () => number = Date.now): AiContextProposalRepository {

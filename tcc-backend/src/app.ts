@@ -1,8 +1,8 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { getEnvironment } from "./config.js";
-import { errorHandler } from "./middleware/error-handler.js";
-import type { AppVariables } from "./middleware/auth.js";
+import { getEnvironment } from "./shared/config/config.js";
+import { errorHandler } from "./shared/middleware/error-handler.js";
+import type { AppVariables } from "./shared/middleware/auth.js";
 import { aiAdminRoutes } from "./routes/ai-admin.js";
 import { authRoutes } from "./routes/auth.js";
 import { userRoutes } from "./routes/users.js";

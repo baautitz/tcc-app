@@ -9,7 +9,7 @@ import { getRegisteredDashboards } from "./dashboards.js";
 import { dashboardQueryReferences } from "./dashboard-sync.js";
 import { canAccessDashboard } from "./dashboard-access.js";
 
-import { ApiError } from "../lib/domain-error.js";
+import { ApiError } from "../shared/lib/domain-error.js";
 
 export async function getAccessibleDashboards(currentUser: AuthenticatedUser) {
   const registered = await getRegisteredDashboards();

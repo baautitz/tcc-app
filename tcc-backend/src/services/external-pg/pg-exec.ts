@@ -1,4 +1,4 @@
-import { DomainError } from "../../lib/domain-error.js";
+import { DomainError } from "../../shared/lib/domain-error.js";
 import { Client } from "pg";
 import Cursor from "pg-cursor";
 import { normalizeGeneralReadOnlySql, normalizeReadOnlySql } from "../query-security.js";

@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
-import { sha256Hex } from "../lib/hash.js";
+import { sha256Hex } from "../shared/lib/hash.js";
 import { drizzleAuthRepository, type AuthRepository } from "../repositories/auth-repository.js";
-import { getEnvironment } from "../config.js";
+import { getEnvironment } from "../shared/config/config.js";
 
 export interface AuthenticatedUser {
   id: string;

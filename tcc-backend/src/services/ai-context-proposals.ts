@@ -1,8 +1,8 @@
-import { DomainError } from "../lib/domain-error.js";
+import { DomainError } from "../shared/lib/domain-error.js";
 import { tool, type StructuredToolInterface, type ToolRuntime } from "@langchain/core/tools";
 import { z } from "zod";
 import type { AuthenticatedUser } from "./auth.js";
-import { expireIfStale } from "../lib/lifecycle.js";
+import { expireIfStale } from "../shared/lib/lifecycle.js";
 
 export const CONTEXT_PROPOSAL_TTL_MS = 10 * 60 * 1000;
 

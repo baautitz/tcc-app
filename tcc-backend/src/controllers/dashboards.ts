@@ -1,7 +1,7 @@
 
 
 import { z } from "zod";
-import { } from "../config.js";
+import { } from "../shared/config/config.js";
 import { dashboardAccessRepository } from "../repositories/dashboard-access-repository.js";
 import { savedQueriesRepository } from "../repositories/saved-queries-repository.js";
 import {
@@ -18,17 +18,17 @@ import {
   
   
   
-} from "../lib/contracts.js";
+} from "../shared/lib/contracts.js";
 
 import { getDashboardFileById, getRegisteredDashboardFiles, getRegisteredDashboards } from "../services/dashboards.js";
 import { buildDashboardDefinitionFromDocument, dashboardQueryReferences } from "../services/dashboard-sync.js";
 
 import { dashboardDocumentFingerprint } from "../services/ai-dashboard-proposals.js";
 
-import { ApiError } from "../lib/domain-error.js";
+import { ApiError } from "../shared/lib/domain-error.js";
 
-import type { AppContext } from "../middleware/auth.js";
-import { jsonBody } from "../middleware/json-body.js";
+import type { AppContext } from "../shared/middleware/auth.js";
+import { jsonBody } from "../shared/middleware/json-body.js";
 import { assertDashboardAccess, getAccessibleDashboards } from "../services/dashboard-visibility.js";
 
 import { syncDashboardDirectoryLocked, createDashboard, saveDashboardDocument } from "../services/dashboard-admin.js";

@@ -31,14 +31,14 @@ const h = vi.hoisted(() => {
   return { state, fakeDb };
 });
 
-vi.mock("../db/client.js", () => ({ db: h.fakeDb, pool: {} }));
+vi.mock("../shared/db/client.js", () => ({ db: h.fakeDb, pool: {} }));
 vi.mock("../services/auth.js", async (orig) => ({
   ...(await orig<typeof import("../services/auth.js")>()),
   findAuthenticatedUser: vi.fn(async (token?: string) => (token ? h.state.user : null)),
   createSession: vi.fn(async () => ({ token: "tok", expiresAt: new Date(Date.now() + 1e6) })),
   revokeSession: vi.fn(async () => {}),
 }));
-vi.mock("../lib/passwords.js", () => ({
+vi.mock("../shared/lib/passwords.js", () => ({
   hashPassword: (p: string) => `hash:${p}`,
   verifyPassword: (p: string, hash: string) => hash === `hash:${p}`,
 }));
@@ -54,7 +54,7 @@ vi.mock("../services/external-postgres.js", async (orig) => ({
 }));
 
 import { app } from "../app.js";
-import { encryptCredential } from "../lib/credentials.js";
+import { encryptCredential } from "../shared/lib/credentials.js";
 
 const UUID = "11111111-1111-4111-8111-111111111111";
 const UUID2 = "22222222-2222-4222-8222-222222222222";

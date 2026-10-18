@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dashboardDocumentSchema } from "../lib/contracts.js";
+import { dashboardDocumentSchema } from "../shared/lib/contracts.js";
 import {
   aiDashboardProposalInputSchema,
   createDashboardDocument,

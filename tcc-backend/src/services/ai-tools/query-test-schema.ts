@@ -1,6 +1,6 @@
 import type { AuthenticatedUser } from "../auth.js";
 import { z } from "zod";
-import { parameterDefinitionSchema } from "../../lib/contracts.js";
+import { parameterDefinitionSchema } from "../../shared/lib/contracts.js";
 import type { UnsafeAiColumnType } from "../external-postgres.js";
 import type { AiReadSource, AiReadTableName, AiToolProgressEvent } from "../ai-read-tools.js";
 import type { AiCatalogTableReference } from "../query-security.js";

@@ -1,6 +1,6 @@
 
 
-import type { dataSources, dataSourceTables } from "../db/schema.js";
+import type { dataSources, dataSourceTables } from "../shared/db/schema.js";
 import { dataSourcesRepository } from "../repositories/data-sources-repository.js";
 
 import { inspectReadOnlyPostgres } from "./external-postgres.js";
@@ -8,7 +8,7 @@ import { inspectReadOnlyPostgres } from "./external-postgres.js";
 import { DataSourceCatalogSnapshotChangedError, reconcileDataSourceCatalog, type CatalogSourceSnapshot, type CatalogSourceUpdate } from "./data-source-catalog.js";
 import { DataSourceContextSourceNotFoundError, DataSourceContextVersionConflictError, DataSourceTableContextVersionConflictError, updateTableContextIfSourceVersionMatches } from "./data-source-context.js";
 
-import { ApiError } from "../lib/domain-error.js";
+import { ApiError } from "../shared/lib/domain-error.js";
 
 export function catalogSourceSnapshot(source: typeof dataSources.$inferSelect): CatalogSourceSnapshot {
   return {

@@ -7,7 +7,7 @@ import {
   parameterDefinitionSchema,
   type DashboardDefinition,
   type ParameterDefinition,
-} from "../lib/contracts.js";
+} from "../shared/lib/contracts.js";
 import {
   getRegisteredDashboards,
   type DashboardDocument,

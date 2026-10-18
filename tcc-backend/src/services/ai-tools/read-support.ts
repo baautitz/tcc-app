@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { ToolRuntime } from "@langchain/core/tools";
-import { DomainError } from "../../lib/domain-error.js";
+import { DomainError } from "../../shared/lib/domain-error.js";
 import type { DiscoveredTable } from "../external-postgres.js";
 import type { AiReadTableName, AiToolProgressEvent, CreateAiReadToolsOptions } from "./read-types.js";
 

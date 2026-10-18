@@ -1,14 +1,14 @@
 import { asc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "../db/client.js";
-import { dashboardProposalReceipts, dataSources, savedQueries } from "../db/schema.js";
+import { db } from "../shared/db/client.js";
+import { dashboardProposalReceipts, dataSources, savedQueries } from "../shared/db/schema.js";
 import { AI_QUERY_MAX_BYTES, AI_QUERY_MAX_ROWS, runBoundedReadOnlyQueryWithRetry, type ExternalPostgresConfig } from "../services/external-postgres.js";
 import { getRegisteredDashboardFiles } from "../services/dashboards.js";
 import { querySourceTargetHash } from "../services/query-lifecycle.js";
 import { dashboardDocumentFingerprint } from "../services/ai-dashboard-proposals.js";
 import { assertParameterDefinitions, assertSqlParameters, bindQueryParameters } from "../services/query-security.js";
 import type { AiDashboardQuery, AiDashboardQueryDefinition, AiDashboardToolsRepository } from "../services/ai-dashboard-tools.js";
-import { parameterDefinitionSchema } from "../lib/contracts.js";
+import { parameterDefinitionSchema } from "../shared/lib/contracts.js";
 import { sourceConnection } from "./source-connection.js";
 
 export function createAiDashboardToolsRepository(): AiDashboardToolsRepository {

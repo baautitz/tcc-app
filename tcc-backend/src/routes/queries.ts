@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { authentication, permissionRequired, type AppVariables } from "../middleware/auth.js";
+import { authentication, permissionRequired, type AppVariables } from "../shared/middleware/auth.js";
 import { createQuery, deleteQuery, getQuery, listQueries, previewQuery, testSavedQuery, updateQuery } from "../controllers/queries.js";
 
 export const queryRoutes = new Hono<{ Variables: AppVariables }>();

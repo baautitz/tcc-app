@@ -1,6 +1,6 @@
 import { and, asc, count, eq } from "drizzle-orm";
-import { db } from "../db/client.js";
-import { dataSourceTables, dataSources, savedQueries } from "../db/schema.js";
+import { db } from "../shared/db/client.js";
+import { dataSourceTables, dataSources, savedQueries } from "../shared/db/schema.js";
 import { findUnsafeAiColumnTypes, getPostgresTableColumns, listPostgresBaseTables } from "../services/external-postgres.js";
 import type { AiReadSource, AiReadTable, AiReadTableName } from "../services/ai-read-tools.js";
 import { MAX_DATA_SOURCE_CATALOG_TABLES } from "../services/data-source-catalog.js";

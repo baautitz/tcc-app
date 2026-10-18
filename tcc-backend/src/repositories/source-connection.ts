@@ -1,6 +1,6 @@
-import { getEnvironment } from "../config.js";
-import type { dataSources } from "../db/schema.js";
-import { decryptCredential } from "../lib/credentials.js";
+import { getEnvironment } from "../shared/config/config.js";
+import type { dataSources } from "../shared/db/schema.js";
+import { decryptCredential } from "../shared/lib/credentials.js";
 import type { ExternalPostgresConfig } from "../services/external-postgres.js";
 
 export function sourceConnection(source: typeof dataSources.$inferSelect, environment = getEnvironment()): ExternalPostgresConfig {
