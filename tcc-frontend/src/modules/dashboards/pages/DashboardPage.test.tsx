@@ -2,7 +2,7 @@ import { cleanup } from "@testing-library/react";
 import { afterEach } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Dashboard } from "@/types";
+import type { Dashboard } from "@/modules/dashboards/model/types";
 import { CurrentViewRefreshProvider } from "@/shared/context/CurrentViewRefreshContext";
 import { DashboardPage } from "./DashboardPage";
 
@@ -22,9 +22,13 @@ const dashboard = {
   },
 } as unknown as Dashboard;
 
-vi.mock("@/api", () => ({
-  api: {
+vi.mock("@/modules/dashboards/api/dashboards.api", () => ({
+  dashboardsApi: {
     dashboard: vi.fn(() => Promise.resolve(dashboard)),
+  },
+}));
+vi.mock("@/modules/queries/api/queries.api", () => ({
+  queriesApi: {
     query: vi.fn(
       (id: string) => new Promise((resolve) => pending.push({ id, resolve })),
     ),

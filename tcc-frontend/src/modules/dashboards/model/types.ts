@@ -60,3 +60,13 @@ export type Dashboard = DashboardSummary & {
 };
 
 export type DashboardUser = Pick<User, "id" | "name" | "email" | "active">;
+
+export type QueryState = {
+  loading: boolean;
+  rows?: Record<string, unknown>[];
+  error?: string;
+  previewPending?: string;
+};
+export type FilterValues = Record<string, string | string[]>;
+export type DashboardFilterValues = Record<string, string | string[]>;
+export type DashboardComponentChange = "added" | "modified" | "unchanged";

@@ -4,7 +4,7 @@ import type {
   DashboardArgument,
   DashboardDocumentComponent,
   DashboardOption,
-} from "@/types";
+} from "@/modules/dashboards/model/types";
 import type { QueryParameter, QuerySummary } from "@/modules/queries/model/types";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";

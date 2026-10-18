@@ -1,8 +1,8 @@
+import type { AiContextProposal } from "@/types";
 import type {
-  AiContextProposal,
   DashboardDefinition,
   DashboardDocument,
-} from "../../types";
+} from "@/modules/dashboards/model/types";
 import type { QueryPreview } from "@/modules/queries/model/types";
 
 type DashboardPreviewQuery = {

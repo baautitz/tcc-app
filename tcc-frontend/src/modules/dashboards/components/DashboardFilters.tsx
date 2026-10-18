@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Filter } from "lucide-react";
-import type { DashboardArgument } from "@/types";
+import type { DashboardArgument } from "@/modules/dashboards/model/types";
 import { Button } from "@/shared/ui/button";
 import {
   Card,
@@ -30,8 +30,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/shared/ui/select";
-import { isIsoDateValue } from "../lib";
-import type { DashboardFilterValues, FilterValues, QueryState } from "../types";
+import { isIsoDateValue } from "@/modules/dashboards/model/lib";
+import type { DashboardFilterValues, FilterValues, QueryState } from "@/modules/dashboards/model/types";
 
 export function DashboardFilters({
   parameters,

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import type { DashboardComponent } from "@/types";
-import type { DashboardComponentChange } from "../types";
+import type { DashboardComponent } from "@/modules/dashboards/model/types";
+import type { DashboardComponentChange } from "@/modules/dashboards/model/types";
 
 export type RendererProps = {
   component: DashboardComponent;

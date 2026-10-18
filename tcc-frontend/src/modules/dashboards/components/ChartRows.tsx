@@ -1,5 +1,5 @@
-import type { DashboardComponent } from "@/types";
-import { numericChartRows, propertyString } from "../lib";
+import type { DashboardComponent } from "@/modules/dashboards/model/types";
+import { numericChartRows, propertyString } from "@/modules/dashboards/model/lib";
 
 export function chartRowsFor(
   component: DashboardComponent,

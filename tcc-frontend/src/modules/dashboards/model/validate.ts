@@ -1,4 +1,4 @@
-import type { DashboardDocument, DashboardDocumentComponent } from "@/types";
+import type { DashboardDocument, DashboardDocumentComponent } from "@/modules/dashboards/model/types";
 import type { QuerySummary } from "@/modules/queries/model/types";
 
 export function componentQuery(component: DashboardDocumentComponent): string {

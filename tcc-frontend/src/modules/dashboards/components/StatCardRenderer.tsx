@@ -1,6 +1,6 @@
 import { Card, CardContent } from "@/shared/ui/card";
 import { formatCurrencyValue, formatValue } from "@/shared/lib/utils";
-import { propertyString } from "../lib";
+import { propertyString } from "@/modules/dashboards/model/lib";
 import { ComponentPreviewHeader } from "./ComponentFrame";
 import type { Renderer } from "./renderers";
 

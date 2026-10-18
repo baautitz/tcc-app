@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import { api, ApiError } from "@/api";
+import { dashboardsApi } from "@/modules/dashboards/api/dashboards.api";
 import { PanelRightClose, Sparkles } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/shared/ui/button";
@@ -122,7 +123,7 @@ export function AiChatDock({
         ),
       );
       try {
-        const result = await api.commitAiDashboardProposal(
+        const result = await dashboardsApi.commitAiDashboardProposal(
           item.proposalId,
           acknowledgeTruncation,
         );

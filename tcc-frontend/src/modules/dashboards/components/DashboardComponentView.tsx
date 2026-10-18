@@ -1,9 +1,9 @@
 import { AlertCircle } from "lucide-react";
-import type { DashboardComponent } from "@/types";
+import type { DashboardComponent } from "@/modules/dashboards/model/types";
 import { Alert, AlertDescription, AlertTitle } from "@/shared/ui/alert";
 import { Card, CardContent } from "@/shared/ui/card";
-import { colClass, componentChangeClasses } from "../lib";
-import type { DashboardComponentChange, QueryState } from "../types";
+import { colClass, componentChangeClasses } from "@/modules/dashboards/model/lib";
+import type { DashboardComponentChange, QueryState } from "@/modules/dashboards/model/types";
 import {
   ComponentError,
   ComponentLoading,

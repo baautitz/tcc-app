@@ -8,7 +8,7 @@ import {
   TableRow,
 } from "@/shared/ui/table";
 import { formatValue } from "@/shared/lib/utils";
-import { componentColumns } from "../lib";
+import { componentColumns } from "@/modules/dashboards/model/lib";
 import { ComponentPreviewHeader } from "./ComponentFrame";
 import type { Renderer } from "./renderers";
 

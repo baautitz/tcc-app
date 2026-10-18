@@ -2,7 +2,7 @@ import { cleanup } from "@testing-library/react";
 import { afterEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import type { DashboardComponent } from "@/types";
+import type { DashboardComponent } from "@/modules/dashboards/model/types";
 import { DashboardComponentView } from "./DashboardComponentView";
 import { DataTableRenderer } from "./DataTableRenderer";
 import { rendererFor } from "./registry";

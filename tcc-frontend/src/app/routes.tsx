@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
 import { Navigate, Route, Routes, useNavigate, useParams } from "react-router-dom";
-import { api } from "@/api";
+import { dashboardsApi } from "@/modules/dashboards/api/dashboards.api";
 import { AdminSectionPage } from "@/admin";
-import { DashboardListPage, DashboardPage } from "@/dashboard";
-import { DashboardContextEditor } from "@/features/dashboard/context-editor/DashboardContextEditor";
+import { DashboardListPage } from "@/modules/dashboards/pages/DashboardListPage";
+import { DashboardPage } from "@/modules/dashboards/pages/DashboardPage";
+import { DashboardContextEditor } from "@/modules/dashboards/components/context-editor/DashboardContextEditor";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuth } from "@/modules/identity/hooks/AuthContext";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { toast } from "@/shared/ui/toast";
-import type { DashboardSummary } from "@/types";
+import type { DashboardSummary } from "@/modules/dashboards/model/types";
 import { LoginPage } from "@/modules/identity/pages/LoginPage";
 
 function HomeRoute() {
@@ -19,7 +20,7 @@ function HomeRoute() {
 
   useEffect(() => {
     let active = true;
-    api
+    dashboardsApi
       .dashboards()
       .then((items) => {
         if (active) setDashboards(items);

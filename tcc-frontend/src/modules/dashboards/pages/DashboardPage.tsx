@@ -5,8 +5,9 @@ import {
   useState,
 } from "react";
 import { AlertCircle, RefreshCw, Settings, Table2, Users } from "lucide-react";
-import { api } from "@/api";
-import type { Dashboard } from "@/types";
+import { dashboardsApi } from "@/modules/dashboards/api/dashboards.api";
+import { queriesApi } from "@/modules/queries/api/queries.api";
+import type { Dashboard } from "@/modules/dashboards/model/types";
 import { useAuth } from "@/modules/identity/hooks/AuthContext";
 import { Alert, AlertDescription, AlertTitle } from "@/shared/ui/alert";
 import { Badge } from "@/shared/ui/badge";
@@ -14,8 +15,8 @@ import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { useRegisterCurrentViewRefresh } from "@/shared/context/CurrentViewRefreshContext";
-import { collectArguments, gapClass, queryArguments } from "../lib";
-import type { FilterValues, QueryState } from "../types";
+import { collectArguments, gapClass, queryArguments } from "@/modules/dashboards/model/lib";
+import type { FilterValues, QueryState } from "@/modules/dashboards/model/types";
 import { DashboardComponentView } from "../components/DashboardComponentView";
 import { DashboardFilters } from "../components/DashboardFilters";
 import { DashboardUsersDialog } from "../components/DashboardUsersDialog";
@@ -37,7 +38,7 @@ export function DashboardPage({
   const querySequenceRef = useRef(0);
   const refreshData = useCallback(() => {
     setDataRefreshVersion((version) => version + 1);
-    api.dashboard(dashboardId)
+    dashboardsApi.dashboard(dashboardId)
       .then(setDashboard)
       .catch((reason: Error) => setError(reason.message));
   }, [dashboardId]);
@@ -49,7 +50,7 @@ export function DashboardPage({
     setData({});
     setFilters({});
     setError(undefined);
-    api
+    dashboardsApi
       .dashboard(dashboardId)
       .then((result) => {
         if (active) setDashboard(result);
@@ -92,7 +93,7 @@ export function DashboardPage({
       ),
     }));
     queryIds.forEach((queryId) => {
-      api
+      queriesApi
         .query(queryId, queryArguments(dashboard, queryId, filters))
         .then((result) => {
           if (querySequenceRef.current !== requestSequence) return;

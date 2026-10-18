@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, FileCode2, Plus, Save, Trash2 } from "lucide-react";
-import { api } from "@/api";
+import { dashboardsApi } from "@/modules/dashboards/api/dashboards.api";
+import { queriesApi } from "@/modules/queries/api/queries.api";
 import { errorMessage } from "@/shared/lib/errors";
-import { componentQuery, dashboardValidationIssues } from "./validate";
+import { componentQuery, dashboardValidationIssues } from "@/modules/dashboards/model/validate";
 import { JsonEditorDialog } from "./JsonEditorDialog";
 import { ManualOptionsEditor, QueryParameterEditor, componentTypes, parameterTypes, querySelectItems } from "./ParameterEditors";
 import type {
@@ -10,7 +11,7 @@ import type {
   DashboardArgument,
   DashboardDocumentComponent,
   DashboardDocument,
-} from "@/types";
+} from "@/modules/dashboards/model/types";
 import type { QueryParameter, QuerySummary } from "@/modules/queries/model/types";
 import { Alert, AlertDescription, AlertTitle } from "@/shared/ui/alert";
 import { Button } from "@/shared/ui/button";
@@ -43,7 +44,7 @@ export function DashboardContextEditor({
     setLoading(true);
     setError(undefined);
     setDashboard(undefined);
-    Promise.all([api.dashboardContext(dashboardId), api.queries()]).then(([result, queryCatalog]) => {
+    Promise.all([dashboardsApi.dashboardContext(dashboardId), queriesApi.queries()]).then(([result, queryCatalog]) => {
       if (active) {
         setDashboard(result.document);
         setRevision(result.revision);
@@ -169,7 +170,7 @@ export function DashboardContextEditor({
         ui: { ...sourceDashboard.ui, components: sanitizedComponents },
         queryBindings: sourceDashboard.queryBindings.filter((binding) => referenceIds.has(binding.queryUuid) && availableQueryIds.has(binding.queryUuid)),
       };
-      const result = await api.updateDashboardContext(nextDashboard.id, nextDashboard, revision);
+      const result = await dashboardsApi.updateDashboardContext(nextDashboard.id, nextDashboard, revision);
       setDashboard(nextDashboard);
       setRevision(result.revision);
       const remainingIssues = dashboardValidationIssues(nextDashboard, queries);

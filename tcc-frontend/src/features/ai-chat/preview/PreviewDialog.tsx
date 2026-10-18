@@ -11,11 +11,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/shared/ui/dialog";
-import {
-  DashboardFilters,
-  DashboardProposalCanvas,
-  type DashboardFilterValues,
-} from "@/dashboard";
+import { DashboardFilters } from "@/modules/dashboards/components/DashboardFilters";
+import { DashboardProposalCanvas } from "@/modules/dashboards/components/DashboardProposalCanvas";
+import type { DashboardFilterValues } from "@/modules/dashboards/model/types";
 import type { DashboardPreviewItem, DashboardPreviewQuery } from "../chat-items";
 
 export function PreviewDialog({

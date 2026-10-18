@@ -1,5 +1,5 @@
 import { AlertCircle } from "lucide-react";
-import type { DashboardComponent } from "@/types";
+import type { DashboardComponent } from "@/modules/dashboards/model/types";
 import { Alert, AlertDescription, AlertTitle } from "@/shared/ui/alert";
 import { Badge } from "@/shared/ui/badge";
 import {
@@ -10,8 +10,8 @@ import {
   CardTitle,
 } from "@/shared/ui/card";
 import { Skeleton } from "@/shared/ui/skeleton";
-import { colClass, componentChangeClasses } from "../lib";
-import type { DashboardComponentChange } from "../types";
+import { colClass, componentChangeClasses } from "@/modules/dashboards/model/lib";
+import type { DashboardComponentChange } from "@/modules/dashboards/model/types";
 
 export function ComponentPreviewHeader({
   component,

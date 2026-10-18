@@ -33,7 +33,7 @@ import {
 } from "@/shared/lib/utils";
 import type { AiContextProposal } from "@/types";
 import type { QueryPreview } from "@/modules/queries/model/types";
-import type { DashboardDefinition, DashboardDocument } from "@/types";
+import type { DashboardDefinition, DashboardDocument } from "@/modules/dashboards/model/types";
 import {
   QuestionnaireCard,
   type QuestionnaireAnswers,

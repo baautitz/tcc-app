@@ -1,4 +1,5 @@
-import type { AiContextProposal, DashboardDefinition, DashboardDocument } from "@/types";
+import type { AiContextProposal } from "@/types";
+import type { DashboardDefinition, DashboardDocument } from "@/modules/dashboards/model/types";
 import type { QueryPreview } from "@/modules/queries/model/types";
 import type { QuestionnaireChatItem } from "./QuestionnaireCard";
 

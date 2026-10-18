@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { api } from "@/api";
-import type { DashboardUser } from "@/types";
+import { dashboardsApi } from "@/modules/dashboards/api/dashboards.api";
+import type { DashboardUser } from "@/modules/dashboards/model/types";
 import { Alert, AlertDescription, AlertTitle } from "@/shared/ui/alert";
 import { Button } from "@/shared/ui/button";
 import { Checkbox } from "@/shared/ui/checkbox";
@@ -37,7 +37,7 @@ export function DashboardUsersDialog({
     if (!open) return;
     setLoading(true);
     setError(undefined);
-    api
+    dashboardsApi
       .dashboardUsers(dashboardId)
       .then((result) => {
         setUsers(result.users);
@@ -50,7 +50,7 @@ export function DashboardUsersDialog({
   const save = async () => {
     setSaving(true);
     try {
-      await api.updateDashboardUsers(dashboardId, selectedIds);
+      await dashboardsApi.updateDashboardUsers(dashboardId, selectedIds);
       toast.success("Acesso ao dashboard atualizado.");
       onOpenChange(false);
       onSaved();

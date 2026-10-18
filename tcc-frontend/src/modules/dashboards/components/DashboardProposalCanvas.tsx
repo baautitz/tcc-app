@@ -1,6 +1,6 @@
-import type { DashboardDefinition } from "@/types";
-import { gapClass } from "../lib";
-import type { DashboardComponentChange } from "../types";
+import type { DashboardDefinition } from "@/modules/dashboards/model/types";
+import { gapClass } from "@/modules/dashboards/model/lib";
+import type { DashboardComponentChange } from "@/modules/dashboards/model/types";
 import { DashboardComponentView } from "./DashboardComponentView";
 
 export function DashboardProposalCanvas({

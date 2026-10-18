@@ -2,7 +2,7 @@ import type {
   Dashboard,
   DashboardArgument,
   DashboardComponent,
-} from "@/types";
+} from "@/modules/dashboards/model/types";
 import type { DashboardComponentChange, FilterValues } from "./types";
 
 export const colors = [

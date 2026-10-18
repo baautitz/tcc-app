@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { BarChart3, Plus } from "lucide-react";
-import { api } from "@/api";
-import type { DashboardSummary } from "@/types";
+import { dashboardsApi } from "@/modules/dashboards/api/dashboards.api";
+import type { DashboardSummary } from "@/modules/dashboards/model/types";
 import { Button } from "@/shared/ui/button";
 import {
   Card,
@@ -52,7 +52,7 @@ export function DashboardListPage({
     if (!name.trim()) return;
     setSaving(true);
     try {
-      const created = await api.createDashboard({
+      const created = await dashboardsApi.createDashboard({
         name: name.trim(),
         description: description.trim(),
       });

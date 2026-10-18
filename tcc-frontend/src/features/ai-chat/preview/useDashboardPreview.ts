@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { api } from "@/api";
-import type { DashboardFilterValues } from "@/dashboard";
+import { dashboardsApi } from "@/modules/dashboards/api/dashboards.api";
+import type { DashboardFilterValues } from "@/modules/dashboards/model/types";
 import type { DashboardPreviewItem, DashboardPreviewQuery } from "../chat-items";
 
 export function useDashboardPreview(
@@ -110,7 +110,7 @@ export function useDashboardPreview(
     setPreviewTestError(undefined);
     setTestedIssues(undefined);
     try {
-      const result = await api.previewAiDashboardProposal(
+      const result = await dashboardsApi.previewAiDashboardProposal(
         item.proposalId,
         contextValues,
         item.previewComponentIds,
