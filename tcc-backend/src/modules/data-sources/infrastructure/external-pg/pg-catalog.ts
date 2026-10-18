@@ -3,10 +3,8 @@ import { MAX_DATA_SOURCE_CATALOG_TABLES } from "../../domain/data-source-catalog
 import { type AiCatalogTableReference } from "../../../queries/domain/security/query-security.js";
 import { type ExternalPostgresConfig } from "./pg-exec.js";
 
-export interface DiscoveredTable {
-  schemaName: string;
-  tableName: string;
-}
+import type { DiscoveredTable } from "../../domain/data-source-catalog.js";
+export type { DiscoveredTable };
 
 export interface DiscoveredColumn {
   columnName: string;

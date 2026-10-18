@@ -1,5 +1,9 @@
 import { DomainError } from "../../../shared/lib/domain-error.js";
-import type { DiscoveredTable } from "../infrastructure/external-pg/index.js";
+
+export interface DiscoveredTable {
+  schemaName: string;
+  tableName: string;
+}
 
 export const MAX_DATA_SOURCE_CATALOG_TABLES = 10_000;
 
