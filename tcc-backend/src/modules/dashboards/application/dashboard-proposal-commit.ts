@@ -30,7 +30,7 @@ import { buildDashboardDefinitionFromDocument, dashboardQueryReferences } from "
 import { assertParameterDefinitions, assertSqlParameters, bindQueryParameters } from "../../queries/domain/security/query-security.js";
 
 import { querySourceTargetHash } from "../../queries/domain/query-lifecycle.js";
-import { validateDashboardPreviewFields } from "../../../services/ai-dashboard-tools.js";
+import { validateDashboardPreviewFields } from "../../ai/application/tools/ai-dashboard-tools.js";
 import { dashboardDocumentFingerprint, dashboardProposalPreviewScope, dashboardReferenceFingerprint } from "../domain/dashboard-proposals.js";
 import { assertDashboardPreviewAcknowledged, assertDashboardProposalFresh, assertDashboardProposalUsable, isDashboardProposalAlreadyApplied } from "../domain/dashboard-proposal-lifecycle.js";
 import { ApiError } from "../../../shared/lib/domain-error.js";

@@ -36,8 +36,8 @@ vi.mock("../modules/identity/application/auth.js", async (orig) => ({
   ...(await orig<typeof import("../modules/identity/application/auth.js")>()),
   findAuthenticatedUser: vi.fn(async (token?: string) => (token ? h.state.user : null)),
 }));
-vi.mock("../services/ai-agent.js", async (orig) => ({
-  ...(await orig<typeof import("../services/ai-agent.js")>()),
+vi.mock("../modules/ai/application/agent/ai-agent.js", async (orig) => ({
+  ...(await orig<typeof import("../modules/ai/application/agent/ai-agent.js")>()),
   resolveAiConfiguration: vi.fn(() => ({
     enabled: true, baseURL: "https://ai.test/v1", apiKey: "secret-key", model: "m", requestTimeoutMs: 60_000,
   })),

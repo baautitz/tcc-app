@@ -3,7 +3,7 @@ import { cors } from "hono/cors";
 import { getEnvironment } from "./shared/config/config.js";
 import { errorHandler } from "./shared/middleware/error-handler.js";
 import type { AppVariables } from "./shared/middleware/auth.js";
-import { aiAdminRoutes } from "./routes/ai-admin.js";
+import { aiAdminRoutes } from "./modules/ai/http/ai-admin.routes.js";
 import { authRoutes } from "./modules/identity/http/auth.routes.js";
 import { userRoutes } from "./modules/identity/http/users.routes.js";
 import { permissionRoutes } from "./modules/identity/http/permissions.routes.js";

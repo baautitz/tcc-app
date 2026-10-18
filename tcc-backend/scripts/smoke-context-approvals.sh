@@ -62,4 +62,4 @@ export CREDENTIAL_ENCRYPTION_KEY="AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
 export TCC_SMOKE_EXTERNAL_PORT="$external_database_port"
 
 npm run db:migrate
-TCC_POSTGRES_INTEGRATION=1 npm test -- src/services/ai-context-proposals.integration.test.ts
+TCC_POSTGRES_INTEGRATION=1 npm test -- tests/http/ai-context-proposals.integration.test.ts
