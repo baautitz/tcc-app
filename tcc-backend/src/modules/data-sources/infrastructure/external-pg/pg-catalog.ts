@@ -1,6 +1,6 @@
 import { Client, type QueryResultRow } from "pg";
-import { MAX_DATA_SOURCE_CATALOG_TABLES } from "../data-source-catalog.js";
-import { type AiCatalogTableReference } from "../query-security.js";
+import { MAX_DATA_SOURCE_CATALOG_TABLES } from "../../domain/data-source-catalog.js";
+import { type AiCatalogTableReference } from "../../../../services/query-security.js";
 import { type ExternalPostgresConfig } from "./pg-exec.js";
 
 export interface DiscoveredTable {

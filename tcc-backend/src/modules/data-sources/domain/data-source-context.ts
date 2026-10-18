@@ -1,4 +1,4 @@
-import { DomainError } from "../shared/lib/domain-error.js";
+import { DomainError } from "../../../shared/lib/domain-error.js";
 export interface DataSourceContextTransaction {
   lockSourceUpdatedAt(dataSourceId: string): Promise<Date | undefined>;
   updateTableContext(

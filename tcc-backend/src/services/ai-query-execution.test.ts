@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ExternalPostgresConfig } from "./external-postgres.js";
+import type { ExternalPostgresConfig } from "../modules/data-sources/infrastructure/external-pg/index.js";
 import {
   AI_QUERY_STATEMENT_TIMEOUT_MS,
   runBoundedReadOnlyQuery,
   runBoundedReadOnlyQueryWithRetry,
-} from "./external-postgres.js";
+} from "../modules/data-sources/infrastructure/external-pg/index.js";
 
 const connection: ExternalPostgresConfig = {
   host: "db.internal.test",

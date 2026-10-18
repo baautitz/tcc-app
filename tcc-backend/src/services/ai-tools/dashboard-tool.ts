@@ -3,7 +3,7 @@ import { z } from "zod";
 import { dashboardDocumentSchema, parameterDefinitionSchema } from "../../shared/lib/contracts.js";
 import type { AuthenticatedUser } from "../../modules/identity/domain/auth-user.js";
 import { buildDashboardDefinitionFromDocument, dashboardQueryReferences, type DashboardQueryMetadata } from "../dashboard-sync.js";
-import { AI_QUERY_MAX_BYTES, AI_QUERY_MAX_ROWS } from "../external-postgres.js";
+import { AI_QUERY_MAX_BYTES, AI_QUERY_MAX_ROWS } from "../../modules/data-sources/infrastructure/external-pg/index.js";
 import {
   aiDashboardProposalInputSchema,
   createDashboardDocument,

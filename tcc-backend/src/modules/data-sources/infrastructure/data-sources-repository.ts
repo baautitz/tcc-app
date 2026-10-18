@@ -1,9 +1,9 @@
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
-import { db } from "../shared/db/client.js";
-import { dataSources, dataSourceTables, savedQueries } from "../shared/db/schema.js";
-import { ApiError } from "../shared/lib/domain-error.js";
-import type { reconcileDataSourceCatalog } from "../services/data-source-catalog.js";
-import type { updateTableContextIfSourceVersionMatches } from "../services/data-source-context.js";
+import { db } from "../../../shared/db/client.js";
+import { dataSources, dataSourceTables, savedQueries } from "../../../shared/db/schema.js";
+import { ApiError } from "../../../shared/lib/domain-error.js";
+import type { reconcileDataSourceCatalog } from "../domain/data-source-catalog.js";
+import type { updateTableContextIfSourceVersionMatches } from "../domain/data-source-context.js";
 
 type CatalogDeps = Parameters<typeof reconcileDataSourceCatalog>[0];
 type ContextDeps = Parameters<typeof updateTableContextIfSourceVersionMatches>[0];

@@ -48,8 +48,8 @@ vi.mock("../services/dashboards.js", async (orig) => ({
   getRegisteredDashboards: vi.fn(async () => h.state.dashboards),
   syncDashboardDirectory: vi.fn(async () => ({ synced: 0 })),
 }));
-vi.mock("../services/external-postgres.js", async (orig) => ({
-  ...(await orig<typeof import("../services/external-postgres.js")>()),
+vi.mock("../modules/data-sources/infrastructure/external-pg/index.js", async (orig) => ({
+  ...(await orig<typeof import("../modules/data-sources/infrastructure/external-pg/index.js")>()),
   runReadOnlyQuery: vi.fn(async () => [{ n: 1 }]),
 }));
 

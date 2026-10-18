@@ -1,6 +1,6 @@
 import { tool, type StructuredToolInterface } from "@langchain/core/tools";
 import type { z } from "zod";
-import { ExternalQueryExecutionError, type UnsafeAiColumnType, runBoundedReadOnlyQueryWithRetry } from "../external-postgres.js";
+import { ExternalQueryExecutionError, type UnsafeAiColumnType, runBoundedReadOnlyQueryWithRetry } from "../../modules/data-sources/infrastructure/external-pg/index.js";
 import type { AiReadSource, AiReadTableName, AiToolProgressEvent } from "../ai-read-tools.js";
 import {
   assertAiReadOnlySql,

@@ -9,7 +9,7 @@ import {
   type CatalogSourceSnapshot,
   type DataSourceCatalogTransaction,
 } from "./data-source-catalog.js";
-import type { DiscoveredTable } from "./external-postgres.js";
+import type { DiscoveredTable } from "../infrastructure/external-pg/index.js";
 
 interface CatalogRow extends CatalogIdentity {
   dataSourceId: string;

@@ -7,7 +7,7 @@ import {
   type AiQueryTestResult,
   type AiQueryTestRepository,
 } from "./ai-query-tools.js";
-import { ExternalQueryExecutionError } from "./external-postgres.js";
+import { ExternalQueryExecutionError } from "../modules/data-sources/infrastructure/external-pg/index.js";
 
 const sourceId = "00000000-0000-4000-8000-000000000001";
 const admin: AuthenticatedUser = {

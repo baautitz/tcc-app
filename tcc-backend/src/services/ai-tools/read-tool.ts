@@ -1,7 +1,7 @@
 import { tool, type StructuredToolInterface } from "@langchain/core/tools";
-import type { DiscoveredColumn, DiscoveredTable } from "../external-postgres.js";
-import { runBoundedReadOnlyQuery as defaultRunBoundedReadOnlyQuery } from "../external-postgres.js";
-import { MAX_DATA_SOURCE_CATALOG_TABLES } from "../data-source-catalog.js";
+import type { DiscoveredColumn, DiscoveredTable } from "../../modules/data-sources/infrastructure/external-pg/index.js";
+import { runBoundedReadOnlyQuery as defaultRunBoundedReadOnlyQuery } from "../../modules/data-sources/infrastructure/external-pg/index.js";
+import { MAX_DATA_SOURCE_CATALOG_TABLES } from "../../modules/data-sources/domain/data-source-catalog.js";
 import type { AiReadSource, AiReadTableName, CreateAiReadToolsOptions } from "./read-types.js";
 import {
   AiReadSourceNotFoundError, columnValuesInput, dateCoverageInput, listSourcesSchema, listTablesSchema,

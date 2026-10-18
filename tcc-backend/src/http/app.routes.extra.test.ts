@@ -37,8 +37,8 @@ vi.mock("../modules/identity/application/auth.js", async (orig) => ({
   ...(await orig<typeof import("../modules/identity/application/auth.js")>()),
   findAuthenticatedUser: vi.fn(async (token?: string) => (token ? h.state.user : null)),
 }));
-vi.mock("../services/external-postgres.js", async (orig) => ({
-  ...(await orig<typeof import("../services/external-postgres.js")>()),
+vi.mock("../modules/data-sources/infrastructure/external-pg/index.js", async (orig) => ({
+  ...(await orig<typeof import("../modules/data-sources/infrastructure/external-pg/index.js")>()),
   runReadOnlyQuery: vi.fn(async () => [{ n: 1 }]),
   runBoundedReadOnlyQueryWithRetry: vi.fn(async () => ({ rows: [{ n: 1 }], truncated: false })),
   inspectReadOnlyPostgres: vi.fn(async () => [{ schemaName: "public", tableName: "t" }]),
@@ -86,8 +86,8 @@ vi.mock("../services/dashboard-proposal-commit.js", () => ({
   previewDashboardProposal: vi.fn(),
   commitDashboardProposal: vi.fn(),
 }));
-vi.mock("../services/data-source-catalog.js", async (orig) => ({
-  ...(await orig<typeof import("../services/data-source-catalog.js")>()),
+vi.mock("../modules/data-sources/domain/data-source-catalog.js", async (orig) => ({
+  ...(await orig<typeof import("../modules/data-sources/domain/data-source-catalog.js")>()),
   reconcileDataSourceCatalog: vi.fn(async () => {}),
 }));
 
@@ -98,11 +98,11 @@ import { app } from "../app.js";
 import { dashboardDocumentSchema } from "../shared/lib/contracts.js";
 import { encryptCredential } from "../shared/lib/credentials.js";
 import { dashboardDocumentFingerprint } from "../services/ai-dashboard-proposals.js";
-import { runBoundedReadOnlyQueryWithRetry, inspectReadOnlyPostgres } from "../services/external-postgres.js";
+import { runBoundedReadOnlyQueryWithRetry, inspectReadOnlyPostgres } from "../modules/data-sources/infrastructure/external-pg/index.js";
 import { saveDashboardDocument } from "../services/dashboard-admin.js";
 import { writeDashboardDocumentAtomically } from "../services/dashboards.js";
 import { commitDashboardProposal, previewDashboardProposal } from "../services/dashboard-proposal-commit.js";
-import { reconcileDataSourceCatalog } from "../services/data-source-catalog.js";
+import { reconcileDataSourceCatalog } from "../modules/data-sources/domain/data-source-catalog.js";
 
 const UUID = "11111111-1111-4111-8111-111111111111";
 const UUID2 = "22222222-2222-4222-8222-222222222222";

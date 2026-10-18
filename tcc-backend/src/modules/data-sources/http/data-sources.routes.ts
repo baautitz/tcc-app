@@ -1,6 +1,6 @@
 import { Hono } from "hono";
-import { authentication, permissionRequired, type AppVariables } from "../shared/middleware/auth.js";
-import { createSource, deleteSource, getSource, listSources, refreshSource, testSource, updateSource, updateTableContext } from "../controllers/data-sources.js";
+import { authentication, permissionRequired, type AppVariables } from "../../../shared/middleware/auth.js";
+import { createSource, deleteSource, getSource, listSources, refreshSource, testSource, updateSource, updateTableContext } from "./data-sources.controller.js";
 
 export const dataSourceRoutes = new Hono<{ Variables: AppVariables }>();
 dataSourceRoutes.get("/api/data-sources", authentication, permissionRequired("data-sources:read"), listSources);

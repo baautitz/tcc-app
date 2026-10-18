@@ -3,7 +3,7 @@ import {
   AI_QUERY_RETRY_JITTER_MS,
   AI_QUERY_RETRY_MIN_DELAY_MS,
   runBoundedReadOnlyQueryWithRetry,
-} from "./external-postgres.js";
+} from "./index.js";
 
 const connection = {
   host: "database.internal",

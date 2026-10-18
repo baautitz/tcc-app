@@ -8,7 +8,7 @@ import { authRoutes } from "./modules/identity/http/auth.routes.js";
 import { userRoutes } from "./modules/identity/http/users.routes.js";
 import { permissionRoutes } from "./modules/identity/http/permissions.routes.js";
 import { dashboardRoutes } from "./routes/dashboards.js";
-import { dataSourceRoutes } from "./routes/data-sources.js";
+import { dataSourceRoutes } from "./modules/data-sources/http/data-sources.routes.js";
 import { queryRoutes } from "./routes/queries.js";
 import { publicQueryRoutes } from "./routes/public-query.js";
 

@@ -21,7 +21,7 @@ import {
   
 } from "../shared/lib/contracts.js";
 
-import { AI_QUERY_MAX_BYTES, AI_QUERY_MAX_ROWS, runBoundedReadOnlyQueryWithRetry } from "./external-postgres.js";
+import { AI_QUERY_MAX_BYTES, AI_QUERY_MAX_ROWS, runBoundedReadOnlyQueryWithRetry } from "../modules/data-sources/infrastructure/external-pg/index.js";
 import type { AuthenticatedUser } from "../modules/identity/domain/auth-user.js";
 
 import { isEditableDashboardFilePath, writeDashboardDocumentAtomically } from "./dashboards.js";
@@ -34,7 +34,7 @@ import { validateDashboardPreviewFields } from "./ai-dashboard-tools.js";
 import { dashboardDocumentFingerprint, dashboardProposalPreviewScope, dashboardReferenceFingerprint } from "./ai-dashboard-proposals.js";
 import { assertDashboardPreviewAcknowledged, assertDashboardProposalFresh, assertDashboardProposalUsable, isDashboardProposalAlreadyApplied } from "./dashboard-proposal-lifecycle.js";
 import { ApiError } from "../shared/lib/domain-error.js";
-import { sourceConnection } from "../repositories/source-connection.js";
+import { sourceConnection } from "../modules/data-sources/infrastructure/source-connection.js";
 
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";

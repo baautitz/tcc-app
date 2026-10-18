@@ -26,7 +26,7 @@ import {
   getPostgresTableColumns,
   inspectReadOnlyPostgres,
   listPostgresBaseTables,
-} from "./external-postgres.js";
+} from "./index.js";
 
 const connection = {
   host: "database.internal",

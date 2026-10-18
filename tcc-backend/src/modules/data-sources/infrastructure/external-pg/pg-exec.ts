@@ -1,7 +1,7 @@
-import { DomainError } from "../../shared/lib/domain-error.js";
+import { DomainError } from "../../../../shared/lib/domain-error.js";
 import { Client } from "pg";
 import Cursor from "pg-cursor";
-import { normalizeGeneralReadOnlySql, normalizeReadOnlySql } from "../query-security.js";
+import { normalizeGeneralReadOnlySql, normalizeReadOnlySql } from "../../../../services/query-security.js";
 export interface ExternalPostgresConfig {
   host: string;
   port: number;

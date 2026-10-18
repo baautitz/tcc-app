@@ -1,12 +1,12 @@
 import { and, asc, count, eq } from "drizzle-orm";
 import { db } from "../shared/db/client.js";
 import { dataSourceTables, dataSources, savedQueries } from "../shared/db/schema.js";
-import { findUnsafeAiColumnTypes, getPostgresTableColumns, listPostgresBaseTables } from "../services/external-postgres.js";
+import { findUnsafeAiColumnTypes, getPostgresTableColumns, listPostgresBaseTables } from "../modules/data-sources/infrastructure/external-pg/index.js";
 import type { AiReadSource, AiReadTable, AiReadTableName } from "../services/ai-read-tools.js";
-import { MAX_DATA_SOURCE_CATALOG_TABLES } from "../services/data-source-catalog.js";
+import { MAX_DATA_SOURCE_CATALOG_TABLES } from "../modules/data-sources/domain/data-source-catalog.js";
 import { issueQueryTestReceipt, querySourceTargetHash } from "../services/query-lifecycle.js";
 import { createQueryLifecycleRepository } from "./query-lifecycle.js";
-import { sourceConnection } from "./source-connection.js";
+import { sourceConnection } from "../modules/data-sources/infrastructure/source-connection.js";
 
 function aiReadSource(source: typeof dataSources.$inferSelect): AiReadSource {
   return {
