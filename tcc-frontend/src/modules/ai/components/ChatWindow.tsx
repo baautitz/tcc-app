@@ -19,24 +19,24 @@ import {
   MarkerContent,
   MarkerIcon,
 } from "@/shared/ui/marker";
-import type { AiContextProposal } from "@/types";
+import type { AiContextProposal } from "@/modules/ai/model/types";
 import {
   type QuestionnaireAnswers,
   type QuestionnaireChatItem,
-} from "./QuestionnaireCard";
+} from "@/modules/ai/components/QuestionnaireCard";
 import {
   type ChatMessage,
   type QueryPreviewItem,
   type DashboardPreviewItem,
   type ChatItem,
   isActionCardItem,
-} from "./chat-items";
-import { ChatItemView } from "./ChatItemView";
-import { ChatComposer } from "./window/ChatComposer";
-import { ReviewContextDialog } from "./window/ReviewContextDialog";
-import { ReviewPreviewDialog } from "./window/ReviewPreviewDialog";
-import { useContextProposal } from "./window/useContextProposal";
-import { useReviewPreview } from "./window/useReviewPreview";
+} from "@/modules/ai/model/chat-items";
+import { ChatItemView } from "@/modules/ai/components/ChatItemView";
+import { ChatComposer } from "@/modules/ai/components/ChatComposer";
+import { ReviewContextDialog } from "@/modules/ai/components/ReviewContextDialog";
+import { ReviewPreviewDialog } from "@/modules/ai/components/ReviewPreviewDialog";
+import { useContextProposal } from "@/modules/ai/hooks/useContextProposal";
+import { useReviewPreview } from "@/modules/ai/hooks/useReviewPreview";
 
 export function ChatWindow({
   items,

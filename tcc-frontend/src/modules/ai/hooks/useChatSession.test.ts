@@ -1,6 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { useChatSession } from "./useChatSession";
+import { useChatSession } from "@/modules/ai/hooks/useChatSession";
 
 const msg = (id: string, content = "") => ({ id, kind: "message", role: "assistant", content, status: "streaming" }) as const;
 

@@ -4,7 +4,7 @@ import {
   movePendingQueryPreviewToEnd,
   shouldResurfaceQueryPreview,
   shouldSendPendingPreviewContext,
-} from "./chat-followup.js";
+} from "@/modules/ai/model/chat-followup";
 
 describe("continuação com prévia pendente", () => {
   it("reapresenta cartão ao pedir inclusão e reconhece acentos e referências indiretas", () => {

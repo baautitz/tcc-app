@@ -9,10 +9,10 @@ import {
   markQueryPreviewSavedOnce,
   shouldResurfaceQueryPreview,
   shouldSendPendingPreviewContext,
-} from "./chat-followup";
-import type { ChatEvent } from "./chat-sse";
-import { applyChatEvent } from "./chat-reducer";
-import type { QuestionnaireAnswers, QuestionnaireChatItem } from "./QuestionnaireCard";
+} from "@/modules/ai/model/chat-followup";
+import type { ChatEvent } from "@/modules/ai/model/chat-sse";
+import { applyChatEvent } from "@/modules/ai/model/chat-reducer";
+import type { QuestionnaireAnswers, QuestionnaireChatItem } from "@/modules/ai/components/QuestionnaireCard";
 import {
   type ChatItem,
   type ChatMessage,
@@ -29,8 +29,8 @@ import {
   completedConversation,
   toolLabel,
   formatElapsedTime,
-} from "./chat-items";
-import { runChatStream } from "./useChatStream";
+} from "@/modules/ai/model/chat-items";
+import { runChatStream } from "@/modules/ai/hooks/useChatStream";
 
 type Session = {
   items: ChatItem[];

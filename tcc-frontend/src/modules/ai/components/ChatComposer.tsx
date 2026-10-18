@@ -2,7 +2,7 @@ import { useEffect, useRef, type KeyboardEvent } from "react";
 import { Send, Square } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Textarea } from "@/shared/ui/textarea";
-import { MAX_MESSAGE_CHARACTERS } from "../chat-items";
+import { MAX_MESSAGE_CHARACTERS } from "@/modules/ai/model/chat-items";
 
 export function ChatComposer({
   busy,

@@ -31,26 +31,26 @@ import {
 import {
   cn,
 } from "@/shared/lib/utils";
-import type { AiContextProposal } from "@/types";
+import type { AiContextProposal } from "@/modules/ai/model/types";
 import type { QueryPreview } from "@/modules/queries/model/types";
 import type { DashboardDefinition, DashboardDocument } from "@/modules/dashboards/model/types";
 import {
   QuestionnaireCard,
   type QuestionnaireAnswers,
   type QuestionnaireChatItem,
-} from "./QuestionnaireCard";
+} from "@/modules/ai/components/QuestionnaireCard";
 
 import {
   type QueryPreviewItem,
   type DashboardPreviewItem,
   type ChatItem,
   toolLabel,
-} from "./chat-items";
+} from "@/modules/ai/model/chat-items";
 import {
   DashboardPreviewCard,
-} from "./DashboardPreviewCard";
+} from "@/modules/ai/components/DashboardPreviewCard";
 const ChatMarkdown = lazy(() =>
-  import("./ChatMarkdown").then((module) => ({ default: module.ChatMarkdown })),
+  import("@/modules/ai/components/ChatMarkdown").then((module) => ({ default: module.ChatMarkdown })),
 );
 export function ChatItemView({
   item,

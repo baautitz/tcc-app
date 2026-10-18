@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
-import { api, ApiError } from "@/api";
+import { ApiError } from "@/api";
+import { aiApi } from "@/modules/ai/api/ai.api";
 import { dashboardsApi } from "@/modules/dashboards/api/dashboards.api";
 import { PanelRightClose, Sparkles } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -9,18 +10,18 @@ import { useAuth } from "@/modules/identity/hooks/AuthContext";
 import { useIsMobile } from "@/shared/hooks/use-mobile";
 import { cn } from "@/shared/lib/utils";
 import { toast } from "@/shared/ui/toast";
-import type { AiContextProposal } from "@/types";
+import type { AiContextProposal } from "@/modules/ai/model/types";
 import {
   type DashboardPreviewItem,
   MIN_AI_CHAT_WIDTH,
   MAX_AI_CHAT_WIDTH,
   newId,
   mergePendingContextProposals,
-} from "./chat-items";
-import { ChatWindow } from "./ChatWindow";
-import { useChatSession } from "./useChatSession";
-import { useChatResize } from "./useChatResize";
-import { useChatSend } from "./useChatSend";
+} from "@/modules/ai/model/chat-items";
+import { ChatWindow } from "@/modules/ai/components/ChatWindow";
+import { useChatSession } from "@/modules/ai/hooks/useChatSession";
+import { useChatResize } from "@/modules/ai/hooks/useChatResize";
+import { useChatSend } from "@/modules/ai/hooks/useChatSend";
 
 export function AiChatDock({
   open,
@@ -45,7 +46,7 @@ export function AiChatDock({
   useEffect(() => {
     if (!open || !user?.isAdmin) return;
     let active = true;
-    api
+    aiApi
       .pendingAiContextProposals()
       .then((proposals) => {
         if (!active) return;

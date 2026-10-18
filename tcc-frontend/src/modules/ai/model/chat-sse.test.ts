@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readChatStream, SseV1Parser } from "./chat-sse";
+import { readChatStream, SseV1Parser } from "@/modules/ai/model/chat-sse";
 
 function wireEvent(eventName: string, payload: unknown, ending = "\n\n") {
   return `event: ${eventName}\ndata: ${JSON.stringify(payload)}${ending}`;

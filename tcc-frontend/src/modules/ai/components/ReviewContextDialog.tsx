@@ -1,4 +1,4 @@
-import type { AiContextProposal } from "@/types";
+import type { AiContextProposal } from "@/modules/ai/model/types";
 import { Button } from "@/shared/ui/button";
 import {
   Dialog,

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { runChatStream } from "./useChatStream";
+import { runChatStream } from "@/modules/ai/hooks/useChatStream";
 
 const sse = (name: string, payload: object) => `event: ${name}\ndata: ${JSON.stringify({ version: 1, type: name, ...payload })}\n\n`;
 const bodyOf = (text: string) =>

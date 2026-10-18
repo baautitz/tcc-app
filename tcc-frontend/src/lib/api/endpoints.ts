@@ -1,6 +1,2 @@
-import { aiApi } from "@/modules/ai/api/ai.api";
-
-// barrel temporario: consumidores migram por modulo
-export const api = {
-  ...aiApi,
-};
+// barrel temporario: sem consumidores de producao; removido no passo 'app' com src/api.ts
+export const api = {};

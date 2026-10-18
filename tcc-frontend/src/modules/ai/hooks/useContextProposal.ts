@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { api, ApiError } from "@/api";
+import { ApiError } from "@/api";
+import { aiApi } from "@/modules/ai/api/ai.api";
 import { useCurrentViewRefresh } from "@/shared/context/CurrentViewRefreshContext";
 import { toast } from "@/shared/ui/toast";
-import type { AiContextProposal } from "@/types";
+import type { AiContextProposal } from "@/modules/ai/model/types";
 
 export function useContextProposal(
   onContextProposalResolved: (
@@ -25,8 +26,8 @@ export function useContextProposal(
     try {
       const result =
         action === "approve"
-          ? await api.approveAiContextProposal(reviewContext.id)
-          : await api.dismissAiContextProposal(reviewContext.id);
+          ? await aiApi.approveAiContextProposal(reviewContext.id)
+          : await aiApi.dismissAiContextProposal(reviewContext.id);
       onContextProposalResolved(result.id, result.status);
       setReviewContext(undefined);
       if (action === "approve") {
@@ -38,7 +39,7 @@ export function useContextProposal(
     } catch (reason) {
       if (reason instanceof ApiError && reason.status === 409) {
         try {
-          const latest = await api.aiContextProposal(reviewContext.id);
+          const latest = await aiApi.aiContextProposal(reviewContext.id);
           onContextProposalResolved(latest.id, latest.status);
           setReviewContext(latest);
         } catch {

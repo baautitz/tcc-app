@@ -1,4 +1,4 @@
-import type { AiContextProposal } from "@/types";
+import type { AiContextProposal } from "@/modules/ai/model/types";
 import type {
   DashboardDefinition,
   DashboardDocument,

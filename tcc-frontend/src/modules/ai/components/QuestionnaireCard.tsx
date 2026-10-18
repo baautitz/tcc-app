@@ -11,7 +11,7 @@ import {
 import {
   Questionnaire,
 } from "@shadcn/react/questionnaire";
-import type { AiQuestionnaire } from "./chat-sse";
+import type { AiQuestionnaire } from "@/modules/ai/model/chat-sse";
 
 export type QuestionnaireAnswers = Record<string, string[]>;
 

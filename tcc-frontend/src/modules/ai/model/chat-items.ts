@@ -1,7 +1,7 @@
-import type { AiContextProposal } from "@/types";
+import type { AiContextProposal } from "@/modules/ai/model/types";
 import type { DashboardDefinition, DashboardDocument } from "@/modules/dashboards/model/types";
 import type { QueryPreview } from "@/modules/queries/model/types";
-import type { QuestionnaireChatItem } from "./QuestionnaireCard";
+import type { QuestionnaireChatItem } from "@/modules/ai/components/QuestionnaireCard";
 
 export type ChatMessage = {
   id: string;

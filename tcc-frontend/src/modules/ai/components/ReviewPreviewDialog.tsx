@@ -1,4 +1,4 @@
-import type { QueryPreviewItem } from "../chat-items";
+import type { QueryPreviewItem } from "@/modules/ai/model/chat-items";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import {

@@ -1,5 +1,5 @@
 import { useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
-import { DEFAULT_AI_CHAT_WIDTH, MAX_AI_CHAT_WIDTH, MIN_AI_CHAT_WIDTH } from "./chat-items";
+import { DEFAULT_AI_CHAT_WIDTH, MAX_AI_CHAT_WIDTH, MIN_AI_CHAT_WIDTH } from "@/modules/ai/model/chat-items";
 
 export const clampWidth = (w: number) =>
   Math.max(MIN_AI_CHAT_WIDTH, Math.min(MAX_AI_CHAT_WIDTH, w));

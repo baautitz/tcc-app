@@ -1,5 +1,5 @@
-import { api } from "@/api";
-import { readChatStream, type ChatEvent } from "./chat-sse";
+import { aiApi } from "@/modules/ai/api/ai.api";
+import { readChatStream, type ChatEvent } from "@/modules/ai/model/chat-sse";
 
 /** POSTs to the AI chat endpoint and feeds SSE events to onEvent. */
 export async function runChatStream(
@@ -7,7 +7,7 @@ export async function runChatStream(
   signal: AbortSignal,
   onEvent: (event: ChatEvent) => void,
 ) {
-  const response = await api.streamAiChat(body, signal);
+  const response = await aiApi.streamAiChat(body, signal);
   if (!response.ok) {
     const result = (await response.json().catch(() => ({}))) as { error?: unknown };
     throw new Error(

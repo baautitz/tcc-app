@@ -2,9 +2,9 @@ import { Eye } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Checkbox } from "@/shared/ui/checkbox";
 import { Label } from "@/shared/ui/label";
-import { type DashboardPreviewItem } from "./chat-items";
-import { PreviewDialog } from "./preview/PreviewDialog";
-import { useDashboardPreview } from "./preview/useDashboardPreview";
+import { type DashboardPreviewItem } from "@/modules/ai/model/chat-items";
+import { PreviewDialog } from "@/modules/ai/components/PreviewDialog";
+import { useDashboardPreview } from "@/modules/ai/hooks/useDashboardPreview";
 
 export function DashboardPreviewCard({
   item,

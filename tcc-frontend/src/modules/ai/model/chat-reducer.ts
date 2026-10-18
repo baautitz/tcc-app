@@ -1,4 +1,4 @@
-import type { ChatEvent } from "./chat-sse";
+import type { ChatEvent } from "@/modules/ai/model/chat-sse";
 import {
   insertAfter,
   insertBefore,
@@ -7,7 +7,7 @@ import {
   type ChatItem,
   type ChatMessage,
   type ToolMessage,
-} from "./chat-items";
+} from "@/modules/ai/model/chat-items";
 
 const patchAssistant = (
   items: ChatItem[],

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { dashboardsApi } from "@/modules/dashboards/api/dashboards.api";
 import type { DashboardFilterValues } from "@/modules/dashboards/model/types";
-import type { DashboardPreviewItem, DashboardPreviewQuery } from "../chat-items";
+import type { DashboardPreviewItem, DashboardPreviewQuery } from "@/modules/ai/model/chat-items";
 
 export function useDashboardPreview(
   item: DashboardPreviewItem,

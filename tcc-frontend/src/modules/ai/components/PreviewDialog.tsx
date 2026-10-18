@@ -14,7 +14,7 @@ import {
 import { DashboardFilters } from "@/modules/dashboards/components/DashboardFilters";
 import { DashboardProposalCanvas } from "@/modules/dashboards/components/DashboardProposalCanvas";
 import type { DashboardFilterValues } from "@/modules/dashboards/model/types";
-import type { DashboardPreviewItem, DashboardPreviewQuery } from "../chat-items";
+import type { DashboardPreviewItem, DashboardPreviewQuery } from "@/modules/ai/model/chat-items";
 
 export function PreviewDialog({
   item,

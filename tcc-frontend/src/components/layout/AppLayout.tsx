@@ -44,8 +44,8 @@ import {
 import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
 import { Separator } from "@/shared/ui/separator";
 import { toast } from "@/shared/ui/toast";
-import { AiChatDock, AiChatTrigger } from "@/features/ai-chat/AiChatDock";
-import { useAiChat } from "@/context/AiChatContext";
+import { AiChatDock, AiChatTrigger } from "@/modules/ai/components/AiChatDock";
+import { useAiChat } from "@/modules/ai/hooks/AiChatContext";
 import { useIsMobile } from "@/shared/hooks/use-mobile";
 import { cn } from "@/shared/lib/utils";
 

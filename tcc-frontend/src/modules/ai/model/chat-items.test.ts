@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { insertAfter, insertBefore, mergePendingContextProposals, type ChatItem } from "./chat-items";
-import { clampWidth, widthForKey } from "./useChatResize";
-import { chatItemOps } from "./useChatSession";
-import { runChatStream } from "./useChatStream";
+import { insertAfter, insertBefore, mergePendingContextProposals, type ChatItem } from "@/modules/ai/model/chat-items";
+import { clampWidth, widthForKey } from "@/modules/ai/hooks/useChatResize";
+import { chatItemOps } from "@/modules/ai/hooks/useChatSession";
+import { runChatStream } from "@/modules/ai/hooks/useChatStream";
 import { vi } from "vitest";
 
 const msg = (id: string, role: "user" | "assistant" = "assistant"): ChatItem => ({

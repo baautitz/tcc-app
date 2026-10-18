@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { applyChatEvent } from "./chat-reducer";
-import type { ChatItem } from "./chat-items";
-import type { ChatEvent } from "./chat-sse";
+import { applyChatEvent } from "@/modules/ai/model/chat-reducer";
+import type { ChatItem } from "@/modules/ai/model/chat-items";
+import type { ChatEvent } from "@/modules/ai/model/chat-sse";
 
 const asst: ChatItem = { id: "a", kind: "message", role: "assistant", content: "", status: "streaming" };
 const ev = (e: unknown) => e as ChatEvent;

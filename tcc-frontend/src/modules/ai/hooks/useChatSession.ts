@@ -1,5 +1,5 @@
 import { useMemo, useState, type Dispatch, type SetStateAction } from "react";
-import { insertAfter, insertBefore, type ChatItem, type ChatMessage } from "./chat-items";
+import { insertAfter, insertBefore, type ChatItem, type ChatMessage } from "@/modules/ai/model/chat-items";
 
 /** Stable updaters over a ChatItem[] state setter. */
 export function chatItemOps(setItems: Dispatch<SetStateAction<ChatItem[]>>) {
