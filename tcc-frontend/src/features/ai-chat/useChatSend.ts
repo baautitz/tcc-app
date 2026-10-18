@@ -53,6 +53,8 @@ export function useChatSend(session: Session, pathname: string) {
   const activeRequestIdRef = useRef<string | null>(null);
   const generationRef = useRef(0);
   const activeAssistantIdRef = useRef<string | null>(null);
+  // Server-side agent memory (tool calls included) lives under this id; a new chat gets a new one.
+  const threadIdRef = useRef(crypto.randomUUID());
   const lastPromptRef = useRef("");
   const lastContinuationRef = useRef<AiContinuation | undefined>(undefined);
   const lastPageContextRef = useRef<AiPageContext | undefined>(undefined);
@@ -287,6 +289,7 @@ export function useChatSend(session: Session, pathname: string) {
       try {
         const { receivedDone, receivedError } = await runChatStream(
           {
+            threadId: threadIdRef.current,
             messages: conversation,
             pageContext,
             ...(savedQueryContext.length
@@ -418,6 +421,7 @@ export function useChatSend(session: Session, pathname: string) {
     activeRequestIdRef.current = null;
     setItems([]);
     setDraft("");
+    threadIdRef.current = crypto.randomUUID();
     activeAssistantIdRef.current = null;
     lastPromptRef.current = "";
     lastContinuationRef.current = undefined;

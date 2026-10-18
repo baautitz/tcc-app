@@ -16,6 +16,8 @@
   "dependencies": {
     "@hono/node-server": "^1.19.9",
     "@langchain/core": "^1.2.13",
+    "@langchain/langgraph": "^1.4.19",
+    "@langchain/langgraph-checkpoint-postgres": "^1.0.5",
     "@langchain/openai": "^1.6.0",
     "@node-rs/argon2": "^2.0.2",
     "drizzle-orm": "^0.44.7",

@@ -1,6 +1,8 @@
 import { createAgent } from "langchain";
 import { createMiddleware } from "langchain";
 import { AIMessage, RemoveMessage, SystemMessage, ToolMessage } from "@langchain/core/messages";
+import { REMOVE_ALL_MESSAGES } from "@langchain/langgraph";
+import { getAiCheckpointer } from "./checkpointer.js";
 import type { AIMessageChunk } from "@langchain/core/messages";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import type { StructuredToolInterface } from "@langchain/core/tools";
@@ -11,11 +13,9 @@ import {
   dashboardPreflightIssue,
   hasDashboardProposal,
   hasPendingDashboardQuestion,
-  hasSuccessfulQueryUpdatePreview,
+  hasActionCardResult,
   hasUnresolvedTestQueryCall,
   latestQueryTestResult,
-  latestUserAskedToAddDashboardComponent,
-  latestUserRequestedQueryUpdate,
   missingEmptyPreviewAnalysis,
   queryPreflightIssue,
 } from "./agent-preflight.js";
@@ -23,6 +23,75 @@ import {
 // Middleware hooks add graph steps around each model/tool cycle; leave room for
 // staged schema analysis, bounded query retries, and the final QA pass.
 export const AI_AGENT_RECURSION_LIMIT = 96;
+
+
+type AnyMessage = { type?: string; id?: string; tool_calls?: Array<{ id?: string; name: string }>; tool_call_id?: string; content?: unknown };
+
+function lastHumanIndex(messages: readonly { type?: string }[]): number {
+  for (let index = messages.length - 1; index >= 0; index -= 1) if (messages[index]?.type === "human") return index;
+  return -1;
+}
+
+/** Messages of the run in progress: the checkpointer keeps older turns, but the QA hooks must only judge this one. */
+export function currentTurn<T extends { type?: string }>(messages: readonly T[]): T[] {
+  const start = lastHumanIndex(messages);
+  return start < 0 ? [...messages] : messages.slice(start);
+}
+
+const STALE_TOOL_RESULT_CHARS = 1_500;
+const HISTORY_SOFT_LIMIT = 80;
+const HISTORY_KEEP = 50;
+
+/**
+ * Keeps the persisted thread valid and small: answers dangling tool calls (a run stopped right after a
+ * card was emitted), shrinks tool results of earlier turns and drops the oldest turns.
+ */
+export function repairThreadMessages(messages: readonly AnyMessage[]): AnyMessage[] | undefined {
+  const turnStart = lastHumanIndex(messages);
+  let changed = false;
+  let result: AnyMessage[] = [];
+  const answered = new Set(messages.flatMap((message) => (message.type === "tool" && message.tool_call_id ? [message.tool_call_id] : [])));
+  messages.forEach((message, index) => {
+    let next = message;
+    if (message.type === "tool" && index < turnStart && typeof message.content === "string" && message.content.length > STALE_TOOL_RESULT_CHARS) {
+      next = { ...message, content: `${message.content.slice(0, STALE_TOOL_RESULT_CHARS)}… [resultado antigo truncado]` };
+      changed = true;
+    }
+    result.push(next);
+    if (message.type !== "ai") return;
+    for (const call of message.tool_calls ?? []) {
+      if (!call.id || answered.has(call.id)) continue;
+      result.push({ type: "tool", tool_call_id: call.id, content: JSON.stringify(call.name === "create_or_update_dashboard" ? { ok: true, message: "Prévia já exibida ao administrador; aguarde a decisão dele no cartão." } : { ok: false, message: "Execução interrompida antes do resultado." }), name: call.name } as AnyMessage);
+      changed = true;
+    }
+  });
+  if (result.length > HISTORY_SOFT_LIMIT) {
+    const cut = result.findIndex((message, index) => index >= result.length - HISTORY_KEEP && message.type === "human");
+    if (cut > 0) {
+      result = result.slice(cut);
+      changed = true;
+    }
+  }
+  return changed ? result : undefined;
+}
+
+export const threadMaintenance = createMiddleware({
+  name: "thread_maintenance",
+  stateSchema: z.object({
+    emptyResponseRetries: z.number().default(0),
+    zeroRowsReviewRetries: z.number().default(0),
+    queryResultReviewRetries: z.number().default(0),
+    queryUpdateRetries: z.number().default(0),
+    dashboardProposalRetries: z.number().default(0),
+  }),
+  beforeAgent: (state) => {
+    // Retry counters are per turn; the thread persists them otherwise.
+    const reset = { emptyResponseRetries: 0, zeroRowsReviewRetries: 0, queryResultReviewRetries: 0, queryUpdateRetries: 0, dashboardProposalRetries: 0 };
+    const repaired = repairThreadMessages(state.messages as unknown as AnyMessage[]);
+    if (!repaired) return reset;
+    return { ...reset, messages: [new RemoveMessage({ id: REMOVE_ALL_MESSAGES }), ...(repaired as never[])] };
+  },
+});
 
 const finalResponseQa = createMiddleware({
   name: "final_response_qa",
@@ -36,7 +105,7 @@ const finalResponseQa = createMiddleware({
   wrapToolCall: async (request, handler) => {
     if (
       request.toolCall.name !== "test_query" &&
-      hasUnresolvedTestQueryCall(request.state.messages)
+      hasUnresolvedTestQueryCall(currentTurn(request.state.messages))
     ) {
       return new ToolMessage({
         content: JSON.stringify({
@@ -50,7 +119,7 @@ const finalResponseQa = createMiddleware({
       });
     }
     if (request.toolCall.name === "create_or_update_dashboard") {
-      const issue = dashboardPreflightIssue(request.state.messages, request.toolCall.args, request.runtime.context);
+      const issue = dashboardPreflightIssue(currentTurn(request.state.messages), request.toolCall.args, request.runtime.context);
       if (issue) {
         clearPendingResponse(request.runtime.context);
         return new ToolMessage({
@@ -67,7 +136,7 @@ const finalResponseQa = createMiddleware({
     }
     if (request.toolCall.name !== "test_query") return handler(request);
     const issue = queryPreflightIssue(
-      request.state.messages,
+      currentTurn(request.state.messages),
       request.toolCall.args,
       request.runtime.context,
     );
@@ -92,7 +161,7 @@ const finalResponseQa = createMiddleware({
   },
   beforeModel: {
     hook: (state) => {
-      const latestTest = latestQueryTestResult(state.messages);
+      const latestTest = latestQueryTestResult(currentTurn(state.messages));
       if (latestTest?.ok === true && Number(latestTest.rowCount) > 0) {
         return { jumpTo: "end" as const };
       }
@@ -107,7 +176,7 @@ const finalResponseQa = createMiddleware({
         ? lastMessage.tool_calls
         : [];
 
-      const missingEmptyAnalysis = missingEmptyPreviewAnalysis(state.messages);
+      const missingEmptyAnalysis = missingEmptyPreviewAnalysis(currentTurn(state.messages));
       if ((missingEmptyAnalysis.date || missingEmptyAnalysis.dimensions) && state.zeroRowsReviewRetries < 2) {
         const onlyAnalysisCalls = toolCalls.length > 0 && toolCalls.every((call) =>
           call.name === "analyze_date_coverage" || call.name === "analyze_column_values");
@@ -131,71 +200,31 @@ const finalResponseQa = createMiddleware({
       }
       if (toolCalls.length > 0) return;
 
-      const queryUpdateRequest = latestUserRequestedQueryUpdate(state.messages);
-      const latestTest = latestQueryTestResult(state.messages);
-      if (
-        queryUpdateRequest.requested &&
-        !hasSuccessfulQueryUpdatePreview(state.messages, queryUpdateRequest.queryName) &&
-        latestTest?.askUser !== true
-      ) {
-        if (state.queryUpdateRetries < 1 && lastMessage.id) {
-          clearPendingResponse(runtime.context);
+      const content0 = lastMessage.content;
+      const claimText = (typeof content0 === "string" ? content0 : "").replace(/<think>[\s\S]*?<\/think>/gi, "");
+      // The model must never announce a card/proposal that no tool produced in this turn.
+      const claimsCard = /pronta para revis|aplicar altera|no cart[aã]o|cart[aã]o de pr[eé]via/i.test(claimText);
+      if (claimsCard && !hasActionCardResult(currentTurn(state.messages)) && lastMessage.id) {
+        clearPendingResponse(runtime.context);
+        if (state.dashboardProposalRetries < 1) {
           return {
             messages: [
               new RemoveMessage({ id: lastMessage.id }),
-              new SystemMessage(
-                "O administrador pediu para editar uma query salva, mas você ainda não produziu um cartão query_preview com intent.mode='update'. Localize a query pelo nome em list_saved_queries, leia o SQL e os parâmetros com get_saved_query, preserve required=false e altere apenas o pedido. Depois use test_query com mode='update' e o mesmo queryId; conclua a rodada assim que a prévia for gerada. A aplicação exige confirmação humana para salvar. Se alguma ferramenta falhar ou não encontrar a query, não improvise nem declare sucesso: informe que o ajuste não foi concluído.",
-              ),
-            ],
-            queryUpdateRetries: state.queryUpdateRetries + 1,
-            jumpTo: "model" as const,
-          };
-        }
-        if (lastMessage.id) {
-          clearPendingResponse(runtime.context);
-          return {
-            messages: [
-              new RemoveMessage({ id: lastMessage.id }),
-              new AIMessage({
-                content: "Não consegui gerar a prévia de atualização da query nesta tentativa. Nenhuma alteração foi salva; a query não foi ajustada. As ferramentas de leitura ou validação não concluíram o fluxo necessário.",
-              }),
-            ],
-          };
-        }
-      }
-
-      const dashboardRequest = latestUserAskedToAddDashboardComponent(state.messages, runtime.context);
-      if (
-        dashboardRequest &&
-        !hasDashboardProposal(state.messages) &&
-        !hasPendingDashboardQuestion(state.messages)
-      ) {
-        if (state.dashboardProposalRetries < 1 && lastMessage.id) {
-          clearPendingResponse(runtime.context);
-          return {
-            messages: [
-              new RemoveMessage({ id: lastMessage.id }),
-              new SystemMessage(
-                "O administrador pediu um componente de dashboard, mas você ainda não gerou uma prévia com create_or_update_dashboard. Leia o dashboard atual e as queries necessárias, respeite as decisões já respondidas, e chame a ferramenta para produzir o cartão actionCard de prévia. Se faltar query salva ou contexto indispensável, use o formulário apropriado. Não diga que a prévia está pronta sem o resultado da ferramenta; se ela falhar, informe que o dashboard não foi alterado e diga que o cartão não foi gerado.",
-              ),
+              new SystemMessage("Você anunciou uma prévia ou cartão, mas nenhuma ferramenta o produziu nesta rodada. Chame a ferramenta adequada (create_or_update_dashboard, test_query ou ask_admin_questions) antes de responder; se ela falhar, diga que nada foi gerado nem alterado."),
             ],
             dashboardProposalRetries: state.dashboardProposalRetries + 1,
             jumpTo: "model" as const,
           };
         }
-        if (lastMessage.id) {
-          clearPendingResponse(runtime.context);
-          return {
-            messages: [
-              new RemoveMessage({ id: lastMessage.id }),
-              new AIMessage({
-                content: "Não consegui gerar o cartão de prévia do dashboard nesta rodada. Nenhuma alteração no dashboard foi aplicada.",
-              }),
-            ],
-          };
-        }
+        return {
+          messages: [
+            new RemoveMessage({ id: lastMessage.id }),
+            new AIMessage({ content: "Não consegui gerar o cartão de prévia nesta rodada. Nada foi alterado; tente novamente." }),
+          ],
+        };
       }
 
+      const latestTest = latestQueryTestResult(currentTurn(state.messages));
       const content = lastMessage.content;
       const text = typeof content === "string"
         ? content
@@ -251,6 +280,7 @@ export interface AiAgentContext {
   isAdmin?: boolean;
   pathname?: string;
   dashboardId?: string;
+  threadId?: string;
   pendingDashboardContinuation?: boolean;
   clearPendingResponse?: () => void;
 }
@@ -260,6 +290,7 @@ const aiAgentContextSchema = z.object({
   isAdmin: z.boolean().optional(),
   pathname: z.string().optional(),
   dashboardId: z.string().optional(),
+  threadId: z.string().optional(),
   pendingDashboardContinuation: z.boolean().optional(),
   clearPendingResponse: z.function().optional(),
 });
@@ -299,18 +330,25 @@ export function createAiAgent(options: {
   context?: AiAgentContext;
 } = {}): AiChatAgent {
   const model = createAiModel(options.configuration);
-  const agent = createAgent({
-    model,
-    tools: options.tools ?? [],
-    middleware: [finalResponseQa],
-    contextSchema: aiAgentContextSchema,
-    systemPrompt: options.systemPrompt ?? DEFAULT_SYSTEM_PROMPT,
-  });
+  const { threadId, currentUserId } = options.context ?? {};
+  const buildAgent = async () =>
+    createAgent({
+      model,
+      tools: options.tools ?? [],
+      middleware: [threadMaintenance, finalResponseQa],
+      checkpointer: threadId ? await getAiCheckpointer() : undefined,
+      contextSchema: aiAgentContextSchema,
+      systemPrompt: options.systemPrompt ?? DEFAULT_SYSTEM_PROMPT,
+    });
 
   return {
     async stream(input, config) {
+      const agent = await buildAgent();
+      const runConfig = createAiAgentRunConfig(config, options.context ?? {});
       const result = await agent.stream(input, {
-        ...createAiAgentRunConfig(config, options.context ?? {}),
+        ...runConfig,
+        // Scoped by user so a guessed thread id never exposes another admin's history.
+        ...(threadId ? { configurable: { ...runConfig.configurable, thread_id: `${currentUserId ?? "anon"}:${threadId}` } } : {}),
       });
       return result as AsyncIterable<AiAgentToken>;
     },

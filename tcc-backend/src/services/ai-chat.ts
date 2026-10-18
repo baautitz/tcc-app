@@ -145,6 +145,7 @@ export function createAiChatHandler(
           isAdmin: currentUser.isAdmin,
           pathname: parsedBody.pageContext?.pathname,
           dashboardId: parsedBody.pageContext?.dashboardId,
+          threadId: parsedBody.threadId,
           pendingDashboardContinuation:
             parsedBody.continuation?.type === "query_saved",
           clearPendingResponse: () => hooks.resetAiResponseBuffer(),

@@ -40,62 +40,6 @@ export function messageText(content: unknown): string {
   }).join(" ");
 }
 
-export function latestUserAskedToAddDashboardComponent(
-  messages: readonly unknown[],
-  runtimeContext?: unknown,
-): boolean {
-  const userMessages = messages.filter((message) => {
-    const candidate = record(message);
-    return candidate?.type === "human" || candidate?.role === "user";
-  });
-  const latestUserText = messageText(record(userMessages.at(-1))?.content);
-  const normalizedLatest = latestUserText
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-  const isQuestionnaireAnswer = /\b(respostas? ao formulario|respostas enviadas)\b/.test(normalizedLatest);
-  const text = [
-    ...(isQuestionnaireAnswer ? [messageText(record(userMessages.at(-2))?.content)] : []),
-    latestUserText,
-  ].join(" ")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-  const asksForComponent = /\b(graficos?|dashboards?|paineis|componentes?|tabelas?)\b/.test(text);
-  const asksForAction = /\b(adicionar|adicione|adiciona|inclui|inclua|incluir|criar|crie|montar|monte|colocar|coloque|inserir|insira|gerar|gere|faca|fazer)\b/.test(text);
-  const requestsVisualization = /\b(quero|preciso)\b/.test(text)
-    && /\b(graficos?|dashboards?|paineis)\b/.test(text);
-  const placementInstruction = /\b(ao lado(?: direito| esquerdo)?|a direita|a esquerda|acima|abaixo|antes|depois|apos)\b/.test(text);
-  const metricDescription = /\b(somatoria|soma|total|quantidade|indicador|metrica|kpi)\b/.test(text);
-  const context = record(runtimeContext);
-  if (context?.pendingDashboardContinuation === true) return true;
-  const pathname = typeof context?.pathname === "string" ? context.pathname : "";
-  const hasDashboardContext = typeof context?.dashboardId === "string"
-    || /^\/(?:admin\/)?dashboards(?:\/|$)/i.test(pathname);
-  const hasDashboardReference = /\b(dashboard|painel|componente|card|cartao)\b/.test(text);
-  const concreteVisualization = /\b(graficos?|tabelas?|indicadores?|metricas?|kpis?)\b/.test(text)
-    && /\b(top\s*\d+|maiores?|menores?|por\s+(?:venda|faturamento|categoria|estado|cidade)|venda|faturamento)\b/.test(text);
-  const recentConcreteVisualization = userMessages.slice(-6, -1).some((message) => {
-    const previousText = messageText(record(message)?.content)
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase();
-    return /\b(graficos?|tabelas?|indicadores?|metricas?|kpis?)\b/.test(previousText)
-      && /\b(top\s*\d+|maiores?|menores?|por\s+(?:venda|faturamento|categoria|estado|cidade)|venda|faturamento)\b/.test(previousText);
-  });
-  const confirmsImplementation = /\b(pode|poderia|vamos|sim)\b.{0,32}\b(implementar|implemente|adicionar|incluir|montar|criar)\b/.test(normalizedLatest)
-    && recentConcreteVisualization;
-  const placesDashboardMetric = asksForAction
-    && placementInstruction
-    && (metricDescription || hasDashboardContext || hasDashboardReference);
-  return (asksForComponent && asksForAction)
-    || requestsVisualization
-    || placesDashboardMetric
-    || concreteVisualization
-    || confirmsImplementation
-    || (isQuestionnaireAnswer && recentConcreteVisualization);
-}
-
 export function optionalMultiSelectFilterIssue(input: Record<string, unknown>): string | undefined {
   if (typeof input.sqlText !== "string" || !Array.isArray(input.parameters))
     return undefined;
@@ -139,9 +83,6 @@ export function queryPreflightIssue(
 ): string | undefined {
   const input = record(args);
   if (!input) return "A chamada de teste está incompleta. Corrija os argumentos antes de validar.";
-  if (latestUserAskedToAddDashboardComponent(messages, runtimeContext) && input.purpose !== "dashboard") {
-    return "A última solicitação pede adicionar um componente ao dashboard. Classifique esta query com purpose='dashboard' para que o salvamento continue automaticamente com a prévia do dashboard.";
-  }
   const dataSourceId = typeof input.dataSourceId === "string" ? input.dataSourceId : undefined;
   const sqlText = typeof input.sqlText === "string" ? input.sqlText : undefined;
   if (!dataSourceId || !sqlText) return "A chamada de teste está incompleta. Corrija os argumentos antes de validar.";
@@ -355,38 +296,6 @@ export function latestQueryTestResult(messages: readonly unknown[]): Record<stri
   return latest;
 }
 
-export function latestUserRequestedQueryUpdate(messages: readonly unknown[]): { requested: boolean; queryName?: string } {
-  const userMessage = [...messages].reverse().find((message) => {
-    const candidate = record(message);
-    return candidate?.type === "human" || candidate?.role === "user";
-  });
-  const text = messageText(record(userMessage)?.content);
-  const normalized = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-  const requestsChange = /\b(ajust\w*|corrig\w*|alter\w*|modific\w*|atualiz\w*)\b/.test(normalized);
-  const referencesQuery = /\b(query|consulta|sql)\b/.test(normalized);
-  const quotedName = text.match(/\b(?:query|consulta|sql)\s+(?:(?:de|chamada|chamado)\s+)?[“"']([^”"']{2,160})[”"']/i)?.[1]?.trim();
-  return {
-    requested: requestsChange && referencesQuery,
-    ...(quotedName ? { queryName: quotedName } : {}),
-  };
-}
-
-export function hasSuccessfulQueryUpdatePreview(messages: readonly unknown[], expectedName?: string): boolean {
-  const expected = expectedName?.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-  return messages.some((message) => {
-    const candidate = record(message);
-    if (candidate?.type !== "tool" || candidate.name !== "test_query" || candidate.status === "error") return false;
-    const result = parseToolResult(candidate.content);
-    const intent = record(result?.intent);
-    if (result?.ok !== true || intent?.mode !== "update" || typeof intent.queryId !== "string") return false;
-    if (!expected) return true;
-    const actual = typeof intent.queryName === "string"
-      ? intent.queryName.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
-      : "";
-    return actual === expected;
-  });
-}
-
 export function hasDashboardProposal(messages: readonly unknown[]): boolean {
   return messages.some((message) => {
     const candidate = record(message);
@@ -421,4 +330,20 @@ export function hasUnresolvedTestQueryCall(messages: readonly unknown[]): boolea
     }
   }
   return [...testCallIds].some((callId) => !resolvedCallIds.has(callId));
+}
+
+/** True when this turn produced something the UI renders as a card (proposal, query preview, questionnaire, context proposal). */
+export function hasActionCardResult(messages: readonly unknown[]): boolean {
+  return messages.some((message) => {
+    const candidate = record(message);
+    if (candidate?.type !== "tool" || candidate.status === "error") return false;
+    const result = parseToolResult(candidate.content);
+    switch (candidate.name) {
+      case "create_or_update_dashboard": return typeof result?.proposalId === "string";
+      case "test_query": return result?.ok === true;
+      case "ask_admin_questions":
+      case "propose_context_update": return true;
+      default: return false;
+    }
+  });
 }

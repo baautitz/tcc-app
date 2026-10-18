@@ -1,8 +1,8 @@
 import { streamSSE } from "hono/streaming";
 
 import type { AiToolProgressEvent } from "../ai-read-tools.js";
-import { latestUserAskedToAddDashboardComponent, type AiChatAgent, type resolveAiConfiguration } from "../ai-agent.js";
-import { extractText, isMatchingQueryUpdatePreview, queryUpdateRequest } from "./chat-intents.js";
+import type { AiChatAgent, resolveAiConfiguration } from "../ai-agent.js";
+import { extractText } from "./chat-intents.js";
 import type { AiChatMessages, AiChatRequest } from "./chat-schemas.js";
 import { makeEvent, safeAiErrorDetails, safeProviderError, structuredResponseFallback } from "./chat-stream/helpers.js";
 import type { AiChatHandlerContext, AiChatProgressPhase, AiSseEvent, ChatStreamHooks } from "./chat-stream/types.js";
@@ -43,29 +43,6 @@ export function runChatStream(options: {
       };
       hooks.enqueueToolEvent = (event) => {
         if (stream.aborted) return;
-        if (event.type === "query_preview") {
-          const dashboardRequest = latestUserAskedToAddDashboardComponent(
-            parsedBody.messages,
-            {
-              pathname: parsedBody.pageContext?.pathname,
-              dashboardId: parsedBody.pageContext?.dashboardId,
-              pendingDashboardContinuation:
-                parsedBody.continuation?.type === "query_saved",
-            },
-          );
-          if (dashboardRequest && event.purpose !== "dashboard") {
-            event = { ...event, purpose: "dashboard" };
-          }
-          const requestedUpdate = queryUpdateRequest(
-            parsedBody.messages.at(-1)?.content ?? "",
-          );
-          if (
-            requestedUpdate.requested &&
-            !isMatchingQueryUpdatePreview(event, requestedUpdate.queryName)
-          ) {
-            return;
-          }
-        }
         if (event.type === "tool_start") {
           toolCallCount += 1;
           lastToolName = event.toolName;
@@ -189,7 +166,8 @@ export function runChatStream(options: {
           "done" | "provider_error" | "client_abort" | "structured_complete"
         > => {
           try {
-            const messages = parsedBody.messages as AiChatMessages;
+            // With a thread, the checkpointer already holds the full history (tool calls included).
+            const messages = (parsedBody.threadId ? [parsedBody.messages[parsedBody.messages.length - 1]!] : parsedBody.messages) as AiChatMessages;
             const tokenStream = await agent.stream(
               { messages },
               {
@@ -220,7 +198,7 @@ export function runChatStream(options: {
               if (typeof reason === "string") finishReason = reason;
             }
 
-            const visibleChunks = buildVisibleChunks(parsedBody, pendingModelText, latestStructuredEvent);
+            const visibleChunks = buildVisibleChunks(pendingModelText);
             for (const visibleDelta of visibleChunks) {
               hasVisibleResponse = true;
               await writeSse({

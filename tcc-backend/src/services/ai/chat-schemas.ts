@@ -72,6 +72,7 @@ export const pendingQueryPreviewSchema = z
 
 export const chatRequestSchema = z
   .object({
+    threadId: z.string().uuid().optional(),
     messages: z.array(chatMessageSchema).min(1).max(30),
     pageContext: pageContextSchema,
     continuation: continuationSchema.optional(),
