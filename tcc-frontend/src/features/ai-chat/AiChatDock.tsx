@@ -4,7 +4,7 @@ import { PanelRightClose, Sparkles } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/shared/ui/button";
 import { useCurrentViewRefresh } from "@/shared/context/CurrentViewRefreshContext";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/modules/identity/hooks/AuthContext";
 import { useIsMobile } from "@/shared/hooks/use-mobile";
 import { cn } from "@/shared/lib/utils";
 import { toast } from "@/shared/ui/toast";

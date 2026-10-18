@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Save } from "lucide-react";
-import { api } from "@/api";
-import type { Permission } from "@/types";
+import { identityApi } from "@/modules/identity/api/identity.api";
+import type { Permission } from "@/modules/identity/model/types";
 import { useEntityForm } from "@/shared/crud/useEntityForm";
 import { Button } from "@/shared/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/shared/ui/form";
@@ -43,8 +43,8 @@ export function PermissionSheet({
     onSaved,
     save: async (values) => {
       const body = { ...values, description: values.description || null };
-      if (permission) await api.updatePermission(permission.id, body);
-      else await api.createPermission(body);
+      if (permission) await identityApi.updatePermission(permission.id, body);
+      else await identityApi.createPermission(body);
       return permission ? "Permissão atualizada." : "Permissão criada.";
     },
   });

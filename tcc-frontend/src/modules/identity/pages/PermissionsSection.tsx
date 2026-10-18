@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { api } from "@/api";
-import type { Permission } from "@/types";
+import { identityApi } from "@/modules/identity/api/identity.api";
+import type { Permission } from "@/modules/identity/model/types";
 import { useIsMobile } from "@/shared/hooks/use-mobile";
 import { useLoad } from "@/shared/crud/useLoad";
-import { SectionLayout } from "../SectionLayout";
-import { PermissionSheet } from "./PermissionSheet";
-import { PermissionsTable } from "./PermissionsTable";
+import { SectionLayout } from "@/features/admin/SectionLayout";
+import { PermissionSheet } from "@/modules/identity/components/PermissionSheet";
+import { PermissionsTable } from "@/modules/identity/components/PermissionsTable";
 
 export function PermissionsSection() {
   const isMobile = useIsMobile();
@@ -14,7 +14,7 @@ export function PermissionsSection() {
     loading,
     error,
     load,
-  } = useLoad(() => api.permissions(), [] as Permission[]);
+  } = useLoad(() => identityApi.permissions(), [] as Permission[]);
   const [sheet, setSheet] = useState<{ open: boolean; value?: Permission }>({
     open: false,
   });

@@ -2,7 +2,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PanelTop } from "lucide-react";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/modules/identity/hooks/AuthContext";
 import { Button } from "@/shared/ui/button";
 import {
   Card,

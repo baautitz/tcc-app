@@ -30,7 +30,7 @@ import {
 } from "@/shared/ui/dialog";
 import { Textarea } from "@/shared/ui/textarea";
 import { toast } from "@/shared/ui/toast";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/modules/identity/hooks/AuthContext";
 
 export function QueryEditor({
   query,

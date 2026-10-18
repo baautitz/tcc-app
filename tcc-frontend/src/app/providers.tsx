@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { BrowserRouter } from "react-router-dom";
-import { AuthProvider } from "@/context/AuthContext";
+import { AuthProvider } from "@/modules/identity/hooks/AuthContext";
 import { AiChatProvider } from "@/context/AiChatContext";
 import { CurrentViewRefreshProvider } from "@/shared/context/CurrentViewRefreshContext";
 import { ImperativeUIProvider } from "@/shared/context/ImperativeUIContext";

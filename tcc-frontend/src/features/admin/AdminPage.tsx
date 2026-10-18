@@ -1,8 +1,8 @@
 import type { Section } from "./SectionLayout";
-import { PermissionsSection } from "./permissions/PermissionsSection";
+import { PermissionsSection } from "@/modules/identity/pages/PermissionsSection";
 import { QueriesSection } from "./queries/QueriesSection";
 import { SourcesSection } from "./sources/SourcesSection";
-import { UsersSection } from "./users/UsersSection";
+import { UsersSection } from "@/modules/identity/pages/UsersSection";
 
 const sections = {
   users: UsersSection,

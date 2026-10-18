@@ -1,5 +1,5 @@
 import { ShieldCheck } from "lucide-react";
-import type { Permission } from "@/types";
+import type { Permission } from "@/modules/identity/model/types";
 import { Badge } from "@/shared/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { MobileCard } from "@/shared/ui/mobile-card";

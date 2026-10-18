@@ -5,11 +5,11 @@ import { AdminSectionPage } from "@/admin";
 import { DashboardListPage, DashboardPage } from "@/dashboard";
 import { DashboardContextEditor } from "@/features/dashboard/context-editor/DashboardContextEditor";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/modules/identity/hooks/AuthContext";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { toast } from "@/shared/ui/toast";
 import type { DashboardSummary } from "@/types";
-import { LoginPage } from "./LoginPage";
+import { LoginPage } from "@/modules/identity/pages/LoginPage";
 
 function HomeRoute() {
   const navigate = useNavigate();

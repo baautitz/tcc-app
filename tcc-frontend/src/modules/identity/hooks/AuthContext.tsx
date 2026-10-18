@@ -7,8 +7,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { api } from "@/api";
-import type { CurrentUser } from "@/types";
+import { identityApi } from "@/modules/identity/api/identity.api";
+import type { CurrentUser } from "@/modules/identity/model/types";
 type AuthContextValue = {
   user?: CurrentUser;
   ready: boolean;
@@ -21,18 +21,18 @@ function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<CurrentUser>();
   const [ready, setReady] = useState(false);
   useEffect(() => {
-    api
+    identityApi
       .me()
       .then((response) => setUser(response.user))
       .catch(() => undefined)
       .finally(() => setReady(true));
   }, []);
   const login = useCallback(async (email: string, password: string) => {
-    const response = await api.login(email, password);
+    const response = await identityApi.login(email, password);
     setUser(response.user);
   }, []);
   const logout = useCallback(async () => {
-    await api.logout();
+    await identityApi.logout();
     setUser(undefined);
   }, []);
   const hasPermission = useCallback(

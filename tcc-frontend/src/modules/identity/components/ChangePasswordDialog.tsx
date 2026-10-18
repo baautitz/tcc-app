@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { KeyRound } from "lucide-react";
-import { api } from "@/api";
-import type { User } from "@/types";
+import { identityApi } from "@/modules/identity/api/identity.api";
+import type { User } from "@/modules/identity/model/types";
 import { useEntityForm } from "@/shared/crud/useEntityForm";
 import { Button } from "@/shared/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/shared/ui/form";
@@ -42,7 +42,7 @@ export function ChangePasswordDialog({
     onOpenChange,
     save: async (values) => {
       if (!user) return;
-      await api.updateUser(user.id, { password: values.password });
+      await identityApi.updateUser(user.id, { password: values.password });
       return "Senha alterada com sucesso.";
     },
   });

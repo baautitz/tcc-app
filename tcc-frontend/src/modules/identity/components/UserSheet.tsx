@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Save } from "lucide-react";
-import { api } from "@/api";
-import type { Permission, User } from "@/types";
+import { identityApi } from "@/modules/identity/api/identity.api";
+import type { Permission, User } from "@/modules/identity/model/types";
 import { useEntityForm } from "@/shared/crud/useEntityForm";
 import { Button } from "@/shared/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/shared/ui/form";
@@ -50,7 +50,7 @@ export function UserSheet({
     onSaved,
     save: async (values, form) => {
       if (user)
-        await api.updateUser(user.id, {
+        await identityApi.updateUser(user.id, {
           name: values.name,
           email: values.email,
           active: values.active,
@@ -63,7 +63,7 @@ export function UserSheet({
           });
           return;
         }
-        await api.createUser(values);
+        await identityApi.createUser(values);
       }
       return user ? "Usuário atualizado." : "Usuário cadastrado.";
     },

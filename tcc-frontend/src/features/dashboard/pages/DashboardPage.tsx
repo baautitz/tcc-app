@@ -7,7 +7,7 @@ import {
 import { AlertCircle, RefreshCw, Settings, Table2, Users } from "lucide-react";
 import { api } from "@/api";
 import type { Dashboard } from "@/types";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/modules/identity/hooks/AuthContext";
 import { Alert, AlertDescription, AlertTitle } from "@/shared/ui/alert";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";

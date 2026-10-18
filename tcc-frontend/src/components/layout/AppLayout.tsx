@@ -9,7 +9,7 @@ import {
   UserRound,
   Users,
 } from "lucide-react";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/modules/identity/hooks/AuthContext";
 import {
   Sidebar,
   SidebarContent,

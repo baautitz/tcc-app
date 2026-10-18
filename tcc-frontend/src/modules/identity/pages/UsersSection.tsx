@@ -1,13 +1,13 @@
 import { useState } from "react";
-import { api } from "@/api";
-import type { User } from "@/types";
+import { identityApi } from "@/modules/identity/api/identity.api";
+import type { User } from "@/modules/identity/model/types";
 import { useIsMobile } from "@/shared/hooks/use-mobile";
 import { useLoad } from "@/shared/crud/useLoad";
 import { useRemove } from "@/shared/crud/useRemove";
-import { SectionLayout } from "../SectionLayout";
-import { ChangePasswordDialog } from "./ChangePasswordDialog";
-import { UserSheet } from "./UserSheet";
-import { UsersTable } from "./UsersTable";
+import { SectionLayout } from "@/features/admin/SectionLayout";
+import { ChangePasswordDialog } from "@/modules/identity/components/ChangePasswordDialog";
+import { UserSheet } from "@/modules/identity/components/UserSheet";
+import { UsersTable } from "@/modules/identity/components/UsersTable";
 
 export function UsersSection() {
   const isMobile = useIsMobile();
@@ -15,8 +15,8 @@ export function UsersSection() {
   const { data, loading, error, load } = useLoad(
     async () => {
       const [users, permissions] = await Promise.all([
-        api.users(),
-        api.permissions(),
+        identityApi.users(),
+        identityApi.permissions(),
       ]);
       return { users, permissions };
     },
@@ -45,7 +45,7 @@ export function UsersSection() {
         onEdit={(value) => setSheet({ open: true, value })}
         onChangePassword={(value) => setPasswordDialog({ open: true, value })}
         onDelete={(value) =>
-          void remove(value.name, () => api.deleteUser(value.id))
+          void remove(value.name, () => identityApi.deleteUser(value.id))
         }
       />
       <UserSheet

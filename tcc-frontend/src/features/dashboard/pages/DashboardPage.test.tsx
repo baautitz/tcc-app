@@ -30,7 +30,7 @@ vi.mock("@/api", () => ({
     ),
   },
 }));
-vi.mock("@/context/AuthContext", () => ({ useAuth: () => ({ user: { isAdmin: false } }) }));
+vi.mock("@/modules/identity/hooks/AuthContext", () => ({ useAuth: () => ({ user: { isAdmin: false } }) }));
 vi.mock("../components/DashboardFilters", () => ({ DashboardFilters: () => null }));
 vi.mock("../components/DashboardUsersDialog", () => ({ DashboardUsersDialog: () => null }));
 
