@@ -1,8 +1,9 @@
 import type { z } from "zod";
 import type { parameterDefinitionSchema } from "../../../../../shared/lib/contracts.js";
 import type { AuthenticatedUser } from "../../../../identity/domain/auth-user.js";
-import type { DiscoveredColumn, DiscoveredTable, ExternalPostgresConfig } from "../../../../data-sources/infrastructure/external-pg/index.js";
-import type { runBoundedReadOnlyQuery as defaultRunBoundedReadOnlyQuery } from "../../../../data-sources/infrastructure/external-pg/index.js";
+import type { DiscoveredTable } from "../../../../data-sources/domain/data-source-catalog.js";
+import type { DiscoveredColumn, ExternalPostgresConfig } from "../../../../data-sources/domain/external-source.js";
+import type { ExternalSourcePort } from "../../../../data-sources/domain/external-source.js";
 import type { ContextProposalProgressEvent } from "../../../domain/ai-context-proposals.js";
 import type { AiQuestionnaireProgressEvent } from "../../ai-questionnaire.js";
 
@@ -105,7 +106,7 @@ export type AiToolProgressEvent =
   | AiQuestionnaireProgressEvent;
 
 /** Porta de execução de consultas limitadas somente leitura. */
-export type RunBoundedReadOnlyQuery = typeof defaultRunBoundedReadOnlyQuery;
+export type RunBoundedReadOnlyQuery = ExternalSourcePort["runBoundedReadOnlyQuery"];
 
 export interface CreateAiReadToolsOptions {
   runBoundedReadOnlyQuery?: RunBoundedReadOnlyQuery;

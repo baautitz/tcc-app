@@ -1,3 +1,4 @@
+import { externalSource } from "../../data-sources/application/external-source.js";
 
 
 import { z } from "zod";
@@ -21,7 +22,7 @@ import {
   
 } from "../../../shared/lib/contracts.js";
 
-import { AI_QUERY_MAX_BYTES, AI_QUERY_MAX_ROWS, runBoundedReadOnlyQueryWithRetry } from "../../data-sources/infrastructure/external-pg/index.js";
+import { AI_QUERY_MAX_BYTES, AI_QUERY_MAX_ROWS } from "../../data-sources/domain/external-source.js";
 import type { AuthenticatedUser } from "../../identity/domain/auth-user.js";
 
 import { isEditableDashboardFilePath, writeDashboardDocumentAtomically } from "../domain/dashboards.js";
@@ -34,7 +35,6 @@ import { validateDashboardPreviewFields } from "../domain/dashboard-preview-vali
 import { dashboardDocumentFingerprint, dashboardProposalPreviewScope, dashboardReferenceFingerprint } from "../domain/dashboard-proposals.js";
 import { assertDashboardPreviewAcknowledged, assertDashboardProposalFresh, assertDashboardProposalUsable, isDashboardProposalAlreadyApplied } from "../domain/dashboard-proposal-lifecycle.js";
 import { ApiError } from "../../../shared/lib/domain-error.js";
-import { sourceConnection } from "../../data-sources/infrastructure/source-connection.js";
 
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
@@ -133,8 +133,8 @@ export async function previewDashboardProposal(currentUser: AuthenticatedUser, r
       assertParameterDefinitions(parameters);
       assertSqlParameters(entry.query.sqlText, parameters);
       const bound = bindQueryParameters(entry.query.sqlText, parameters, values);
-      previews[queryId] = await runBoundedReadOnlyQueryWithRetry(
-        sourceConnection(entry.source),
+      previews[queryId] = await externalSource().runBoundedReadOnlyQueryWithRetry(
+        externalSource().sourceConnection(entry.source),
         bound.sqlText,
         bound.values,
         {

@@ -1,6 +1,7 @@
 import { tool, type StructuredToolInterface } from "@langchain/core/tools";
 import type { z } from "zod";
-import { ExternalQueryExecutionError, type UnsafeAiColumnType, runBoundedReadOnlyQueryWithRetry } from "../../../../data-sources/infrastructure/external-pg/index.js";
+import { ExternalQueryExecutionError, type UnsafeAiColumnType } from "../../../../data-sources/domain/external-source.js";
+import { externalSource } from "../../../../data-sources/application/external-source.js";
 import type { AiReadSource, AiReadTableName, AiToolProgressEvent } from "../ai-read-tools.js";
 import {
   assertAiReadOnlySql,
@@ -34,7 +35,7 @@ export function createAiQueryTestTools({
   repository,
   onToolEvent,
   runQuery = async (source, sqlText, values, beforeAttempt, signal) =>
-    runBoundedReadOnlyQueryWithRetry(source.connection, sqlText, values, {
+    externalSource().runBoundedReadOnlyQueryWithRetry(source.connection, sqlText, values, {
       beforeAttempt,
       retrySignal: signal,
     }),

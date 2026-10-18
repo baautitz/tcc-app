@@ -1,12 +1,12 @@
+import type { ExternalSourcePort } from "../../data-sources/domain/external-source.js";
 import { and, asc, count, eq } from "drizzle-orm";
 import { db } from "../../../shared/db/client.js";
 import { dataSourceTables, dataSources, savedQueries } from "../../../shared/db/schema.js";
-import { findUnsafeAiColumnTypes, getPostgresTableColumns, listPostgresBaseTables } from "../../data-sources/infrastructure/external-pg/index.js";
+import { externalSource } from "../../data-sources/application/external-source.js";
 import type { AiReadSource, AiReadTable, AiReadTableName } from "../application/tools/ai-read-tools.js";
 import { MAX_DATA_SOURCE_CATALOG_TABLES } from "../../data-sources/domain/data-source-catalog.js";
 import { issueQueryTestReceipt, querySourceTargetHash } from "../../queries/domain/query-lifecycle.js";
 import { createQueryLifecycleRepository } from "../../queries/infrastructure/query-lifecycle-repository.js";
-import { sourceConnection } from "../../data-sources/infrastructure/source-connection.js";
 
 function aiReadSource(source: typeof dataSources.$inferSelect): AiReadSource {
   return {
@@ -14,7 +14,7 @@ function aiReadSource(source: typeof dataSources.$inferSelect): AiReadSource {
     name: source.name,
     databaseName: source.databaseName,
     context: source.context,
-    connection: sourceConnection(source),
+    connection: externalSource().sourceConnection(source),
   };
 }
 
@@ -92,8 +92,8 @@ export function createAiReadToolsRepository() {
         .limit(1))[0];
       return table ? aiReadTable(table) : undefined;
     },
-    listLiveBaseTables: listPostgresBaseTables,
-    findUnsafeColumnTypes: findUnsafeAiColumnTypes,
-    getLiveColumns: getPostgresTableColumns,
+    listLiveBaseTables: (...a: Parameters<ExternalSourcePort["listPostgresBaseTables"]>) => externalSource().listPostgresBaseTables(...a),
+    findUnsafeColumnTypes: (...a: Parameters<ExternalSourcePort["findUnsafeAiColumnTypes"]>) => externalSource().findUnsafeAiColumnTypes(...a),
+    getLiveColumns: (...a: Parameters<ExternalSourcePort["getPostgresTableColumns"]>) => externalSource().getPostgresTableColumns(...a),
   };
 }

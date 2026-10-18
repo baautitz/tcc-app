@@ -1,6 +1,7 @@
 import { tool, type StructuredToolInterface } from "@langchain/core/tools";
-import type { DiscoveredColumn, DiscoveredTable } from "../../../../data-sources/infrastructure/external-pg/index.js";
-import { runBoundedReadOnlyQuery as defaultRunBoundedReadOnlyQuery } from "../../../../data-sources/infrastructure/external-pg/index.js";
+import type { DiscoveredColumn } from "../../../../data-sources/domain/external-source.js";
+import type { DiscoveredTable } from "../../../../data-sources/domain/data-source-catalog.js";
+import { externalSource } from "../../../../data-sources/application/external-source.js";
 import { MAX_DATA_SOURCE_CATALOG_TABLES } from "../../../../data-sources/domain/data-source-catalog.js";
 import type { AiReadSource, AiReadTableName, CreateAiReadToolsOptions } from "./read-types.js";
 import {
@@ -14,7 +15,7 @@ export function createAiReadTools({
   currentUser,
   repository,
   onToolEvent,
-  runBoundedReadOnlyQuery = defaultRunBoundedReadOnlyQuery,
+  runBoundedReadOnlyQuery = (...a) => externalSource().runBoundedReadOnlyQuery(...a),
 }: CreateAiReadToolsOptions): StructuredToolInterface[] {
   if (!currentUser.isAdmin) {
     throw new Error("As ferramentas de contexto estão disponíveis apenas para administradores.");

@@ -1,26 +1,11 @@
 import { Client, type QueryResultRow } from "pg";
 import { MAX_DATA_SOURCE_CATALOG_TABLES } from "../../domain/data-source-catalog.js";
 import { type AiCatalogTableReference } from "../../../../shared/security/query-security.js";
-import { type ExternalPostgresConfig } from "./pg-exec.js";
+import type { DiscoveredColumn, ExternalPostgresConfig, UnsafeAiColumnType } from "../../domain/external-source.js";
+export type { DiscoveredColumn, UnsafeAiColumnType };
 
 import type { DiscoveredTable } from "../../domain/data-source-catalog.js";
 export type { DiscoveredTable };
-
-export interface DiscoveredColumn {
-  columnName: string;
-  dataType: string;
-  udtName: string;
-  nullable: boolean;
-  ordinalPosition: number;
-}
-
-export interface UnsafeAiColumnType extends AiCatalogTableReference {
-  columnName: string;
-  typeSchema: string;
-  typeName: string;
-  typeKind: string;
-}
-
 
 const METADATA_CONNECTION_TIMEOUT_MS = 5_000;
 const METADATA_STATEMENT_TIMEOUT_MS = 5_000;

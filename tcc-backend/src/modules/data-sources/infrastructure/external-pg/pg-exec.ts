@@ -1,72 +1,8 @@
-import { DomainError } from "../../../../shared/lib/domain-error.js";
 import { Client } from "pg";
+import { AI_QUERY_CONNECTION_TIMEOUT_MS, AI_QUERY_MAX_BYTES, AI_QUERY_MAX_ROWS, AI_QUERY_RETRY_JITTER_MS, AI_QUERY_RETRY_MIN_DELAY_MS, AI_QUERY_STATEMENT_TIMEOUT_MS, ExternalQueryExecutionError, type BoundedReadOnlyClient, type BoundedReadOnlyQueryOptions, type BoundedReadOnlyQueryResult, type CursorQuery, type ExternalPostgresConfig } from "../../domain/external-source.js";
+export * from "../../domain/external-source.js";
 import Cursor from "pg-cursor";
 import { normalizeGeneralReadOnlySql, normalizeReadOnlySql } from "../../../../shared/security/query-security.js";
-export interface ExternalPostgresConfig {
-  host: string;
-  port: number;
-  database: string;
-  user: string;
-  password: string;
-}
-
-export const AI_QUERY_CONNECTION_TIMEOUT_MS = 5_000;
-export const AI_QUERY_STATEMENT_TIMEOUT_MS = 10_000;
-export const AI_QUERY_MAX_ROWS = 500;
-export const AI_QUERY_MAX_BYTES = 48_000;
-export const AI_QUERY_RETRY_MIN_DELAY_MS = 100;
-export const AI_QUERY_RETRY_JITTER_MS = 100;
-
-export interface BoundedReadOnlyQueryResult {
-  rows: Record<string, unknown>[];
-  rowLimit: number;
-  byteLimit: number;
-  bytes: number;
-  truncated: boolean;
-  truncationReason: "row_limit" | "byte_limit" | null;
-}
-
-interface CursorQuery {
-  read(count: number): Promise<Record<string, unknown>[]>;
-  close(): Promise<void>;
-}
-
-interface BoundedReadOnlyClient {
-  connect(): Promise<void>;
-  query(sql: string): Promise<unknown>;
-  query(cursor: CursorQuery): Promise<unknown>;
-  end(): Promise<void>;
-}
-
-export interface BoundedReadOnlyQueryOptions {
-  rowLimit?: number;
-  byteLimit?: number;
-  preserveConfiguredSearchPath?: boolean;
-  allowGeneralReadOnlySql?: boolean;
-  retrySignal?: AbortSignal;
-  createClient?: (config: ExternalPostgresConfig) => BoundedReadOnlyClient;
-  createCursor?: (sqlText: string, values: unknown[]) => CursorQuery;
-}
-
-export class ExternalQueryExecutionError extends DomainError {
-  constructor(
-    public readonly category: "timeout" | "connection" | "database",
-    public readonly sqlState: string | null,
-    public readonly retryable: boolean,
-  ) {
-    super(
-      category === "timeout"
-        ? "A consulta excedeu o tempo limite. Simplifique a query e tente novamente."
-        : category === "connection"
-          ? "Não foi possível conectar ao servidor de dados. Verifique a disponibilidade e tente novamente."
-          : "O PostgreSQL rejeitou a consulta. Revise as tabelas, colunas, tipos e parâmetros informados.",
-      `EXTERNAL_${category.toUpperCase()}`,
-      "bad_request",
-    );
-    this.name = "ExternalQueryExecutionError";
-  }
-}
-
 export function classifyExternalQueryError(
   error: unknown,
 ): ExternalQueryExecutionError {

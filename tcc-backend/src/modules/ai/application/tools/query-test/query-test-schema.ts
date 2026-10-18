@@ -1,7 +1,7 @@
 import type { AuthenticatedUser } from "../../../../identity/domain/auth-user.js";
 import { z } from "zod";
 import { parameterDefinitionSchema } from "../../../../../shared/lib/contracts.js";
-import type { UnsafeAiColumnType } from "../../../../data-sources/infrastructure/external-pg/index.js";
+import type { UnsafeAiColumnType } from "../../../../data-sources/domain/external-source.js";
 import type { AiReadSource, AiReadTableName, AiToolProgressEvent } from "../ai-read-tools.js";
 import type { AiCatalogTableReference } from "../../../../../shared/security/query-security.js";
 import type { QueryLifecycleQuery } from "../../../../queries/domain/query-lifecycle.js";

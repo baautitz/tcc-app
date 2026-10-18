@@ -1,15 +1,15 @@
+import { externalSource } from "../../data-sources/application/external-source.js";
 import { asc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../../shared/db/client.js";
 import { dashboardProposalReceipts, dataSources, savedQueries } from "../../../shared/db/schema.js";
-import { AI_QUERY_MAX_BYTES, AI_QUERY_MAX_ROWS, runBoundedReadOnlyQueryWithRetry, type ExternalPostgresConfig } from "../../data-sources/infrastructure/external-pg/index.js";
+import { AI_QUERY_MAX_BYTES, AI_QUERY_MAX_ROWS, type ExternalPostgresConfig } from "../../data-sources/domain/external-source.js";
 import { getRegisteredDashboardFiles } from "../../dashboards/application/dashboard-registry.js";
 import { querySourceTargetHash } from "../../queries/domain/query-lifecycle.js";
 import { dashboardDocumentFingerprint } from "../../dashboards/domain/dashboard-proposals.js";
 import { assertParameterDefinitions, assertSqlParameters, bindQueryParameters } from "../../../shared/security/query-security.js";
 import type { AiDashboardQuery, AiDashboardQueryDefinition, AiDashboardToolsRepository } from "../application/tools/ai-dashboard-tools.js";
 import { parameterDefinitionSchema } from "../../../shared/lib/contracts.js";
-import { sourceConnection } from "../../data-sources/infrastructure/source-connection.js";
 
 export function createAiDashboardToolsRepository(): AiDashboardToolsRepository {
   return {
@@ -67,7 +67,7 @@ export function createAiDashboardToolsRepository(): AiDashboardToolsRepository {
         updatedAt: row.updatedAt,
         sourceUpdatedAt: row.source.updatedAt,
         sourceTargetHash: querySourceTargetHash(row.source),
-        connection: sourceConnection(row.source),
+        connection: externalSource().sourceConnection(row.source),
       }));
     },
     async findDashboard(id: string) {
@@ -82,7 +82,7 @@ export function createAiDashboardToolsRepository(): AiDashboardToolsRepository {
       assertParameterDefinitions(parameters);
       assertSqlParameters(query.sqlText, parameters);
       const bound = bindQueryParameters(query.sqlText, parameters, values);
-      const result = await runBoundedReadOnlyQueryWithRetry(
+      const result = await externalSource().runBoundedReadOnlyQueryWithRetry(
         query.connection as ExternalPostgresConfig,
         bound.sqlText,
         bound.values,

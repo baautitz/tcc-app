@@ -20,14 +20,13 @@ import {
   type ParameterDefinition,
 } from "../../../shared/lib/contracts.js";
 
-import { runReadOnlyQuery } from "../../data-sources/infrastructure/external-pg/index.js";
+import { externalSource } from "../../data-sources/application/external-source.js";
 
 import type { DashboardFilesPort } from "../domain/dashboard-files-port.js";
 
 import { assertParameterDefinitions, assertReadOnlySql, assertSqlParameters, bindQueryParameters } from "../../../shared/security/query-security.js";
 
 import { ApiError } from "../../../shared/lib/domain-error.js";
-import { sourceConnection } from "../../data-sources/infrastructure/source-connection.js";
 
 export function parseParameters(value: unknown): ParameterDefinition[] {
   return z.array(parameterDefinitionSchema).parse(value);
@@ -62,7 +61,7 @@ export async function runQueryDefinition(input: z.infer<typeof queryTestInputSch
     assertParameterDefinitions(input.parameters);
     assertSqlParameters(input.sqlText, input.parameters);
     const bound = bindQueryParameters(input.sqlText, input.parameters, input.values);
-    return await runReadOnlyQuery(sourceConnection(source), bound.sqlText, bound.values);
+    return await externalSource().runReadOnlyQuery(externalSource().sourceConnection(source), bound.sqlText, bound.values);
   } catch (error) {
     throw new ApiError(400, error instanceof Error ? error.message : "Não foi possível testar a query.");
   }

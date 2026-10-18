@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { ToolRuntime } from "@langchain/core/tools";
 import { DomainError } from "../../../../../shared/lib/domain-error.js";
-import type { DiscoveredTable } from "../../../../data-sources/infrastructure/external-pg/index.js";
+import type { DiscoveredTable } from "../../../../data-sources/domain/data-source-catalog.js";
 import type { AiReadTableName, AiToolProgressEvent, CreateAiReadToolsOptions } from "./read-types.js";
 
 export const dataSourceIdSchema = z.string().uuid().describe("ID do servidor PostgreSQL cadastrado.");

@@ -1,7 +1,7 @@
 import type { ToolRuntime } from "@langchain/core/tools";
 import type { z } from "zod";
 import type { inputSchema } from "./query-test-schema.js";
-import { ExternalQueryExecutionError } from "../../../../data-sources/infrastructure/external-pg/index.js";
+import { ExternalQueryExecutionError } from "../../../../data-sources/domain/external-source.js";
 import type { AiReadSource, AiToolProgressEvent } from "../ai-read-tools.js";
 import type { QueryInputValidationError } from "../../../../../shared/security/query-security.js";
 import type { QueryLifecycleQuery } from "../../../../queries/domain/query-lifecycle.js";

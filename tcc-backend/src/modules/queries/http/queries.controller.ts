@@ -20,7 +20,7 @@ import {
   
 } from "../../../shared/lib/contracts.js";
 
-import { runBoundedReadOnlyQueryWithRetry } from "../../data-sources/infrastructure/external-pg/index.js";
+import { externalSource } from "../../data-sources/application/external-source.js";
 import { hasPermission } from "../../identity/application/auth.js";
 
 import { bindQueryParameters } from "../../../shared/security/query-security.js";
@@ -28,7 +28,6 @@ import { bindQueryParameters } from "../../../shared/security/query-security.js"
 import { issueQueryTestReceipt, queryDraftFingerprint, querySourceTargetHash, saveQueryWithTestReceipt, type QueryLifecycleQuery } from "../domain/query-lifecycle.js";
 
 import { ApiError } from "../../../shared/lib/domain-error.js";
-import { sourceConnection } from "../../data-sources/infrastructure/source-connection.js";
 
 import { createQueryLifecycleRepository } from "../infrastructure/query-lifecycle-repository.js";
 
@@ -75,7 +74,7 @@ export async function previewQuery(context: AppContext) {
   let preview;
   try {
     const bound = bindQueryParameters(input.sqlText, input.parameters, input.values);
-    preview = await runBoundedReadOnlyQueryWithRetry(sourceConnection(source), bound.sqlText, bound.values, {
+    preview = await externalSource().runBoundedReadOnlyQueryWithRetry(externalSource().sourceConnection(source), bound.sqlText, bound.values, {
       preserveConfiguredSearchPath: true,
       allowGeneralReadOnlySql: true,
     });
