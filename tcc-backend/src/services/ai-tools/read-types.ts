@@ -81,7 +81,7 @@ export type AiToolProgressEvent =
       mode: "create" | "update";
       dashboardId: string;
       expectedDashboardFingerprint: string | null;
-      document: import("../dashboards.js").DashboardDocument;
+      document: import("../../modules/dashboards/domain/dashboards.js").DashboardDocument;
       definition: import("../../shared/lib/contracts.js").DashboardDefinition;
       changeSummary: string[];
       componentChanges: Record<string, "added" | "modified" | "unchanged">;

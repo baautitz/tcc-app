@@ -1,4 +1,4 @@
-import type { DashboardDocument } from "../dashboards.js";
+import type { DashboardDocument } from "../../modules/dashboards/domain/dashboards.js";
 
 export interface AiDashboardQuery {
   id: string;

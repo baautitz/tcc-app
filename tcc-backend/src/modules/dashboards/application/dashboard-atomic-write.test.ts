@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rm, unlink, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { withDashboardFileCompensation, writeDashboardDocumentAtomically } from "./dashboards.js";
+import { withDashboardFileCompensation, writeDashboardDocumentAtomically } from "../domain/dashboards.js";
 
 const files: string[] = [];
 const dashboardFolder = resolve(process.cwd(), "dashboards");

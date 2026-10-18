@@ -1,6 +1,6 @@
 import { Hono } from "hono";
-import { adminRequired, authentication, type AppVariables } from "../shared/middleware/auth.js";
-import { createAdminDashboard, getAdminDashboard, getDashboard, getDashboardUsers, listDashboards, setDashboardUsers, syncDashboards, updateAdminDashboard } from "../controllers/dashboards.js";
+import { adminRequired, authentication, type AppVariables } from "../../../shared/middleware/auth.js";
+import { createAdminDashboard, getAdminDashboard, getDashboard, getDashboardUsers, listDashboards, setDashboardUsers, syncDashboards, updateAdminDashboard } from "./dashboards.controller.js";
 
 export const dashboardRoutes = new Hono<{ Variables: AppVariables }>();
 dashboardRoutes.post("/api/dashboards/sync", authentication, adminRequired, syncDashboards);

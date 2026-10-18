@@ -1,6 +1,6 @@
 import { and, eq, isNull } from "drizzle-orm";
-import { dashboardProposalReceipts, dashboards } from "../shared/db/schema.js";
-import type { DbExecutor } from "../shared/db/db-executor.js";
+import { dashboardProposalReceipts, dashboards } from "../../../shared/db/schema.js";
+import type { DbExecutor } from "../../../shared/db/db-executor.js";
 
 export const dashboardFilesRepository = {
   async lockByDashboardId(tx: DbExecutor, dashboardId: string) {

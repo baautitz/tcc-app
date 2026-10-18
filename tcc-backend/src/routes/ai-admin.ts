@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { adminRequired, authentication, type AppVariables } from "../shared/middleware/auth.js";
 import { aiChat, approveProposal, dismissProposal, getContextProposalById, listContextProposals } from "../controllers/ai-admin.js";
-import { commitProposal, previewProposal } from "../controllers/dashboards.js";
+import { commitProposal, previewProposal } from "../modules/dashboards/http/dashboards.controller.js";
 
 export const aiAdminRoutes = new Hono<{ Variables: AppVariables }>();
 aiAdminRoutes.post("/api/admin/ai/chat", authentication, adminRequired, aiChat);

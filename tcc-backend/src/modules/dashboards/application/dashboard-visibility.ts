@@ -1,15 +1,15 @@
 
 
-import { dashboardAccessRepository } from "../repositories/dashboard-access-repository.js";
-import { savedQueriesRepository } from "../modules/queries/infrastructure/saved-queries-repository.js";
+import { dashboardAccessRepository } from "../infrastructure/dashboard-access-repository.js";
+import { savedQueriesRepository } from "../../queries/infrastructure/saved-queries-repository.js";
 
-import type { AuthenticatedUser } from "../modules/identity/domain/auth-user.js";
+import type { AuthenticatedUser } from "../../identity/domain/auth-user.js";
 
-import { getRegisteredDashboards } from "./dashboards.js";
+import { getRegisteredDashboards } from "../domain/dashboards.js";
 import { dashboardQueryReferences } from "./dashboard-sync.js";
-import { canAccessDashboard } from "./dashboard-access.js";
+import { canAccessDashboard } from "../domain/dashboard-access.js";
 
-import { ApiError } from "../shared/lib/domain-error.js";
+import { ApiError } from "../../../shared/lib/domain-error.js";
 
 export async function getAccessibleDashboards(currentUser: AuthenticatedUser) {
   const registered = await getRegisteredDashboards();

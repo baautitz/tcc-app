@@ -1,4 +1,4 @@
-import type { DashboardDocument } from "../dashboards.js";
+import type { DashboardDocument } from "../../modules/dashboards/domain/dashboards.js";
 import type { AiDashboardQueryPreview } from "./dashboard-types.js";
 
 export function validateDashboardPreviewFields(

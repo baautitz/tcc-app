@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { validateDashboardDocument } from "./dashboards.js";
+import { validateDashboardDocument } from "../domain/dashboards.js";
 import { buildDashboardDefinitionFromDocument } from "./dashboard-sync.js";
 
 const salesId = "00000000-0000-4000-8000-000000000011";

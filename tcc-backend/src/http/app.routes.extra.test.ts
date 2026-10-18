@@ -72,17 +72,17 @@ vi.mock("../modules/queries/infrastructure/query-lifecycle-repository.js", () =>
     }),
   }),
 }));
-vi.mock("../services/dashboards.js", async (orig) => ({
-  ...(await orig<typeof import("../services/dashboards.js")>()),
+vi.mock("../modules/dashboards/domain/dashboards.js", async (orig) => ({
+  ...(await orig<typeof import("../modules/dashboards/domain/dashboards.js")>()),
   getDashboardFiles: vi.fn(async () => h.state.dashboardFiles),
   withDashboardFileCompensation: vi.fn(async (op: () => unknown) => op()),
   writeDashboardDocumentAtomically: vi.fn(async () => async () => {}),
 }));
-vi.mock("../services/dashboard-admin.js", async (orig) => ({
-  ...(await orig<typeof import("../services/dashboard-admin.js")>()),
+vi.mock("../modules/dashboards/application/dashboard-admin.js", async (orig) => ({
+  ...(await orig<typeof import("../modules/dashboards/application/dashboard-admin.js")>()),
   saveDashboardDocument: vi.fn(async () => {}),
 }));
-vi.mock("../services/dashboard-proposal-commit.js", () => ({
+vi.mock("../modules/dashboards/application/dashboard-proposal-commit.js", () => ({
   previewDashboardProposal: vi.fn(),
   commitDashboardProposal: vi.fn(),
 }));
@@ -97,11 +97,11 @@ const NEWQ = "44444444-4444-4444-8444-444444444444";
 import { app } from "../app.js";
 import { dashboardDocumentSchema } from "../shared/lib/contracts.js";
 import { encryptCredential } from "../shared/lib/credentials.js";
-import { dashboardDocumentFingerprint } from "../services/ai-dashboard-proposals.js";
+import { dashboardDocumentFingerprint } from "../modules/dashboards/domain/dashboard-proposals.js";
 import { runBoundedReadOnlyQueryWithRetry, inspectReadOnlyPostgres } from "../modules/data-sources/infrastructure/external-pg/index.js";
-import { saveDashboardDocument } from "../services/dashboard-admin.js";
-import { writeDashboardDocumentAtomically } from "../services/dashboards.js";
-import { commitDashboardProposal, previewDashboardProposal } from "../services/dashboard-proposal-commit.js";
+import { saveDashboardDocument } from "../modules/dashboards/application/dashboard-admin.js";
+import { writeDashboardDocumentAtomically } from "../modules/dashboards/domain/dashboards.js";
+import { commitDashboardProposal, previewDashboardProposal } from "../modules/dashboards/application/dashboard-proposal-commit.js";
 import { reconcileDataSourceCatalog } from "../modules/data-sources/domain/data-source-catalog.js";
 
 const UUID = "11111111-1111-4111-8111-111111111111";

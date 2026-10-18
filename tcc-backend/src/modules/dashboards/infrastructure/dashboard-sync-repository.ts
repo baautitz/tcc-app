@@ -1,5 +1,5 @@
-import { db } from "../shared/db/client.js";
-import { savedQueries } from "../shared/db/schema.js";
+import { db } from "../../../shared/db/client.js";
+import { savedQueries } from "../../../shared/db/schema.js";
 
 export interface DashboardSyncRepository {
   listQueryCatalog(): Promise<Array<{ id: string; parameters: unknown }>>;

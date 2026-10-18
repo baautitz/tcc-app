@@ -2,8 +2,8 @@
 
 import { z } from "zod";
 
-import { dashboardFilesRepository } from "../repositories/dashboard-files-repository.js";
-import { withDashboardFilesLock } from "../shared/db/db-executor.js";
+import { dashboardFilesRepository } from "../infrastructure/dashboard-files-repository.js";
+import { withDashboardFilesLock } from "../../../shared/db/db-executor.js";
 import {
   
   
@@ -18,13 +18,13 @@ import {
   
   
   
-} from "../shared/lib/contracts.js";
+} from "../../../shared/lib/contracts.js";
 
-import { createDashboardFile, DashboardFileCompensationError, isEditableDashboardFilePath, syncDashboardDirectory, withDashboardFileCompensation, writeDashboardDocumentAtomically } from "./dashboards.js";
+import { createDashboardFile, DashboardFileCompensationError, isEditableDashboardFilePath, syncDashboardDirectory, withDashboardFileCompensation, writeDashboardDocumentAtomically } from "../domain/dashboards.js";
 
-import { dashboardDocumentFingerprint } from "./ai-dashboard-proposals.js";
+import { dashboardDocumentFingerprint } from "../domain/dashboard-proposals.js";
 
-import { ApiError } from "../shared/lib/domain-error.js";
+import { ApiError } from "../../../shared/lib/domain-error.js";
 
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";

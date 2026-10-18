@@ -1,4 +1,4 @@
-import { DomainError } from "../shared/lib/domain-error.js";
+import { DomainError } from "../../../shared/lib/domain-error.js";
 import { randomUUID } from "node:crypto";
 import { mkdir, readdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve } from "node:path";
@@ -6,11 +6,11 @@ import {
   createDashboardsRepository,
   type DashboardDbExecutor,
   type DashboardsRepository,
-} from "../repositories/dashboards-repository.js";
+} from "../infrastructure/dashboards-repository.js";
 import {
   dashboardCreateSchema,
   dashboardDocumentSchema,
-} from "../shared/lib/contracts.js";
+} from "../../../shared/lib/contracts.js";
 
 export type DashboardDocument = ReturnType<
   typeof dashboardDocumentSchema.parse

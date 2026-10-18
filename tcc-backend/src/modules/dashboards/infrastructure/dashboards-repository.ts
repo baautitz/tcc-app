@@ -1,6 +1,6 @@
 import { and, eq, inArray, ne } from "drizzle-orm";
-import { db } from "../shared/db/client.js";
-import { dashboards } from "../shared/db/schema.js";
+import { db } from "../../../shared/db/client.js";
+import { dashboards } from "../../../shared/db/schema.js";
 
 export type DashboardDbExecutor = Pick<typeof db, "select" | "insert" | "delete">;
 export type DashboardRow = { dashboardId: string; filePath: string };

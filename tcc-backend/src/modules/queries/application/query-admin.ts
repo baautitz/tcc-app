@@ -22,7 +22,7 @@ import {
 
 import { runReadOnlyQuery } from "../../data-sources/infrastructure/external-pg/index.js";
 
-import { DashboardFileCompensationError, getDashboardFiles, withDashboardFileCompensation, writeDashboardDocumentAtomically } from "../../../services/dashboards.js";
+import { DashboardFileCompensationError, getDashboardFiles, withDashboardFileCompensation, writeDashboardDocumentAtomically } from "../../dashboards/domain/dashboards.js";
 
 import { assertParameterDefinitions, assertReadOnlySql, assertSqlParameters, bindQueryParameters } from "../domain/security/query-security.js";
 

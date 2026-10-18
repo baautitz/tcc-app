@@ -23,7 +23,7 @@ import {
 import { runBoundedReadOnlyQueryWithRetry } from "../../data-sources/infrastructure/external-pg/index.js";
 import { hasPermission } from "../../identity/application/auth.js";
 
-import { canExecuteQuery } from "../../../services/dashboard-access.js";
+import { canExecuteQuery } from "../../dashboards/domain/dashboard-access.js";
 import { bindQueryParameters } from "../domain/security/query-security.js";
 
 import { issueQueryTestReceipt, queryDraftFingerprint, querySourceTargetHash, saveQueryWithTestReceipt, type QueryLifecycleQuery } from "../domain/query-lifecycle.js";
@@ -35,7 +35,7 @@ import { createQueryLifecycleRepository } from "../infrastructure/query-lifecycl
 
 import type { AppContext } from "../../../shared/middleware/auth.js";
 import { jsonBody } from "../../../shared/middleware/json-body.js";
-import { accessibleQueryIds } from "../../../services/dashboard-visibility.js";
+import { accessibleQueryIds } from "../../dashboards/application/dashboard-visibility.js";
 import { getSourceOrThrow } from "../../data-sources/application/data-source-admin.js";
 import { throwApiError } from "../../../shared/lib/domain-error.js";
 import { parseParameters, validateQueryInput, getQueryOrThrow, QUERY_LIFECYCLE_MESSAGES, runQueryDefinition, deleteQueryWithDashboards } from "../application/query-admin.js";

@@ -1,17 +1,17 @@
 import {
   drizzleDashboardSyncRepository,
   type DashboardSyncRepository,
-} from "../repositories/dashboard-sync-repository.js";
+} from "../infrastructure/dashboard-sync-repository.js";
 import {
   dashboardDefinitionSchema,
   parameterDefinitionSchema,
   type DashboardDefinition,
   type ParameterDefinition,
-} from "../shared/lib/contracts.js";
+} from "../../../shared/lib/contracts.js";
 import {
   getRegisteredDashboards,
   type DashboardDocument,
-} from "./dashboards.js";
+} from "../domain/dashboards.js";
 
 type JsonRecord = Record<string, unknown>;
 export type DashboardQueryMetadata = { id: string; parameters: unknown };

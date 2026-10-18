@@ -1,9 +1,9 @@
 
 
 import { z } from "zod";
-import { } from "../shared/config/config.js";
-import { dashboardAccessRepository } from "../repositories/dashboard-access-repository.js";
-import { savedQueriesRepository } from "../modules/queries/infrastructure/saved-queries-repository.js";
+import { } from "../../../shared/config/config.js";
+import { dashboardAccessRepository } from "../infrastructure/dashboard-access-repository.js";
+import { savedQueriesRepository } from "../../queries/infrastructure/saved-queries-repository.js";
 import {
   
   
@@ -18,21 +18,21 @@ import {
   
   
   
-} from "../shared/lib/contracts.js";
+} from "../../../shared/lib/contracts.js";
 
-import { getDashboardFileById, getRegisteredDashboardFiles, getRegisteredDashboards } from "../services/dashboards.js";
-import { buildDashboardDefinitionFromDocument, dashboardQueryReferences } from "../services/dashboard-sync.js";
+import { getDashboardFileById, getRegisteredDashboardFiles, getRegisteredDashboards } from "../domain/dashboards.js";
+import { buildDashboardDefinitionFromDocument, dashboardQueryReferences } from "../application/dashboard-sync.js";
 
-import { dashboardDocumentFingerprint } from "../services/ai-dashboard-proposals.js";
+import { dashboardDocumentFingerprint } from "../domain/dashboard-proposals.js";
 
-import { ApiError } from "../shared/lib/domain-error.js";
+import { ApiError } from "../../../shared/lib/domain-error.js";
 
-import type { AppContext } from "../shared/middleware/auth.js";
-import { jsonBody } from "../shared/middleware/json-body.js";
-import { assertDashboardAccess, getAccessibleDashboards } from "../services/dashboard-visibility.js";
+import type { AppContext } from "../../../shared/middleware/auth.js";
+import { jsonBody } from "../../../shared/middleware/json-body.js";
+import { assertDashboardAccess, getAccessibleDashboards } from "../application/dashboard-visibility.js";
 
-import { syncDashboardDirectoryLocked, createDashboard, saveDashboardDocument } from "../services/dashboard-admin.js";
-import { previewDashboardProposal, commitDashboardProposal } from "../services/dashboard-proposal-commit.js";
+import { syncDashboardDirectoryLocked, createDashboard, saveDashboardDocument } from "../application/dashboard-admin.js";
+import { previewDashboardProposal, commitDashboardProposal } from "../application/dashboard-proposal-commit.js";
 
 export async function syncDashboards(context: AppContext) {
   return context.json(await syncDashboardDirectoryLocked());

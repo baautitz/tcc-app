@@ -1,11 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { sha256Hex, stableJson } from "../shared/lib/hash.js";
+import { sha256Hex, stableJson } from "../../../shared/lib/hash.js";
 import { z } from "zod";
 import {
   dashboardArgumentSchema,
   dashboardDocumentSchema,
   queryBindingSchema,
-} from "../shared/lib/contracts.js";
+} from "../../../shared/lib/contracts.js";
 import type { DashboardDocument } from "./dashboards.js";
 
 const gapSchema = z.union([

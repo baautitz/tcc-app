@@ -7,7 +7,7 @@ import { aiAdminRoutes } from "./routes/ai-admin.js";
 import { authRoutes } from "./modules/identity/http/auth.routes.js";
 import { userRoutes } from "./modules/identity/http/users.routes.js";
 import { permissionRoutes } from "./modules/identity/http/permissions.routes.js";
-import { dashboardRoutes } from "./routes/dashboards.js";
+import { dashboardRoutes } from "./modules/dashboards/http/dashboards.routes.js";
 import { dataSourceRoutes } from "./modules/data-sources/http/data-sources.routes.js";
 import { queryRoutes } from "./modules/queries/http/queries.routes.js";
 import { publicQueryRoutes } from "./modules/queries/http/public-query.routes.js";

@@ -2,7 +2,7 @@ import { tool, type StructuredToolInterface, type ToolRuntime } from "@langchain
 import { z } from "zod";
 import { dashboardDocumentSchema, parameterDefinitionSchema } from "../../shared/lib/contracts.js";
 import type { AuthenticatedUser } from "../../modules/identity/domain/auth-user.js";
-import { buildDashboardDefinitionFromDocument, dashboardQueryReferences, type DashboardQueryMetadata } from "../dashboard-sync.js";
+import { buildDashboardDefinitionFromDocument, dashboardQueryReferences, type DashboardQueryMetadata } from "../../modules/dashboards/application/dashboard-sync.js";
 import { AI_QUERY_MAX_BYTES, AI_QUERY_MAX_ROWS } from "../../modules/data-sources/infrastructure/external-pg/index.js";
 import {
   aiDashboardProposalInputSchema,
@@ -14,7 +14,7 @@ import {
   dashboardProposalPreviewScope,
   makeDashboardProposalReceiptId,
   summarizeDashboardChanges,
-} from "../ai-dashboard-proposals.js";
+} from "../../modules/dashboards/domain/dashboard-proposals.js";
 import type { AiToolProgressEvent } from "../ai-read-tools.js";
 import type { AiDashboardQueryPreview, AiDashboardToolsRepository } from "./dashboard-types.js";
 import { validateDashboardPreviewFields } from "./dashboard-validation.js";

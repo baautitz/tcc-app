@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { dashboardDocumentSchema } from "../shared/lib/contracts.js";
+import { dashboardDocumentSchema } from "../../../shared/lib/contracts.js";
 import {
   aiDashboardProposalInputSchema,
   createDashboardDocument,
   dashboardDocumentFingerprint,
   dashboardReferenceFingerprint,
   summarizeDashboardChanges,
-} from "./ai-dashboard-proposals.js";
+} from "./dashboard-proposals.js";
 
 const dashboardId = "00000000-0000-4000-8000-000000000001";
 const queryId = "00000000-0000-4000-8000-000000000002";

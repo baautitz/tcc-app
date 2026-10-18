@@ -43,8 +43,8 @@ vi.mock("../shared/lib/passwords.js", () => ({
   verifyPassword: (p: string, hash: string) => hash === `hash:${p}`,
 }));
 vi.mock("../modules/identity/application/permissions.js", () => ({ assignPermissionKeys: vi.fn(async () => {}), ensureSystemPermissions: vi.fn() }));
-vi.mock("../services/dashboards.js", async (orig) => ({
-  ...(await orig<typeof import("../services/dashboards.js")>()),
+vi.mock("../modules/dashboards/domain/dashboards.js", async (orig) => ({
+  ...(await orig<typeof import("../modules/dashboards/domain/dashboards.js")>()),
   getRegisteredDashboards: vi.fn(async () => h.state.dashboards),
   syncDashboardDirectory: vi.fn(async () => ({ synced: 0 })),
 }));

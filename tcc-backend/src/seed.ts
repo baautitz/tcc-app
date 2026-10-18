@@ -6,7 +6,7 @@ import { encryptCredential } from "./shared/lib/credentials.js";
 import type { ParameterDefinition } from "./shared/lib/contracts.js";
 import { hashPassword } from "./shared/lib/passwords.js";
 import { assignPermissionKeys, ensureSystemPermissions } from "./modules/identity/application/permissions.js";
-import { syncDashboardDirectory } from "./services/dashboards.js";
+import { syncDashboardDirectory } from "./modules/dashboards/domain/dashboards.js";
 
 const ADMIN_EMAIL = "admin@tcc.local";
 const ADMIN_PASSWORD = "Admin@123";
