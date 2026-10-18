@@ -10,8 +10,11 @@ import { permissionRoutes } from "./modules/identity/http/permissions.routes.js"
 import { dashboardRoutes } from "./modules/dashboards/http/dashboards.routes.js";
 import { dataSourceRoutes } from "./modules/data-sources/http/data-sources.routes.js";
 import { queryRoutes } from "./modules/queries/http/queries.routes.js";
-import { publicQueryRoutes } from "./modules/queries/http/public-query.routes.js";
+import { configureDashboardFiles } from "./modules/queries/application/query-admin.js";
+import { dashboardFilesAdapter } from "./modules/dashboards/infrastructure/dashboard-files-adapter.js";
+import { publicQueryRoutes } from "./modules/dashboards/http/public-query.routes.js";
 
+configureDashboardFiles(dashboardFilesAdapter);
 const environment = getEnvironment();
 const app = new Hono<{ Variables: AppVariables }>();
 

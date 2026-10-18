@@ -23,7 +23,6 @@ import {
 import { runBoundedReadOnlyQueryWithRetry } from "../../data-sources/infrastructure/external-pg/index.js";
 import { hasPermission } from "../../identity/application/auth.js";
 
-import { canExecuteQuery } from "../../dashboards/domain/dashboard-access.js";
 import { bindQueryParameters } from "../domain/security/query-security.js";
 
 import { issueQueryTestReceipt, queryDraftFingerprint, querySourceTargetHash, saveQueryWithTestReceipt, type QueryLifecycleQuery } from "../domain/query-lifecycle.js";
@@ -35,7 +34,6 @@ import { createQueryLifecycleRepository } from "../infrastructure/query-lifecycl
 
 import type { AppContext } from "../../../shared/middleware/auth.js";
 import { jsonBody } from "../../../shared/middleware/json-body.js";
-import { accessibleQueryIds } from "../../dashboards/application/dashboard-visibility.js";
 import { getSourceOrThrow } from "../../data-sources/application/data-source-admin.js";
 import { throwApiError } from "../../../shared/lib/domain-error.js";
 import { parseParameters, validateQueryInput, getQueryOrThrow, QUERY_LIFECYCLE_MESSAGES, runQueryDefinition, deleteQueryWithDashboards } from "../application/query-admin.js";
@@ -196,27 +194,4 @@ export async function deleteQuery(context: AppContext) {
   const queryId = z.string().uuid().parse(context.req.param("id"));
   await deleteQueryWithDashboards(queryId);
   return context.body(null, 204);
-}
-
-export async function runPublicQuery(context: AppContext) {
-  const query = await getQueryOrThrow(z.string().uuid().parse(context.req.param("uuid")));
-  const currentUser = context.get("currentUser");
-  const queryIds = await accessibleQueryIds(currentUser);
-  if (!canExecuteQuery(currentUser, query.id, queryIds)) {
-    throw new ApiError(403, "A query não está vinculada a nenhum dashboard acessível por este usuário.");
-  }
-  const parameters = parseParameters(query.parameters);
-  const rawParameters: Record<string, string | string[]> = {};
-  const url = new URL(context.req.url);
-  for (const name of new Set([...url.searchParams.keys()])) {
-    const values = url.searchParams.getAll(name);
-    rawParameters[name] = values.length > 1 ? values : values[0];
-  }
-  const rows = await runQueryDefinition({
-    dataSourceId: query.dataSourceId,
-    sqlText: query.sqlText,
-    parameters,
-    values: rawParameters,
-  });
-  return context.json({ rows });
 }

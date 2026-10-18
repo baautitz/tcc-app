@@ -22,7 +22,7 @@ import {
 
 import { runReadOnlyQuery } from "../../data-sources/infrastructure/external-pg/index.js";
 
-import { DashboardFileCompensationError, getDashboardFiles, withDashboardFileCompensation, writeDashboardDocumentAtomically } from "../../dashboards/domain/dashboards.js";
+import type { DashboardFilesPort } from "../domain/dashboard-files-port.js";
 
 import { assertParameterDefinitions, assertReadOnlySql, assertSqlParameters, bindQueryParameters } from "../domain/security/query-security.js";
 
@@ -67,16 +67,23 @@ export async function runQueryDefinition(input: z.infer<typeof queryTestInputSch
     throw new ApiError(400, error instanceof Error ? error.message : "Não foi possível testar a query.");
   }
 }
+let dashboardFiles: DashboardFilesPort | undefined;
+export function configureDashboardFiles(port: DashboardFilesPort): void {
+  dashboardFiles = port;
+}
+
 export async function deleteQueryWithDashboards(queryId: string): Promise<void> {
+  if (!dashboardFiles) throw new Error("DashboardFilesPort não configurada.");
+  const files = dashboardFiles;
   const dashboardRollbacks: Array<() => Promise<void>> = [];
   try {
-    await withDashboardFileCompensation(
+    await files.withCompensation(
       () => withDashboardFilesLock(async (tx) => {
         const query = await savedQueriesRepository.lockNameById(tx, queryId);
         if (!query) throw new ApiError(404, "Query não encontrada.");
 
-        const dashboardFiles = await getDashboardFiles();
-        const lookupReference = dashboardFiles.flatMap(({ dashboard }) =>
+        const dashboardFileList = await files.getFiles();
+        const lookupReference = dashboardFileList.flatMap(({ dashboard }) =>
           dashboard.workspace.params
             .filter((parameter) => parameter.lookup?.queryUuid === queryId)
             .map((parameter) => ({ dashboardName: dashboard.name, parameterLabel: parameter.label })),
@@ -88,7 +95,7 @@ export async function deleteQueryWithDashboards(queryId: string): Promise<void> 
           );
         }
 
-        for (const { dashboard, filePath } of dashboardFiles) {
+        for (const { dashboard, filePath } of dashboardFileList) {
           const nextComponents = dashboard.ui.components.filter(
             (component) => component.props.queryUuid !== queryId,
           );
@@ -106,7 +113,7 @@ export async function deleteQueryWithDashboards(queryId: string): Promise<void> 
             ui: { ...dashboard.ui, components: nextComponents },
           };
           dashboardRollbacks.push(
-            await writeDashboardDocumentAtomically(filePath, nextDashboard),
+            await files.writeAtomically(filePath, nextDashboard),
           );
         }
 
@@ -130,10 +137,11 @@ export async function deleteQueryWithDashboards(queryId: string): Promise<void> 
         : undefined,
     );
   } catch (error) {
-    if (error instanceof DashboardFileCompensationError) {
+    const failure = files.asCompensationFailure(error);
+    if (failure) {
       console.error("[query] dashboard compensation failed after query deletion error", {
-        operationError: error.operationError,
-        compensationError: error.compensationError,
+        operationError: failure.operationError,
+        compensationError: failure.compensationError,
       });
       throw new ApiError(
         500,
