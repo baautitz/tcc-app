@@ -3,6 +3,7 @@ name: olist
 services:
   postgres:
     image: postgres:18-alpine
+    shm_size: 512mb
     container_name: olist-postgres
     environment:
       POSTGRES_DB: olist
