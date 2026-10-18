@@ -4,7 +4,7 @@ import type { DataSource } from "@/modules/data-sources/model/types";
 import { useIsMobile } from "@/shared/hooks/use-mobile";
 import { useLoad } from "@/shared/crud/useLoad";
 import { useRemove } from "@/shared/crud/useRemove";
-import { SectionLayout } from "@/features/admin/SectionLayout";
+import { SectionLayout } from "@/shared/layout/SectionLayout";
 import { SourceSheet } from "@/modules/data-sources/components/SourceSheet";
 import { SourcesTable } from "@/modules/data-sources/components/SourcesTable";
 

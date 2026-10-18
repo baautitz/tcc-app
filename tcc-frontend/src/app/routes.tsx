@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { Navigate, Route, Routes, useNavigate, useParams } from "react-router-dom";
 import { dashboardsApi } from "@/modules/dashboards/api/dashboards.api";
-import { AdminSectionPage } from "@/admin";
+import { AdminSectionPage } from "@/app/admin/AdminPage";
 import { DashboardListPage } from "@/modules/dashboards/pages/DashboardListPage";
 import { DashboardPage } from "@/modules/dashboards/pages/DashboardPage";
 import { DashboardContextEditor } from "@/modules/dashboards/components/context-editor/DashboardContextEditor";
-import { AppLayout } from "@/components/layout/AppLayout";
+import { AppLayout } from "@/app/layout/AppLayout";
 import { useAuth } from "@/modules/identity/hooks/AuthContext";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { toast } from "@/shared/ui/toast";

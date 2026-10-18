@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
-import { ApiError } from "@/api";
+import { ApiError } from "@/shared/api/client";
 import { aiApi } from "@/modules/ai/api/ai.api";
 import { dashboardsApi } from "@/modules/dashboards/api/dashboards.api";
 import { PanelRightClose, Sparkles } from "lucide-react";

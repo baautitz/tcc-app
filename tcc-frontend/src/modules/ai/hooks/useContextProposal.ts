@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ApiError } from "@/api";
+import { ApiError } from "@/shared/api/client";
 import { aiApi } from "@/modules/ai/api/ai.api";
 import { useCurrentViewRefresh } from "@/shared/context/CurrentViewRefreshContext";
 import { toast } from "@/shared/ui/toast";

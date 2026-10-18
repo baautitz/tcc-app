@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { ApiError } from "@/api";
+import { ApiError } from "@/shared/api/client";
 import { queriesApi } from "@/modules/queries/api/queries.api";
 import type { SavedQuery } from "@/modules/queries/model/types";
 

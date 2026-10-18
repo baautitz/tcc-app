@@ -1,4 +1,4 @@
-import type { Section } from "./SectionLayout";
+import type { Section } from "@/shared/layout/SectionLayout";
 import { PermissionsSection } from "@/modules/identity/pages/PermissionsSection";
 import { QueriesSection } from "@/modules/queries/pages/QueriesSection";
 import { SourcesSection } from "@/modules/data-sources/pages/SourcesSection";

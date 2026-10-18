@@ -3,7 +3,6 @@ import { afterEach } from "vitest";
 import { render, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CurrentViewRefreshProvider } from "@/shared/context/CurrentViewRefreshContext";
-import { api } from "@/api";
 import { dataSourcesApi } from "@/modules/data-sources/api/data-sources.api";
 import { identityApi } from "@/modules/identity/api/identity.api";
 import { queriesApi } from "@/modules/queries/api/queries.api";
@@ -23,10 +22,9 @@ vi.mock("@/modules/queries/api/queries.api", () => {
   const list = () => vi.fn(() => Promise.resolve([]));
   return { queriesApi: { queries: list() } };
 });
-vi.mock("@/api", () => ({ api: {} }));
 
 const calls = () =>
-  Object.entries({ ...api, ...identityApi, ...dataSourcesApi, ...queriesApi } as unknown as Record<string, ReturnType<typeof vi.fn>>)
+  Object.entries({ ...identityApi, ...dataSourcesApi, ...queriesApi } as unknown as Record<string, ReturnType<typeof vi.fn>>)
     .filter(([, fn]) => fn.mock.calls.length > 0)
     .map(([name]) => name)
     .sort();

@@ -4,7 +4,7 @@ import type { User } from "@/modules/identity/model/types";
 import { useIsMobile } from "@/shared/hooks/use-mobile";
 import { useLoad } from "@/shared/crud/useLoad";
 import { useRemove } from "@/shared/crud/useRemove";
-import { SectionLayout } from "@/features/admin/SectionLayout";
+import { SectionLayout } from "@/shared/layout/SectionLayout";
 import { ChangePasswordDialog } from "@/modules/identity/components/ChangePasswordDialog";
 import { UserSheet } from "@/modules/identity/components/UserSheet";
 import { UsersTable } from "@/modules/identity/components/UsersTable";

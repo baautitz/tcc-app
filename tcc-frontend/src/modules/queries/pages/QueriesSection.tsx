@@ -9,7 +9,7 @@ import { errorMessage } from "@/shared/lib/errors";
 import { QueryEditor } from "@/modules/queries/pages/QueryEditor";
 import { useLoad } from "@/shared/crud/useLoad";
 import { useRemove } from "@/shared/crud/useRemove";
-import { SectionLayout } from "@/features/admin/SectionLayout";
+import { SectionLayout } from "@/shared/layout/SectionLayout";
 import { QueriesTable } from "@/modules/queries/components/QueriesTable";
 
 export function QueriesSection() {

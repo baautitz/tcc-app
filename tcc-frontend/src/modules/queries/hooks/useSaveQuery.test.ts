@@ -1,6 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ApiError } from "@/api";
+import { ApiError } from "@/shared/api/client";
 import { queriesApi } from "@/modules/queries/api/queries.api";
 import { useSaveQuery } from "@/modules/queries/hooks/useSaveQuery";
 
