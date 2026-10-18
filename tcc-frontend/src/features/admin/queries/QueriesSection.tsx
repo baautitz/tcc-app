@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { api } from "@/api";
-import type { DataSource, QuerySummary, SavedQuery } from "@/types";
+import type { DataSource } from "@/modules/data-sources/model/types";
+import type { QuerySummary, SavedQuery } from "@/types";
+import { dataSourcesApi } from "@/modules/data-sources/api/data-sources.api";
 import { toast } from "@/shared/ui/toast";
 import { useIsMobile } from "@/shared/hooks/use-mobile";
 import { errorMessage } from "@/shared/lib/errors";
@@ -17,7 +19,7 @@ export function QueriesSection() {
     async () => {
       const [queries, sources] = await Promise.all([
         api.queries(),
-        api.dataSources(),
+        dataSourcesApi.dataSources(),
       ]);
       return { queries, sources };
     },

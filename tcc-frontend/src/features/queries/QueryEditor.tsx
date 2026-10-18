@@ -9,7 +9,8 @@ import { useSaveQuery } from "./useSaveQuery";
 import { QueryFormFields } from "./QueryFormFields";
 import { QueryPreviewPanel } from "./QueryPreviewPanel";
 import { parseParameters, parseTestValues, queryFormSchema, type QueryForm, type ReviewedQueryPreview } from "./queryForm";
-import type { DataSource, SavedQuery } from "@/types";
+import type { DataSource } from "@/modules/data-sources/model/types";
+import type { SavedQuery } from "@/types";
 import { Button } from "@/shared/ui/button";
 import {
   Card,

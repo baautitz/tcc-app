@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Database } from "lucide-react";
-import { api, ApiError } from "@/api";
-import type { DataSource, DataSourceTable } from "@/types";
+import { dataSourcesApi } from "@/modules/data-sources/api/data-sources.api";
+import { ApiError } from "@/shared/api/client";
+import type { DataSource, DataSourceTable } from "@/modules/data-sources/model/types";
 import { useEntityForm } from "@/shared/crud/useEntityForm";
 import { errorMessage } from "@/shared/lib/errors";
 import { toast } from "@/shared/ui/toast";
@@ -56,7 +57,7 @@ export function SourceSheet({
     save: async (values, form) => {
       const { password, ...fields } = values;
       const body = { ...fields, ...(password ? { password } : {}) };
-      if (source) await api.updateDataSource(source.id, body);
+      if (source) await dataSourcesApi.updateDataSource(source.id, body);
       else {
         if (!values.password) {
           form.setError("password", {
@@ -64,7 +65,7 @@ export function SourceSheet({
           });
           return;
         }
-        await api.createDataSource(body);
+        await dataSourcesApi.createDataSource(body);
       }
       return source
         ? "Servidor atualizado e validado."
@@ -76,7 +77,7 @@ export function SourceSheet({
   useEffect(() => {
     setSourceUpdatedAt(source?.updatedAt ?? "");
     if (source && open)
-      api
+      dataSourcesApi
         .dataSource(source.id)
         .then((detail) => {
           setTables(detail.tables);
@@ -88,7 +89,7 @@ export function SourceSheet({
   const saveContext = async (table: DataSourceTable, context: string) => {
     if (!source || context === table.context) return;
     try {
-      const updated = await api.updateTableContext(
+      const updated = await dataSourcesApi.updateTableContext(
         source.id,
         table.id,
         context,
@@ -102,7 +103,7 @@ export function SourceSheet({
     } catch (reason) {
       if (reason instanceof ApiError && reason.status === 409) {
         try {
-          const fresh = await api.dataSource(source.id);
+          const fresh = await dataSourcesApi.dataSource(source.id);
           setSourceUpdatedAt(fresh.updatedAt);
           setTables(fresh.tables);
           toast.error(reason.message.includes("contexto da tabela")

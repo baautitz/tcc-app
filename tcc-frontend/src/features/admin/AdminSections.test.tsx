@@ -4,6 +4,7 @@ import { render, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CurrentViewRefreshProvider } from "@/shared/context/CurrentViewRefreshContext";
 import { api } from "@/api";
+import { dataSourcesApi } from "@/modules/data-sources/api/data-sources.api";
 import { identityApi } from "@/modules/identity/api/identity.api";
 import { ImperativeUIProvider } from "@/shared/context/ImperativeUIContext";
 import { AdminSectionPage } from "./AdminPage";
@@ -13,15 +14,19 @@ vi.mock("@/modules/identity/api/identity.api", () => {
   const list = () => vi.fn(() => Promise.resolve([]));
   return { identityApi: { users: list(), permissions: list() } };
 });
+vi.mock("@/modules/data-sources/api/data-sources.api", () => {
+  const list = () => vi.fn(() => Promise.resolve([]));
+  return { dataSourcesApi: { dataSources: list() } };
+});
 vi.mock("@/api", () => {
   const list = () => vi.fn(() => Promise.resolve([]));
   return {
-    api: { dataSources: list(), queries: list() },
+    api: { queries: list() },
   };
 });
 
 const calls = () =>
-  Object.entries({ ...api, ...identityApi } as unknown as Record<string, ReturnType<typeof vi.fn>>)
+  Object.entries({ ...api, ...identityApi, ...dataSourcesApi } as unknown as Record<string, ReturnType<typeof vi.fn>>)
     .filter(([, fn]) => fn.mock.calls.length > 0)
     .map(([name]) => name)
     .sort();

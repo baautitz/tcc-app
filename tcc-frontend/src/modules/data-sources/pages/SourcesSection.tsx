@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { api } from "@/api";
-import type { DataSource } from "@/types";
+import { dataSourcesApi } from "@/modules/data-sources/api/data-sources.api";
+import type { DataSource } from "@/modules/data-sources/model/types";
 import { useIsMobile } from "@/shared/hooks/use-mobile";
 import { useLoad } from "@/shared/crud/useLoad";
 import { useRemove } from "@/shared/crud/useRemove";
-import { SectionLayout } from "../SectionLayout";
-import { SourceSheet } from "./SourceSheet";
-import { SourcesTable } from "./SourcesTable";
+import { SectionLayout } from "@/features/admin/SectionLayout";
+import { SourceSheet } from "@/modules/data-sources/components/SourceSheet";
+import { SourcesTable } from "@/modules/data-sources/components/SourcesTable";
 
 export function SourcesSection() {
   const isMobile = useIsMobile();
@@ -18,7 +18,7 @@ export function SourcesSection() {
     loading,
     error,
     load,
-  } = useLoad(() => api.dataSources(), [] as DataSource[], {
+  } = useLoad(() => dataSourcesApi.dataSources(), [] as DataSource[], {
     // mantém o sheet aberto apontando para a versão atualizada da fonte
     onLoaded: (next) =>
       setSheet((current) =>
@@ -47,7 +47,7 @@ export function SourcesSection() {
         isMobile={isMobile}
         onEdit={(value) => setSheet({ open: true, value })}
         onDelete={(value) =>
-          void remove(value.name, () => api.deleteDataSource(value.id))
+          void remove(value.name, () => dataSourcesApi.deleteDataSource(value.id))
         }
       />
       <SourceSheet

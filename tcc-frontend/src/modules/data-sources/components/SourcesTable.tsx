@@ -1,5 +1,5 @@
 import { Database } from "lucide-react";
-import type { DataSource } from "@/types";
+import type { DataSource } from "@/modules/data-sources/model/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { MobileCard } from "@/shared/ui/mobile-card";
 import { Skeleton } from "@/shared/ui/skeleton";

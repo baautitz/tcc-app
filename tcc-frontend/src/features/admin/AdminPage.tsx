@@ -1,7 +1,7 @@
 import type { Section } from "./SectionLayout";
 import { PermissionsSection } from "@/modules/identity/pages/PermissionsSection";
 import { QueriesSection } from "./queries/QueriesSection";
-import { SourcesSection } from "./sources/SourcesSection";
+import { SourcesSection } from "@/modules/data-sources/pages/SourcesSection";
 import { UsersSection } from "@/modules/identity/pages/UsersSection";
 
 const sections = {

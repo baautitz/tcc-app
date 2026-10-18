@@ -1,4 +1,4 @@
-import type { DataSource } from "@/types";
+import type { DataSource } from "@/modules/data-sources/model/types";
 import type { ReviewedQueryPreview } from "./queryForm";
 
 export function QueryPreviewPanel({ preview, sources, name }: { preview: ReviewedQueryPreview; sources: DataSource[]; name: string }) {

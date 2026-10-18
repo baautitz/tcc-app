@@ -1,5 +1,5 @@
 import type { UseFormReturn } from "react-hook-form";
-import type { DataSource } from "@/types";
+import type { DataSource } from "@/modules/data-sources/model/types";
 import { FieldGroup } from "@/shared/ui/field";
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/shared/ui/form";
 import { Input } from "@/shared/ui/input";
