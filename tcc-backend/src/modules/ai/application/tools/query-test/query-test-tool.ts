@@ -10,7 +10,7 @@ import {
   QueryInputValidationError,
   assertAiCatalogTableReferences,
   type AiCatalogTableReference,
-} from "../../../../queries/domain/security/query-security.js";
+} from "../../../../../shared/security/query-security.js";
 import { queryDraftFingerprint } from "../../../../queries/domain/query-lifecycle.js";
 import type { QueryLifecycleQuery } from "../../../../queries/domain/query-lifecycle.js";
 import {

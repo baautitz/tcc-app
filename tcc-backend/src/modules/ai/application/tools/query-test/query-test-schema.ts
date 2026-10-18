@@ -3,7 +3,7 @@ import { z } from "zod";
 import { parameterDefinitionSchema } from "../../../../../shared/lib/contracts.js";
 import type { UnsafeAiColumnType } from "../../../../data-sources/infrastructure/external-pg/index.js";
 import type { AiReadSource, AiReadTableName, AiToolProgressEvent } from "../ai-read-tools.js";
-import type { AiCatalogTableReference } from "../../../../queries/domain/security/query-security.js";
+import type { AiCatalogTableReference } from "../../../../../shared/security/query-security.js";
 import type { QueryLifecycleQuery } from "../../../../queries/domain/query-lifecycle.js";
 
 export const MAX_SQL_DRAFT_CHARACTERS = 100_000;

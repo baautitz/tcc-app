@@ -24,7 +24,7 @@ import { runReadOnlyQuery } from "../../data-sources/infrastructure/external-pg/
 
 import type { DashboardFilesPort } from "../domain/dashboard-files-port.js";
 
-import { assertParameterDefinitions, assertReadOnlySql, assertSqlParameters, bindQueryParameters } from "../domain/security/query-security.js";
+import { assertParameterDefinitions, assertReadOnlySql, assertSqlParameters, bindQueryParameters } from "../../../shared/security/query-security.js";
 
 import { ApiError } from "../../../shared/lib/domain-error.js";
 import { sourceConnection } from "../../data-sources/infrastructure/source-connection.js";

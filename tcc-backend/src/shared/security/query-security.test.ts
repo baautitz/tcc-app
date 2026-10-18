@@ -7,7 +7,7 @@ import {
   bindQueryParameters,
   QueryInputValidationError,
 } from "./query-security.js";
-import type { ParameterDefinition } from "../../../../shared/lib/contracts.js";
+import type { ParameterDefinition } from "../lib/contracts.js";
 
 const parameters: ParameterDefinition[] = [
   { name: "start_date", label: "Data inicial", type: "date", required: true },

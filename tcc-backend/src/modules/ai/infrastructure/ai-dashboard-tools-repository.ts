@@ -6,7 +6,7 @@ import { AI_QUERY_MAX_BYTES, AI_QUERY_MAX_ROWS, runBoundedReadOnlyQueryWithRetry
 import { getRegisteredDashboardFiles } from "../../dashboards/application/dashboard-registry.js";
 import { querySourceTargetHash } from "../../queries/domain/query-lifecycle.js";
 import { dashboardDocumentFingerprint } from "../../dashboards/domain/dashboard-proposals.js";
-import { assertParameterDefinitions, assertSqlParameters, bindQueryParameters } from "../../queries/domain/security/query-security.js";
+import { assertParameterDefinitions, assertSqlParameters, bindQueryParameters } from "../../../shared/security/query-security.js";
 import type { AiDashboardQuery, AiDashboardQueryDefinition, AiDashboardToolsRepository } from "../application/tools/ai-dashboard-tools.js";
 import { parameterDefinitionSchema } from "../../../shared/lib/contracts.js";
 import { sourceConnection } from "../../data-sources/infrastructure/source-connection.js";

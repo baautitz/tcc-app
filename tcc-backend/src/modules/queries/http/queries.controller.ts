@@ -23,7 +23,7 @@ import {
 import { runBoundedReadOnlyQueryWithRetry } from "../../data-sources/infrastructure/external-pg/index.js";
 import { hasPermission } from "../../identity/application/auth.js";
 
-import { bindQueryParameters } from "../domain/security/query-security.js";
+import { bindQueryParameters } from "../../../shared/security/query-security.js";
 
 import { issueQueryTestReceipt, queryDraftFingerprint, querySourceTargetHash, saveQueryWithTestReceipt, type QueryLifecycleQuery } from "../domain/query-lifecycle.js";
 

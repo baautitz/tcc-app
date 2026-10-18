@@ -18,7 +18,7 @@ module.exports = {
       from: { path: M + "identity/" }, to: { path: M + "(data-sources|queries|dashboards|ai)/" } },
     { name: "data-sources-folha", severity: "error",
       from: { path: M + "data-sources/" },
-      to: { path: M + "(identity|dashboards|ai)/|" + M + "queries/(?!domain/security)" } },
+      to: { path: M + "(identity|dashboards|ai)/|" + M + "queries/" } },
     { name: "queries-nao-importa-dashboards-ai", severity: "error",
       from: { path: M + "queries/" }, to: { path: M + "(dashboards|ai)/" } },
     { name: "dashboards-nao-importa-ai", severity: "error",

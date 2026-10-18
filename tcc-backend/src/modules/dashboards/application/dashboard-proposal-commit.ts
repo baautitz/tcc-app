@@ -27,7 +27,7 @@ import type { AuthenticatedUser } from "../../identity/domain/auth-user.js";
 import { isEditableDashboardFilePath, writeDashboardDocumentAtomically } from "../domain/dashboards.js";
 import { buildDashboardDefinitionFromDocument, dashboardQueryReferences } from "./dashboard-sync.js";
 
-import { assertParameterDefinitions, assertSqlParameters, bindQueryParameters } from "../../queries/domain/security/query-security.js";
+import { assertParameterDefinitions, assertSqlParameters, bindQueryParameters } from "../../../shared/security/query-security.js";
 
 import { querySourceTargetHash } from "../../queries/domain/query-lifecycle.js";
 import { validateDashboardPreviewFields } from "../domain/dashboard-preview-validation.js";

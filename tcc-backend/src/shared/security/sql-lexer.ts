@@ -1,4 +1,4 @@
-import { DomainError } from "../../../../shared/lib/domain-error.js";
+import { DomainError } from "../lib/domain-error.js";
 const MAX_SQL_CHARACTERS = 100_000;
 
 export type Token = {
