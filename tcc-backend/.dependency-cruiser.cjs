@@ -9,10 +9,10 @@ module.exports = {
     { name: "application-sem-http", severity: "error",
       from: { path: M + "([^/]+)/application/" },
       to: { path: M + "$1/http/" } },
-    // nunca http de outro modulo (infrastructure cruzada e divida: ver docs/arquitetura.md)
-    { name: "modulo-nunca-http-de-outro", severity: "error",
+    // outro modulo so via domain/application (portas injetadas em app.ts)
+    { name: "modulo-so-domain-application-de-outro", severity: "error",
       from: { path: M + "([^/]+)/", pathNot: free },
-      to: { path: M + "[^/]+/http/", pathNot: M + "$1/" } },
+      to: { path: M + "[^/]+/(infrastructure|http)/", pathNot: M + "$1/" } },
     // direcao: identity <- data-sources / queries <- dashboards <- ai
     { name: "identity-folha", severity: "error",
       from: { path: M + "identity/" }, to: { path: M + "(data-sources|queries|dashboards|ai)/" } },
