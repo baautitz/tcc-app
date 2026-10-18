@@ -5,7 +5,7 @@ import { savedQueriesRepository } from "../../queries/infrastructure/saved-queri
 
 import type { AuthenticatedUser } from "../../identity/domain/auth-user.js";
 
-import { getRegisteredDashboards } from "../domain/dashboards.js";
+import { getRegisteredDashboards } from "./dashboard-registry.js";
 import { dashboardQueryReferences } from "./dashboard-sync.js";
 import { canAccessDashboard } from "../domain/dashboard-access.js";
 

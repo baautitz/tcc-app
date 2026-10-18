@@ -3,7 +3,7 @@ import { z } from "zod";
 import { db } from "../../../shared/db/client.js";
 import { dashboardProposalReceipts, dataSources, savedQueries } from "../../../shared/db/schema.js";
 import { AI_QUERY_MAX_BYTES, AI_QUERY_MAX_ROWS, runBoundedReadOnlyQueryWithRetry, type ExternalPostgresConfig } from "../../data-sources/infrastructure/external-pg/index.js";
-import { getRegisteredDashboardFiles } from "../../dashboards/domain/dashboards.js";
+import { getRegisteredDashboardFiles } from "../../dashboards/application/dashboard-registry.js";
 import { querySourceTargetHash } from "../../queries/domain/query-lifecycle.js";
 import { dashboardDocumentFingerprint } from "../../dashboards/domain/dashboard-proposals.js";
 import { assertParameterDefinitions, assertSqlParameters, bindQueryParameters } from "../../queries/domain/security/query-security.js";

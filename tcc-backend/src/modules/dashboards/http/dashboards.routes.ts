@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { adminRequired, authentication, type AppVariables } from "../../../shared/middleware/auth.js";
-import { createAdminDashboard, getAdminDashboard, getDashboard, getDashboardUsers, listDashboards, setDashboardUsers, syncDashboards, updateAdminDashboard } from "./dashboards.controller.js";
+import { createAdminDashboard, getAdminDashboard, getDashboard, commitProposal, getDashboardUsers, listDashboards, previewProposal, setDashboardUsers, syncDashboards, updateAdminDashboard } from "./dashboards.controller.js";
 
 export const dashboardRoutes = new Hono<{ Variables: AppVariables }>();
 dashboardRoutes.post("/api/dashboards/sync", authentication, adminRequired, syncDashboards);
@@ -11,3 +11,5 @@ dashboardRoutes.get("/api/admin/dashboards/:id/users", authentication, adminRequ
 dashboardRoutes.put("/api/admin/dashboards/:id/users", authentication, adminRequired, setDashboardUsers);
 dashboardRoutes.get("/api/dashboards", authentication, listDashboards);
 dashboardRoutes.get("/api/dashboards/:id", authentication, getDashboard);
+dashboardRoutes.post("/api/admin/ai/dashboard-proposals/:id/preview", authentication, adminRequired, previewProposal);
+dashboardRoutes.post("/api/admin/ai/dashboard-proposals/:id/commit", authentication, adminRequired, commitProposal);

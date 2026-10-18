@@ -8,10 +8,8 @@ import {
   type DashboardDefinition,
   type ParameterDefinition,
 } from "../../../shared/lib/contracts.js";
-import {
-  getRegisteredDashboards,
-  type DashboardDocument,
-} from "../domain/dashboards.js";
+import type { DashboardDocument } from "../domain/dashboards.js";
+import { getRegisteredDashboards } from "./dashboard-registry.js";
 
 type JsonRecord = Record<string, unknown>;
 export type DashboardQueryMetadata = { id: string; parameters: unknown };

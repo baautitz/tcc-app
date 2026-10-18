@@ -20,7 +20,8 @@ import {
   
 } from "../../../shared/lib/contracts.js";
 
-import { createDashboardFile, DashboardFileCompensationError, isEditableDashboardFilePath, syncDashboardDirectory, withDashboardFileCompensation, writeDashboardDocumentAtomically } from "../domain/dashboards.js";
+import { DashboardFileCompensationError, isEditableDashboardFilePath, withDashboardFileCompensation, writeDashboardDocumentAtomically } from "../domain/dashboards.js";
+import { createDashboardFile, syncDashboardDirectory } from "./dashboard-registry.js";
 
 import { dashboardDocumentFingerprint } from "../domain/dashboard-proposals.js";
 

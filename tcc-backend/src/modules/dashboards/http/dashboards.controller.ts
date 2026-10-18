@@ -20,7 +20,7 @@ import {
   
 } from "../../../shared/lib/contracts.js";
 
-import { getDashboardFileById, getRegisteredDashboardFiles, getRegisteredDashboards } from "../domain/dashboards.js";
+import { getDashboardFileById, getRegisteredDashboardFiles, getRegisteredDashboards } from "../application/dashboard-registry.js";
 import { buildDashboardDefinitionFromDocument, dashboardQueryReferences } from "../application/dashboard-sync.js";
 
 import { dashboardDocumentFingerprint } from "../domain/dashboard-proposals.js";
