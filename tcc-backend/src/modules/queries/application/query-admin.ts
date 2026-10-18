@@ -1,9 +1,9 @@
-import { getSourceOrThrow } from "../modules/data-sources/application/data-source-admin.js";
+import { getSourceOrThrow } from "../../data-sources/application/data-source-admin.js";
 
 import { z } from "zod";
 
-import { savedQueriesRepository } from "../repositories/saved-queries-repository.js";
-import { withDashboardFilesLock } from "../shared/db/db-executor.js";
+import { savedQueriesRepository } from "../infrastructure/saved-queries-repository.js";
+import { withDashboardFilesLock } from "../../../shared/db/db-executor.js";
 import {
   
   
@@ -18,16 +18,16 @@ import {
   
   
   type ParameterDefinition,
-} from "../shared/lib/contracts.js";
+} from "../../../shared/lib/contracts.js";
 
-import { runReadOnlyQuery } from "../modules/data-sources/infrastructure/external-pg/index.js";
+import { runReadOnlyQuery } from "../../data-sources/infrastructure/external-pg/index.js";
 
-import { DashboardFileCompensationError, getDashboardFiles, withDashboardFileCompensation, writeDashboardDocumentAtomically } from "./dashboards.js";
+import { DashboardFileCompensationError, getDashboardFiles, withDashboardFileCompensation, writeDashboardDocumentAtomically } from "../../../services/dashboards.js";
 
-import { assertParameterDefinitions, assertReadOnlySql, assertSqlParameters, bindQueryParameters } from "./query-security.js";
+import { assertParameterDefinitions, assertReadOnlySql, assertSqlParameters, bindQueryParameters } from "../domain/security/query-security.js";
 
-import { ApiError } from "../shared/lib/domain-error.js";
-import { sourceConnection } from "../modules/data-sources/infrastructure/source-connection.js";
+import { ApiError } from "../../../shared/lib/domain-error.js";
+import { sourceConnection } from "../../data-sources/infrastructure/source-connection.js";
 
 export function parseParameters(value: unknown): ParameterDefinition[] {
   return z.array(parameterDefinitionSchema).parse(value);

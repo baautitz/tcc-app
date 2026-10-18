@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { dashboardFilesRepository } from "../repositories/dashboard-files-repository.js";
 import { withDashboardFilesLock } from "../shared/db/db-executor.js";
-import { savedQueriesRepository } from "../repositories/saved-queries-repository.js";
+import { savedQueriesRepository } from "../modules/queries/infrastructure/saved-queries-repository.js";
 import {
   
   
@@ -27,9 +27,9 @@ import type { AuthenticatedUser } from "../modules/identity/domain/auth-user.js"
 import { isEditableDashboardFilePath, writeDashboardDocumentAtomically } from "./dashboards.js";
 import { buildDashboardDefinitionFromDocument, dashboardQueryReferences } from "./dashboard-sync.js";
 
-import { assertParameterDefinitions, assertSqlParameters, bindQueryParameters } from "./query-security.js";
+import { assertParameterDefinitions, assertSqlParameters, bindQueryParameters } from "../modules/queries/domain/security/query-security.js";
 
-import { querySourceTargetHash } from "./query-lifecycle.js";
+import { querySourceTargetHash } from "../modules/queries/domain/query-lifecycle.js";
 import { validateDashboardPreviewFields } from "./ai-dashboard-tools.js";
 import { dashboardDocumentFingerprint, dashboardProposalPreviewScope, dashboardReferenceFingerprint } from "./ai-dashboard-proposals.js";
 import { assertDashboardPreviewAcknowledged, assertDashboardProposalFresh, assertDashboardProposalUsable, isDashboardProposalAlreadyApplied } from "./dashboard-proposal-lifecycle.js";

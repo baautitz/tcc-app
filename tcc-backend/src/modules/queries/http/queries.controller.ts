@@ -1,9 +1,9 @@
 
 
 import { z } from "zod";
-import { } from "../shared/config/config.js";
-import { savedQueriesRepository } from "../repositories/saved-queries-repository.js";
-import type { savedQueries } from "../shared/db/schema.js";
+import { } from "../../../shared/config/config.js";
+import { savedQueriesRepository } from "../infrastructure/saved-queries-repository.js";
+import type { savedQueries } from "../../../shared/db/schema.js";
 import {
   
   
@@ -18,27 +18,27 @@ import {
   
   
   
-} from "../shared/lib/contracts.js";
+} from "../../../shared/lib/contracts.js";
 
-import { runBoundedReadOnlyQueryWithRetry } from "../modules/data-sources/infrastructure/external-pg/index.js";
-import { hasPermission } from "../modules/identity/application/auth.js";
+import { runBoundedReadOnlyQueryWithRetry } from "../../data-sources/infrastructure/external-pg/index.js";
+import { hasPermission } from "../../identity/application/auth.js";
 
-import { canExecuteQuery } from "../services/dashboard-access.js";
-import { bindQueryParameters } from "../services/query-security.js";
+import { canExecuteQuery } from "../../../services/dashboard-access.js";
+import { bindQueryParameters } from "../domain/security/query-security.js";
 
-import { issueQueryTestReceipt, queryDraftFingerprint, querySourceTargetHash, saveQueryWithTestReceipt, type QueryLifecycleQuery } from "../services/query-lifecycle.js";
+import { issueQueryTestReceipt, queryDraftFingerprint, querySourceTargetHash, saveQueryWithTestReceipt, type QueryLifecycleQuery } from "../domain/query-lifecycle.js";
 
-import { ApiError } from "../shared/lib/domain-error.js";
-import { sourceConnection } from "../modules/data-sources/infrastructure/source-connection.js";
+import { ApiError } from "../../../shared/lib/domain-error.js";
+import { sourceConnection } from "../../data-sources/infrastructure/source-connection.js";
 
-import { createQueryLifecycleRepository } from "../repositories/query-lifecycle.js";
+import { createQueryLifecycleRepository } from "../infrastructure/query-lifecycle-repository.js";
 
-import type { AppContext } from "../shared/middleware/auth.js";
-import { jsonBody } from "../shared/middleware/json-body.js";
-import { accessibleQueryIds } from "../services/dashboard-visibility.js";
-import { getSourceOrThrow } from "../modules/data-sources/application/data-source-admin.js";
-import { throwApiError } from "../shared/lib/domain-error.js";
-import { parseParameters, validateQueryInput, getQueryOrThrow, QUERY_LIFECYCLE_MESSAGES, runQueryDefinition, deleteQueryWithDashboards } from "../services/query-admin.js";
+import type { AppContext } from "../../../shared/middleware/auth.js";
+import { jsonBody } from "../../../shared/middleware/json-body.js";
+import { accessibleQueryIds } from "../../../services/dashboard-visibility.js";
+import { getSourceOrThrow } from "../../data-sources/application/data-source-admin.js";
+import { throwApiError } from "../../../shared/lib/domain-error.js";
+import { parseParameters, validateQueryInput, getQueryOrThrow, QUERY_LIFECYCLE_MESSAGES, runQueryDefinition, deleteQueryWithDashboards } from "../application/query-admin.js";
 
 export async function listQueries(context: AppContext) {
   return context.json(await savedQueriesRepository.listSummaries());

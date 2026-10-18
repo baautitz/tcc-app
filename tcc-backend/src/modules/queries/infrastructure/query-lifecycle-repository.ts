@@ -1,8 +1,8 @@
 import { and, eq, gt, isNull, sql } from "drizzle-orm";
-import { db } from "../shared/db/client.js";
-import { dataSources, queryTestRuns, savedQueries } from "../shared/db/schema.js";
-import { ApiError } from "../shared/lib/domain-error.js";
-import type { QueryLifecycleRepository, QueryLifecycleTransaction, QuerySaveMode } from "../services/query-lifecycle.js";
+import { db } from "../../../shared/db/client.js";
+import { dataSources, queryTestRuns, savedQueries } from "../../../shared/db/schema.js";
+import { ApiError } from "../../../shared/lib/domain-error.js";
+import type { QueryLifecycleRepository, QueryLifecycleTransaction, QuerySaveMode } from "../domain/query-lifecycle.js";
 
 export function createQueryLifecycleRepository(): QueryLifecycleRepository {
   return {

@@ -9,8 +9,8 @@ import { userRoutes } from "./modules/identity/http/users.routes.js";
 import { permissionRoutes } from "./modules/identity/http/permissions.routes.js";
 import { dashboardRoutes } from "./routes/dashboards.js";
 import { dataSourceRoutes } from "./modules/data-sources/http/data-sources.routes.js";
-import { queryRoutes } from "./routes/queries.js";
-import { publicQueryRoutes } from "./routes/public-query.js";
+import { queryRoutes } from "./modules/queries/http/queries.routes.js";
+import { publicQueryRoutes } from "./modules/queries/http/public-query.routes.js";
 
 const environment = getEnvironment();
 const app = new Hono<{ Variables: AppVariables }>();

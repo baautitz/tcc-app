@@ -43,7 +43,7 @@ vi.mock("../modules/data-sources/infrastructure/external-pg/index.js", async (or
   runBoundedReadOnlyQueryWithRetry: vi.fn(async () => ({ rows: [{ n: 1 }], truncated: false })),
   inspectReadOnlyPostgres: vi.fn(async () => [{ schemaName: "public", tableName: "t" }]),
 }));
-vi.mock("../repositories/query-lifecycle.js", () => ({
+vi.mock("../modules/queries/infrastructure/query-lifecycle-repository.js", () => ({
   createQueryLifecycleRepository: () => ({
     transaction: async (op: (tx: unknown) => unknown) => op({
       lockSource: async (id: string) => (h.state.lifecycle.source?.id === id ? h.state.lifecycle.source : undefined),

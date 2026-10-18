@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { } from "../shared/config/config.js";
 import { dashboardAccessRepository } from "../repositories/dashboard-access-repository.js";
-import { savedQueriesRepository } from "../repositories/saved-queries-repository.js";
+import { savedQueriesRepository } from "../modules/queries/infrastructure/saved-queries-repository.js";
 import {
   
   

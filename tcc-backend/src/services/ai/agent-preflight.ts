@@ -1,4 +1,4 @@
-import { assertAiCatalogTableReferences } from "../query-security.js";
+import { assertAiCatalogTableReferences } from "../../modules/queries/domain/security/query-security.js";
 
 export function parseToolResult(content: unknown): Record<string, unknown> | undefined {
   if (content && typeof content === "object" && !Array.isArray(content)) {

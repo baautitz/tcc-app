@@ -1,6 +1,6 @@
 import { Hono } from "hono";
-import { authentication, permissionRequired, type AppVariables } from "../shared/middleware/auth.js";
-import { createQuery, deleteQuery, getQuery, listQueries, previewQuery, testSavedQuery, updateQuery } from "../controllers/queries.js";
+import { authentication, permissionRequired, type AppVariables } from "../../../shared/middleware/auth.js";
+import { createQuery, deleteQuery, getQuery, listQueries, previewQuery, testSavedQuery, updateQuery } from "./queries.controller.js";
 
 export const queryRoutes = new Hono<{ Variables: AppVariables }>();
 queryRoutes.get("/api/queries", authentication, permissionRequired("queries:read"), listQueries);

@@ -3,8 +3,8 @@ import type { z } from "zod";
 import type { inputSchema } from "./query-test-schema.js";
 import { ExternalQueryExecutionError } from "../../modules/data-sources/infrastructure/external-pg/index.js";
 import type { AiReadSource, AiToolProgressEvent } from "../ai-read-tools.js";
-import type { QueryInputValidationError } from "../query-security.js";
-import type { QueryLifecycleQuery } from "../query-lifecycle.js";
+import type { QueryInputValidationError } from "../../modules/queries/domain/security/query-security.js";
+import type { QueryLifecycleQuery } from "../../modules/queries/domain/query-lifecycle.js";
 import type { CreateAiQueryTestToolsOptions, AiQueryTestRepository, AiQueryTestResult } from "./query-test-schema.js";
 
 export type RuntimeWithToolCallId = ToolRuntime & { toolCallId?: string };

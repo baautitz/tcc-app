@@ -4,8 +4,8 @@ import { dataSourceTables, dataSources, savedQueries } from "../shared/db/schema
 import { findUnsafeAiColumnTypes, getPostgresTableColumns, listPostgresBaseTables } from "../modules/data-sources/infrastructure/external-pg/index.js";
 import type { AiReadSource, AiReadTable, AiReadTableName } from "../services/ai-read-tools.js";
 import { MAX_DATA_SOURCE_CATALOG_TABLES } from "../modules/data-sources/domain/data-source-catalog.js";
-import { issueQueryTestReceipt, querySourceTargetHash } from "../services/query-lifecycle.js";
-import { createQueryLifecycleRepository } from "./query-lifecycle.js";
+import { issueQueryTestReceipt, querySourceTargetHash } from "../modules/queries/domain/query-lifecycle.js";
+import { createQueryLifecycleRepository } from "../modules/queries/infrastructure/query-lifecycle-repository.js";
 import { sourceConnection } from "../modules/data-sources/infrastructure/source-connection.js";
 
 function aiReadSource(source: typeof dataSources.$inferSelect): AiReadSource {

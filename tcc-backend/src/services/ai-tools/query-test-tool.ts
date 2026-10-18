@@ -10,9 +10,9 @@ import {
   QueryInputValidationError,
   assertAiCatalogTableReferences,
   type AiCatalogTableReference,
-} from "../query-security.js";
-import { queryDraftFingerprint } from "../query-lifecycle.js";
-import type { QueryLifecycleQuery } from "../query-lifecycle.js";
+} from "../../modules/queries/domain/security/query-security.js";
+import { queryDraftFingerprint } from "../../modules/queries/domain/query-lifecycle.js";
+import type { QueryLifecycleQuery } from "../../modules/queries/domain/query-lifecycle.js";
 import {
   inputSchema,
   MAX_DATABASE_ATTEMPTS,

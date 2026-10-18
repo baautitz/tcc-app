@@ -1,4 +1,4 @@
-import type { ParameterDefinition } from "../../shared/lib/contracts.js";
+import type { ParameterDefinition } from "../../../../shared/lib/contracts.js";
 import { QueryInputValidationError, tokenizeSql } from "./sql-lexer.js";
 
 const MAX_PARAMETERS = 50;

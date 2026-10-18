@@ -1,6 +1,6 @@
-import { DomainError } from "../shared/lib/domain-error.js";
-import { sha256Hex } from "../shared/lib/hash.js";
-import type { ParameterDefinition } from "../shared/lib/contracts.js";
+import { DomainError } from "../../../shared/lib/domain-error.js";
+import { sha256Hex } from "../../../shared/lib/hash.js";
+import type { ParameterDefinition } from "../../../shared/lib/contracts.js";
 
 export const QUERY_TEST_RECEIPT_TTL_MS = 10 * 60 * 1_000;
 
