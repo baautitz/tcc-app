@@ -1,6 +1,6 @@
 import type { z } from "zod";
 import type { parameterDefinitionSchema } from "../../shared/lib/contracts.js";
-import type { AuthenticatedUser } from "../auth.js";
+import type { AuthenticatedUser } from "../../modules/identity/domain/auth-user.js";
 import type { DiscoveredColumn, DiscoveredTable, ExternalPostgresConfig } from "../external-postgres.js";
 import type { runBoundedReadOnlyQuery as defaultRunBoundedReadOnlyQuery } from "../external-postgres.js";
 import type { ContextProposalProgressEvent } from "../ai-context-proposals.js";

@@ -5,7 +5,7 @@ import { getEnvironment } from "../config/config.js";
 import { encryptCredential } from "../lib/credentials.js";
 import type { ParameterDefinition } from "../lib/contracts.js";
 import { hashPassword } from "../lib/passwords.js";
-import { assignPermissionKeys, ensureSystemPermissions } from "../../services/permissions.js";
+import { assignPermissionKeys, ensureSystemPermissions } from "../../modules/identity/application/permissions.js";
 import { syncDashboardDirectory } from "../../services/dashboards.js";
 
 const ADMIN_EMAIL = "admin@tcc.local";

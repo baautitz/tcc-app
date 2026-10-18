@@ -22,7 +22,7 @@ import {
 } from "../shared/lib/contracts.js";
 
 import { AI_QUERY_MAX_BYTES, AI_QUERY_MAX_ROWS, runBoundedReadOnlyQueryWithRetry } from "./external-postgres.js";
-import { type AuthenticatedUser } from "./auth.js";
+import type { AuthenticatedUser } from "../modules/identity/domain/auth-user.js";
 
 import { isEditableDashboardFilePath, writeDashboardDocumentAtomically } from "./dashboards.js";
 import { buildDashboardDefinitionFromDocument, dashboardQueryReferences } from "./dashboard-sync.js";

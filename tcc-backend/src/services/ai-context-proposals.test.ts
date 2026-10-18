@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { AuthenticatedUser } from "./auth.js";
+import type { AuthenticatedUser } from "../modules/identity/domain/auth-user.js";
 import {
   approveContextProposal,
   ContextProposalConflictError,

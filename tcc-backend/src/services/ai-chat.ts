@@ -7,7 +7,7 @@ import {
   type AiAgentContext,
   type AiChatAgent,
 } from "./ai-agent.js";
-import type { AuthenticatedUser } from "./auth.js";
+import type { AuthenticatedUser } from "../modules/identity/domain/auth-user.js";
 import type { AiToolProgressEvent } from "./ai-read-tools.js";
 import { buildSystemPrompt } from "./ai/chat-prompt.js";
 import { chatRequestSchema, type AiChatRequest } from "./ai/chat-schemas.js";

@@ -1,4 +1,4 @@
-import type { AuthenticatedUser } from "../auth.js";
+import type { AuthenticatedUser } from "../../modules/identity/domain/auth-user.js";
 import { z } from "zod";
 import { parameterDefinitionSchema } from "../../shared/lib/contracts.js";
 import type { UnsafeAiColumnType } from "../external-postgres.js";

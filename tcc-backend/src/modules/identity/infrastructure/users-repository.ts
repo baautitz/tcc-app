@@ -1,6 +1,6 @@
 import { asc, eq, inArray } from "drizzle-orm";
-import { db } from "../shared/db/client.js";
-import { permissions, userPermissions, users } from "../shared/db/schema.js";
+import { db } from "../../../shared/db/client.js";
+import { permissions, userPermissions, users } from "../../../shared/db/schema.js";
 
 export const usersRepository = {
   async findByEmail(email: string) {

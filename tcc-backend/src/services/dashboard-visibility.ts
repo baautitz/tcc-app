@@ -3,7 +3,7 @@
 import { dashboardAccessRepository } from "../repositories/dashboard-access-repository.js";
 import { savedQueriesRepository } from "../repositories/saved-queries-repository.js";
 
-import { type AuthenticatedUser } from "./auth.js";
+import type { AuthenticatedUser } from "../modules/identity/domain/auth-user.js";
 
 import { getRegisteredDashboards } from "./dashboards.js";
 import { dashboardQueryReferences } from "./dashboard-sync.js";

@@ -2,7 +2,7 @@ import { serve } from "@hono/node-server";
 import { app } from "./app.js";
 import { getEnvironment } from "./shared/config/config.js";
 import { pool } from "./shared/db/client.js";
-import { ensureSystemPermissions } from "./services/permissions.js";
+import { ensureSystemPermissions } from "./modules/identity/application/permissions.js";
 
 const environment = getEnvironment();
 

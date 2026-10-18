@@ -1,9 +1,9 @@
 
 
 import { z } from "zod";
-import { } from "../shared/config/config.js";
-import { usersRepository } from "../repositories/users-repository.js";
-import type { users } from "../shared/db/schema.js";
+import { } from "../../../shared/config/config.js";
+import { usersRepository } from "../infrastructure/users-repository.js";
+import type { users } from "../../../shared/db/schema.js";
 import {
   passwordSchema,
   permissionKeySchema,
@@ -18,16 +18,16 @@ import {
   
   
   
-} from "../shared/lib/contracts.js";
+} from "../../../shared/lib/contracts.js";
 
-import { hashPassword } from "../shared/lib/passwords.js";
+import { hashPassword } from "../../../shared/lib/passwords.js";
 
-import { assignPermissionKeys } from "../services/permissions.js";
+import { assignPermissionKeys } from "../application/permissions.js";
 
-import { ApiError } from "../shared/lib/domain-error.js";
+import { ApiError } from "../../../shared/lib/domain-error.js";
 
-import type { AppContext } from "../shared/middleware/auth.js";
-import { jsonBody } from "../shared/middleware/json-body.js";
+import type { AppContext } from "../../../shared/middleware/auth.js";
+import { jsonBody } from "../../../shared/middleware/json-body.js";
 
 export async function listUsers(context: AppContext) {
   const rows = await usersRepository.listAll();

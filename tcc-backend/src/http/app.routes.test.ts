@@ -32,8 +32,8 @@ const h = vi.hoisted(() => {
 });
 
 vi.mock("../shared/db/client.js", () => ({ db: h.fakeDb, pool: {} }));
-vi.mock("../services/auth.js", async (orig) => ({
-  ...(await orig<typeof import("../services/auth.js")>()),
+vi.mock("../modules/identity/application/auth.js", async (orig) => ({
+  ...(await orig<typeof import("../modules/identity/application/auth.js")>()),
   findAuthenticatedUser: vi.fn(async (token?: string) => (token ? h.state.user : null)),
   createSession: vi.fn(async () => ({ token: "tok", expiresAt: new Date(Date.now() + 1e6) })),
   revokeSession: vi.fn(async () => {}),
@@ -42,7 +42,7 @@ vi.mock("../shared/lib/passwords.js", () => ({
   hashPassword: (p: string) => `hash:${p}`,
   verifyPassword: (p: string, hash: string) => hash === `hash:${p}`,
 }));
-vi.mock("../services/permissions.js", () => ({ assignPermissionKeys: vi.fn(async () => {}), ensureSystemPermissions: vi.fn() }));
+vi.mock("../modules/identity/application/permissions.js", () => ({ assignPermissionKeys: vi.fn(async () => {}), ensureSystemPermissions: vi.fn() }));
 vi.mock("../services/dashboards.js", async (orig) => ({
   ...(await orig<typeof import("../services/dashboards.js")>()),
   getRegisteredDashboards: vi.fn(async () => h.state.dashboards),

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { AuthenticatedUser } from "./auth.js";
+import type { AuthenticatedUser } from "../modules/identity/domain/auth-user.js";
 import { dashboardDocumentSchema } from "../shared/lib/contracts.js";
 import {
   createAiDashboardTools,

@@ -21,7 +21,7 @@ import {
 } from "../shared/lib/contracts.js";
 
 import { runBoundedReadOnlyQueryWithRetry } from "../services/external-postgres.js";
-import { hasPermission } from "../services/auth.js";
+import { hasPermission } from "../modules/identity/application/auth.js";
 
 import { canExecuteQuery } from "../services/dashboard-access.js";
 import { bindQueryParameters } from "../services/query-security.js";

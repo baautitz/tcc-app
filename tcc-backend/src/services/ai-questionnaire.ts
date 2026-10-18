@@ -1,6 +1,6 @@
 import { tool, type StructuredToolInterface, type ToolRuntime } from "@langchain/core/tools";
 import { z } from "zod";
-import type { AuthenticatedUser } from "./auth.js";
+import type { AuthenticatedUser } from "../modules/identity/domain/auth-user.js";
 
 export type AiQuestionnaireChoice = {
   value: string;

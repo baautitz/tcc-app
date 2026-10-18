@@ -1,5 +1,5 @@
 import type { Context } from "hono";
-import type { AuthenticatedUser } from "../../auth.js";
+import type { AuthenticatedUser } from "../../../modules/identity/domain/auth-user.js";
 import type { AiToolProgressEvent } from "../../ai-read-tools.js";
 import type { AiContextProposal } from "../../ai-context-proposals.js";
 

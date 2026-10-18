@@ -32,8 +32,8 @@ const h = vi.hoisted(() => {
 });
 
 vi.mock("../shared/db/client.js", () => ({ db: h.fakeDb, pool: {} }));
-vi.mock("../services/auth.js", async (orig) => ({
-  ...(await orig<typeof import("../services/auth.js")>()),
+vi.mock("../modules/identity/application/auth.js", async (orig) => ({
+  ...(await orig<typeof import("../modules/identity/application/auth.js")>()),
   findAuthenticatedUser: vi.fn(async (token?: string) => (token ? h.state.user : null)),
 }));
 vi.mock("../services/ai-agent.js", async (orig) => ({

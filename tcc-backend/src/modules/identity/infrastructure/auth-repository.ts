@@ -1,6 +1,6 @@
 import { and, eq, gt, isNull } from "drizzle-orm";
-import { db } from "../shared/db/client.js";
-import { permissions, sessions, userPermissions, users } from "../shared/db/schema.js";
+import { db } from "../../../shared/db/client.js";
+import { permissions, sessions, userPermissions, users } from "../../../shared/db/schema.js";
 
 export type AuthUserRow = typeof users.$inferSelect;
 

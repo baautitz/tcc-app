@@ -1,15 +1,8 @@
 import { randomBytes } from "node:crypto";
-import { sha256Hex } from "../shared/lib/hash.js";
-import { drizzleAuthRepository, type AuthRepository } from "../repositories/auth-repository.js";
-import { getEnvironment } from "../shared/config/config.js";
-
-export interface AuthenticatedUser {
-  id: string;
-  name: string;
-  email: string;
-  isAdmin: boolean;
-  permissions: string[];
-}
+import { sha256Hex } from "../../../shared/lib/hash.js";
+import { drizzleAuthRepository, type AuthRepository } from "../infrastructure/auth-repository.js";
+import { getEnvironment } from "../../../shared/config/config.js";
+import type { AuthenticatedUser } from "../domain/auth-user.js";
 
 export const SESSION_COOKIE = "tcc_session";
 

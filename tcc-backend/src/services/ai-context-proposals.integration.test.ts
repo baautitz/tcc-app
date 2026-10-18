@@ -6,7 +6,7 @@ import { getEnvironment } from "../shared/config/config.js";
 import { db, pool } from "../shared/db/client.js";
 import { aiContextProposals, dataSourceTables, dataSources, users } from "../shared/db/schema.js";
 import { encryptCredential } from "../shared/lib/credentials.js";
-import { createSession } from "./auth.js";
+import { createSession } from "../modules/identity/application/auth.js";
 
 const integrationDescribe = describe.runIf(process.env.TCC_POSTGRES_INTEGRATION === "1");
 const smokePassword = randomUUID().replaceAll("-", "");

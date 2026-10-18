@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AIMessageChunk } from "@langchain/core/messages";
-import type { AuthenticatedUser } from "./auth.js";
+import type { AuthenticatedUser } from "../modules/identity/domain/auth-user.js";
 import type { AiToolProgressEvent } from "./ai-read-tools.js";
 import {
   createAiChatHandler,

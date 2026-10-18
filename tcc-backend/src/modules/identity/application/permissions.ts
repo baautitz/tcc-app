@@ -1,7 +1,7 @@
 import {
   drizzlePermissionsRepository,
   type PermissionsRepository,
-} from "../repositories/permissions-repository.js";
+} from "../infrastructure/permissions-repository.js";
 
 const API_PERMISSIONS = [
   ["users:read", "Ler usuários"],
