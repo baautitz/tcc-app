@@ -17,7 +17,7 @@ import {
 } from "../../../../dashboards/domain/dashboard-proposals.js";
 import type { AiToolProgressEvent } from "../ai-read-tools.js";
 import type { AiDashboardQueryPreview, AiDashboardToolsRepository } from "./dashboard-types.js";
-import { validateDashboardPreviewFields } from "./dashboard-validation.js";
+import { validateDashboardPreviewFields } from "../../../../dashboards/domain/dashboard-preview-validation.js";
 
 type DashboardRuntime = ToolRuntime & { toolCallId?: string };
 

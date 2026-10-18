@@ -1,5 +1,5 @@
 export { createAiDashboardTools } from "./dashboard/dashboard-tool.js";
-export { validateDashboardPreviewFields } from "./dashboard/dashboard-validation.js";
+export { validateDashboardPreviewFields } from "../../../dashboards/domain/dashboard-preview-validation.js";
 export type {
   AiDashboardQuery,
   AiDashboardQueryDefinition,

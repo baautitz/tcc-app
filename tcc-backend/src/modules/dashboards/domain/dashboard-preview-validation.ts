@@ -1,5 +1,15 @@
-import type { DashboardDocument } from "../../../../dashboards/domain/dashboards.js";
-import type { AiDashboardQueryPreview } from "./dashboard-types.js";
+import type { DashboardDocument } from "./dashboards.js";
+
+export interface AiDashboardQueryPreview {
+  rows: Record<string, unknown>[];
+  rowLimit: number;
+  byteLimit: number;
+  bytes: number;
+  truncated: boolean;
+  truncationReason: "row_limit" | "byte_limit" | null;
+  error?: string;
+  previewPending?: string;
+}
 
 export function validateDashboardPreviewFields(
   document: DashboardDocument,

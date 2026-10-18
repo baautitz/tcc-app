@@ -1,3 +1,4 @@
+import type { AiDashboardQueryPreview } from "../../../../dashboards/domain/dashboard-preview-validation.js";
 import type { DashboardDocument } from "../../../../dashboards/domain/dashboards.js";
 
 export interface AiDashboardQuery {
@@ -15,16 +16,7 @@ export interface AiDashboardQueryDefinition extends AiDashboardQuery {
   connection: unknown;
 }
 
-export interface AiDashboardQueryPreview {
-  rows: Record<string, unknown>[];
-  rowLimit: number;
-  byteLimit: number;
-  bytes: number;
-  truncated: boolean;
-  truncationReason: "row_limit" | "byte_limit" | null;
-  error?: string;
-  previewPending?: string;
-}
+export type { AiDashboardQueryPreview };
 
 export interface AiDashboardToolsRepository {
   listSavedQueries(): Promise<AiDashboardQuery[]>;
