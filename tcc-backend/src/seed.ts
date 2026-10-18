@@ -1,12 +1,12 @@
 import { eq } from "drizzle-orm";
-import { db, pool } from "./client.js";
-import { dataSources, permissions, savedQueries, users } from "./schema.js";
-import { getEnvironment } from "../config/config.js";
-import { encryptCredential } from "../lib/credentials.js";
-import type { ParameterDefinition } from "../lib/contracts.js";
-import { hashPassword } from "../lib/passwords.js";
-import { assignPermissionKeys, ensureSystemPermissions } from "../../modules/identity/application/permissions.js";
-import { syncDashboardDirectory } from "../../services/dashboards.js";
+import { db, pool } from "./shared/db/client.js";
+import { dataSources, permissions, savedQueries, users } from "./shared/db/schema.js";
+import { getEnvironment } from "./shared/config/config.js";
+import { encryptCredential } from "./shared/lib/credentials.js";
+import type { ParameterDefinition } from "./shared/lib/contracts.js";
+import { hashPassword } from "./shared/lib/passwords.js";
+import { assignPermissionKeys, ensureSystemPermissions } from "./modules/identity/application/permissions.js";
+import { syncDashboardDirectory } from "./services/dashboards.js";
 
 const ADMIN_EMAIL = "admin@tcc.local";
 const ADMIN_PASSWORD = "Admin@123";
