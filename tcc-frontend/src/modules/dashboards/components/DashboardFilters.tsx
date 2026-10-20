@@ -110,6 +110,8 @@ export function DashboardFilters({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [parameters, appliedFilters, form]);
   useEffect(() => {
+    // watch(callback) e a assinatura imperativa (sem re-render); nao usa o valor em render
+    // eslint-disable-next-line react-hooks/incompatible-library
     const subscription = form.watch((values, metadata) => {
       if (metadata.type === "change")
         onValuesChange?.(values as DashboardFilterValues);

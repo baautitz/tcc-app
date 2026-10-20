@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Clipboard, FileCode2, Save } from "lucide-react";
@@ -76,10 +76,10 @@ export function QueryEditor({
     reloadOnConflict,
     isConflict,
   } = useSaveQuery();
-  const watchedSourceId = form.watch("dataSourceId");
-  const watchedSqlText = form.watch("sqlText");
-  const watchedParameters = form.watch("parameters");
-  const watchedName = form.watch("name");
+  const watchedSourceId = useWatch({ control: form.control, name: "dataSourceId" });
+  const watchedSqlText = useWatch({ control: form.control, name: "sqlText" });
+  const watchedParameters = useWatch({ control: form.control, name: "parameters" });
+  const watchedName = useWatch({ control: form.control, name: "name" });
   const currentDraftKey = JSON.stringify({
     dataSourceId: watchedSourceId,
     sqlText: watchedSqlText.trim(),
