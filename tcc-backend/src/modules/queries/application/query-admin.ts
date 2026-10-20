@@ -15,7 +15,7 @@ import {
   assertSqlParameters,
   bindQueryParameters,
 } from "../../../shared/security/query-security.js";
-import { getSourceOrThrow } from "../../data-sources/application/data-source-admin.js";
+import { dataSourceAdminService } from "../../data-sources/application/data-source-admin.js";
 import { externalSource } from "../../data-sources/application/external-source.js";
 import {
   hasPermission,
@@ -61,8 +61,13 @@ export class QueryService {
   constructor(
     private readonly repo: SavedQueriesRepository,
     private readonly lifecycle: QueryLifecycleRepository,
-    private readonly sources: { getSourceOrThrow: typeof getSourceOrThrow } = {
-      getSourceOrThrow,
+    private readonly sources: {
+      getSourceOrThrow: (
+        id: string,
+      ) => ReturnType<typeof dataSourceAdminService.getSourceOrThrow>;
+    } = {
+      getSourceOrThrow: (id: string) =>
+        dataSourceAdminService.getSourceOrThrow(id),
     },
   ) {}
 
