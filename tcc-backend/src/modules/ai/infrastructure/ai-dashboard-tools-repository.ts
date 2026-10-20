@@ -1,4 +1,4 @@
-import { externalSource } from "../../data-sources/application/external-source.js";
+import type { ExternalSourcePort } from "../../data-sources/domain/external-source.js";
 import { asc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../../shared/db/client.js";
@@ -28,6 +28,8 @@ import type {
 import { parameterDefinitionSchema } from "../../../shared/lib/contracts.js";
 
 export class DrizzleAiDashboardToolsRepository implements AiDashboardToolsRepository {
+  constructor(private readonly externalSource: ExternalSourcePort) {}
+
   async listSavedQueries(): Promise<AiDashboardQuery[]> {
     const rows = await db
       .select({
@@ -90,7 +92,7 @@ export class DrizzleAiDashboardToolsRepository implements AiDashboardToolsReposi
       updatedAt: row.updatedAt,
       sourceUpdatedAt: row.source.updatedAt,
       sourceTargetHash: querySourceTargetHash(row.source),
-      connection: externalSource().sourceConnection(row.source),
+      connection: this.externalSource.sourceConnection(row.source),
     }));
   }
 
@@ -116,7 +118,7 @@ export class DrizzleAiDashboardToolsRepository implements AiDashboardToolsReposi
     assertParameterDefinitions(parameters);
     assertSqlParameters(query.sqlText, parameters);
     const bound = bindQueryParameters(query.sqlText, parameters, values);
-    const result = await externalSource().runBoundedReadOnlyQueryWithRetry(
+    const result = await this.externalSource.runBoundedReadOnlyQueryWithRetry(
       query.connection as ExternalPostgresConfig,
       bound.sqlText,
       bound.values,

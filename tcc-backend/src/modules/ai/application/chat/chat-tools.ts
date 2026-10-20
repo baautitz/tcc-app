@@ -1,9 +1,7 @@
 import type { StructuredToolInterface } from "@langchain/core/tools";
 import type { AuthenticatedUser } from "../../../identity/domain/auth-user.js";
 import type { AiContextProposalRepository } from "../../domain/ai-context-proposals.js";
-import { DrizzleAiContextProposalRepository } from "../../infrastructure/ai-context-proposals-repository.js";
-import { DrizzleAiDashboardToolsRepository } from "../../infrastructure/ai-dashboard-tools-repository.js";
-import { DrizzleAiReadToolsRepository } from "../../infrastructure/ai-read-tools-repository.js";
+import type { ExternalSourcePort } from "../../../data-sources/domain/external-source.js";
 import { AiQuestionnaireTools } from "../ai-questionnaire.js";
 import { ContextProposalTools } from "../context-proposals.js";
 import { AiDashboardTools } from "../tools/ai-dashboard-tools.js";
@@ -24,6 +22,7 @@ export class AiChatToolsFactory {
       AiQueryTestRepository,
     private readonly dashboardRepository: AiDashboardToolsRepository,
     private readonly proposalRepository: AiContextProposalRepository,
+    private readonly externalSource: ExternalSourcePort,
   ) {}
 
   create(options: {
@@ -41,11 +40,13 @@ export class AiChatToolsFactory {
         currentUser,
         onToolEvent,
         repository: this.readRepository,
+        externalSource: this.externalSource,
       }).tools(),
       ...new AiQueryTestTools({
         currentUser,
         onToolEvent,
         repository: this.readRepository,
+        externalSource: this.externalSource,
       }).tools(),
       ...new AiDashboardTools({
         currentUser,
@@ -61,9 +62,3 @@ export class AiChatToolsFactory {
     ];
   }
 }
-
-export const aiChatToolsFactory = new AiChatToolsFactory(
-  new DrizzleAiReadToolsRepository(),
-  new DrizzleAiDashboardToolsRepository(),
-  new DrizzleAiContextProposalRepository(),
-);

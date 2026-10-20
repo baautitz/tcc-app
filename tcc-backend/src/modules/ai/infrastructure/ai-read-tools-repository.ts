@@ -6,7 +6,6 @@ import {
   dataSources,
   savedQueries,
 } from "../../../shared/db/schema.js";
-import { externalSource } from "../../data-sources/application/external-source.js";
 import type {
   AiReadSource,
   AiReadTable,
@@ -19,15 +18,18 @@ import {
   issueQueryTestReceipt,
   querySourceTargetHash,
 } from "../../queries/domain/query-lifecycle.js";
-import { savedQueriesPort } from "../../queries/application/saved-queries.js";
+import type { SavedQueriesPort } from "../../queries/domain/saved-queries-port.js";
 
-function aiReadSource(source: typeof dataSources.$inferSelect): AiReadSource {
+function aiReadSource(
+  externalSource: ExternalSourcePort,
+  source: typeof dataSources.$inferSelect,
+): AiReadSource {
   return {
     id: source.id,
     name: source.name,
     databaseName: source.databaseName,
     context: source.context,
-    connection: externalSource().sourceConnection(source),
+    connection: externalSource.sourceConnection(source),
   };
 }
 
@@ -58,6 +60,11 @@ function aiReadTableName(
 export class DrizzleAiReadToolsRepository
   implements AiReadToolsRepository, AiQueryTestRepository
 {
+  constructor(
+    private readonly externalSource: ExternalSourcePort,
+    private readonly savedQueries: SavedQueriesPort,
+  ) {}
+
   async listSources(offset: number, limit: number) {
     const [sources, countResult] = await Promise.all([
       db
@@ -79,7 +86,7 @@ export class DrizzleAiReadToolsRepository
         .where(eq(dataSources.id, dataSourceId))
         .limit(1)
     )[0];
-    return source ? aiReadSource(source) : undefined;
+    return source ? aiReadSource(this.externalSource, source) : undefined;
   }
 
   async findSourceVersion(dataSourceId: string) {
@@ -116,7 +123,7 @@ export class DrizzleAiReadToolsRepository
 
   createTestReceipt(input: Parameters<typeof issueQueryTestReceipt>[1]) {
     return issueQueryTestReceipt(
-      savedQueriesPort().createLifecycleRepository(),
+      this.savedQueries.createLifecycleRepository(),
       input,
     );
   }
@@ -163,18 +170,18 @@ export class DrizzleAiReadToolsRepository
   listLiveBaseTables(
     ...a: Parameters<ExternalSourcePort["listPostgresBaseTables"]>
   ) {
-    return externalSource().listPostgresBaseTables(...a);
+    return this.externalSource.listPostgresBaseTables(...a);
   }
 
   findUnsafeColumnTypes(
     ...a: Parameters<ExternalSourcePort["findUnsafeAiColumnTypes"]>
   ) {
-    return externalSource().findUnsafeAiColumnTypes(...a);
+    return this.externalSource.findUnsafeAiColumnTypes(...a);
   }
 
   getLiveColumns(
     ...a: Parameters<ExternalSourcePort["getPostgresTableColumns"]>
   ) {
-    return externalSource().getPostgresTableColumns(...a);
+    return this.externalSource.getPostgresTableColumns(...a);
   }
 }

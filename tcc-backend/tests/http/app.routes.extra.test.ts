@@ -147,15 +147,13 @@ vi.mock(
     ),
   }),
 );
-vi.mock(
-  "../../src/modules/dashboards/application/dashboard-proposal-commit.js",
-  () => ({
-    dashboardProposalService: {
-      previewDashboardProposal: vi.fn(),
-      commitDashboardProposal: vi.fn(),
-    },
-  }),
-);
+vi.mock("../../src/container.js", async (orig) => ({
+  ...(await orig<typeof import("../../src/container.js")>()),
+  dashboardProposalService: {
+    previewDashboardProposal: vi.fn(),
+    commitDashboardProposal: vi.fn(),
+  },
+}));
 vi.mock(
   "../../src/modules/data-sources/domain/data-source-catalog.js",
   async (orig) => ({
@@ -183,7 +181,7 @@ import {
 } from "../../src/modules/data-sources/infrastructure/external-pg/index.js";
 import { dashboardAdminService } from "../../src/modules/dashboards/application/dashboard-admin.js";
 import { writeDashboardDocumentAtomically } from "../../src/modules/dashboards/domain/dashboards.js";
-import { dashboardProposalService } from "../../src/modules/dashboards/application/dashboard-proposal-commit.js";
+import { dashboardProposalService } from "../../src/container.js";
 import { reconcileDataSourceCatalog } from "../../src/modules/data-sources/domain/data-source-catalog.js";
 
 const UUID = "11111111-1111-4111-8111-111111111111";

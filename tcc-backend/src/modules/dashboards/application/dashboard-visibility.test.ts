@@ -30,7 +30,7 @@ function build(assigned: string[]) {
   const service = new DashboardVisibilityService(
     access,
     registry,
-    () => queries as never,
+    queries as never,
   );
   return { service };
 }

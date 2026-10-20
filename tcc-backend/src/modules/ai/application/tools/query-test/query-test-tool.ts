@@ -4,7 +4,6 @@ import {
   ExternalQueryExecutionError,
   type UnsafeAiColumnType,
 } from "../../../../data-sources/domain/external-source.js";
-import { externalSource } from "../../../../data-sources/application/external-source.js";
 import type {
   AiReadSource,
   AiReadTableName,
@@ -60,10 +59,15 @@ export class AiQueryTestTools {
     (
       this.options.runQuery ??
       ((s, q, v, b, sg) =>
-        externalSource().runBoundedReadOnlyQueryWithRetry(s.connection, q, v, {
-          beforeAttempt: b,
-          retrySignal: sg,
-        }))
+        this.options.externalSource.runBoundedReadOnlyQueryWithRetry(
+          s.connection,
+          q,
+          v,
+          {
+            beforeAttempt: b,
+            retrySignal: sg,
+          },
+        ))
     )(source, sqlText, values, beforeAttempt, signal);
 
   private async testQuery(

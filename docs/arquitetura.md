@@ -33,8 +33,8 @@ tests/http/                       # testes de integração entre módulos
 - `domain` não importa `application`, `infrastructure` nem `http`. `application` não importa `http`.
 - Um módulo só importa `domain` e `application` de outro módulo, na direção acima. `infrastructure` e `http` de outro módulo são proibidos.
 - `shared` não importa de `modules`. A exceção é `shared/middleware/auth`, que usa `identity`.
-- Dependências entre módulos passam por portas, injetadas em `app.ts`: `DashboardFilesPort`, `ExternalSourcePort`, `SavedQueriesPort`.
-- Pontos de composição (`app.ts`, `index.ts`, `seed.ts`, `tests/`) podem importar de qualquer módulo.
+- Dependências entre módulos passam por portas (`DashboardFilesPort`, `ExternalSourcePort`, `SavedQueriesPort`), injetadas por construtor em `src/container.ts`. Não há portas globais mutáveis; controllers importam os services do container.
+- Pontos de composição (`container.ts`, `app.ts`, `index.ts`, `seed.ts`, `tests/`) podem importar de qualquer módulo.
 - A ordem de montagem de `app.route("/")` em `app.ts` faz parte do contrato. Mude com cuidado.
 
 ## Frontend
@@ -64,6 +64,7 @@ Cinco testes ficam ignorados porque exigem um Postgres descartável. `TCC_POSTGR
 
 ## Dívidas conhecidas
 
+- `queries` e `dashboards` se referem via `DashboardFilesPort` sem ciclo de construção: o adapter de arquivos não depende de `QueryService`, então entra direto no construtor.
 - Backend em classes (services, repositórios Drizzle, adapters, instância única por construtor). Ficaram como funções os módulos puros sem estado (`external-pg/*`, `domain/*`). No frontend, só os `<modulo>.api.ts` viraram classes; hooks e componentes seguem funções.
 - Dois casos `it.skip` fixos em `tests/http/app.routes.test.ts` (motivo documentado no teste: transações reais e arquivos em disco).
 - O frontend não tem script de lint.

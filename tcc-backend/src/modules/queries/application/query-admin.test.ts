@@ -30,14 +30,24 @@ const user = (permissions: string[]) => ({
 
 describe("QueryService", () => {
   it("404 quando a query nao existe", async () => {
-    const service = new QueryService(fakeRepo(), lifecycle);
+    const service = new QueryService(
+      fakeRepo(),
+      lifecycle,
+      {} as never,
+      {} as never,
+    );
     await expect(service.getQueryOrThrow("q1")).rejects.toMatchObject({
       status: 404,
     });
   });
 
   it("previa exige create ou update", () => {
-    const service = new QueryService(fakeRepo(), lifecycle);
+    const service = new QueryService(
+      fakeRepo(),
+      lifecycle,
+      {} as never,
+      {} as never,
+    );
     expect(() => service.assertCanPreview(user([]))).toThrowError(
       expect.objectContaining({ status: 403 }),
     );
@@ -47,7 +57,12 @@ describe("QueryService", () => {
   });
 
   it("rejeita SQL que nao e somente leitura", () => {
-    const service = new QueryService(fakeRepo(), lifecycle);
+    const service = new QueryService(
+      fakeRepo(),
+      lifecycle,
+      {} as never,
+      {} as never,
+    );
     expect(() =>
       service.validateQueryInput({
         dataSourceId: "d",
@@ -55,12 +70,5 @@ describe("QueryService", () => {
         parameters: [],
       }),
     ).toThrowError(expect.objectContaining({ status: 400 }));
-  });
-
-  it("excluir sem porta de dashboards configurada falha", async () => {
-    const service = new QueryService(fakeRepo(), lifecycle);
-    await expect(service.deleteQueryWithDashboards("q1")).rejects.toThrow(
-      "DashboardFilesPort",
-    );
   });
 });

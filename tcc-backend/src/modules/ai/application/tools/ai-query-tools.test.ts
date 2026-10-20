@@ -75,6 +75,7 @@ function makeTools(
   const tools = createAiQueryTestTools({
     currentUser: options.currentUser ?? admin,
     repository,
+    externalSource: {} as never,
     runQuery: options.runQuery,
     onToolEvent: options.onToolEvent,
   });

@@ -6,7 +6,7 @@ import {
 } from "../../../shared/lib/contracts.js";
 import type { AppContext } from "../../../shared/middleware/auth.js";
 import { jsonBody } from "../../../shared/middleware/json-body.js";
-import { queryService } from "../application/query-admin.js";
+import { queryService } from "../../../container.js";
 
 const idParam = (context: AppContext) =>
   z.string().uuid().parse(context.req.param("id"));

@@ -1,9 +1,11 @@
 import { z } from "zod";
 import type { AppContext } from "../../../shared/middleware/auth.js";
 import { ApiError } from "../../../shared/lib/domain-error.js";
-import { queryService } from "../../queries/application/query-admin.js";
+import {
+  dashboardVisibilityService,
+  queryService,
+} from "../../../container.js";
 import { canExecuteQuery } from "../domain/dashboard-access.js";
-import { dashboardVisibilityService } from "../application/dashboard-visibility.js";
 
 export async function runPublicQuery(context: AppContext) {
   const query = await queryService.getQueryOrThrow(

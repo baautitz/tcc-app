@@ -1,8 +1,4 @@
-import {
-  DrizzleDashboardAccessRepository,
-  type DashboardAccessRepository,
-} from "../infrastructure/dashboard-access-repository.js";
-import { savedQueriesPort } from "../../queries/application/saved-queries.js";
+import { type DashboardAccessRepository } from "../infrastructure/dashboard-access-repository.js";
 import type { SavedQueriesPort } from "../../queries/domain/saved-queries-port.js";
 
 import type { AuthenticatedUser } from "../../identity/domain/auth-user.js";
@@ -23,7 +19,7 @@ export class DashboardVisibilityService {
       DashboardRegistryService,
       "getRegisteredDashboards"
     >,
-    private readonly savedQueries: () => Pick<
+    private readonly savedQueries: Pick<
       SavedQueriesPort,
       "listAllIds" | "listParametersByIds"
     >,
@@ -81,7 +77,7 @@ export class DashboardVisibilityService {
     await this.assertDashboardAccess(currentUser, dashboardId);
     const queryIds = [...dashboardSyncService.queryReferences(dashboard)];
     const catalogQueries = queryIds.length
-      ? await this.savedQueries().listParametersByIds(queryIds)
+      ? await this.savedQueries.listParametersByIds(queryIds)
       : [];
     let definition;
     try {
@@ -110,7 +106,7 @@ export class DashboardVisibilityService {
     currentUser: AuthenticatedUser,
   ): Promise<Set<string>> {
     if (currentUser.isAdmin) {
-      const rows = await this.savedQueries().listAllIds();
+      const rows = await this.savedQueries.listAllIds();
       return new Set(rows.map((row) => row.id));
     }
     const dashboardsForUser = await this.getAccessibleDashboards(currentUser);
@@ -121,9 +117,3 @@ export class DashboardVisibilityService {
     );
   }
 }
-
-export const dashboardVisibilityService = new DashboardVisibilityService(
-  new DrizzleDashboardAccessRepository(),
-  dashboardRegistry,
-  savedQueriesPort,
-);

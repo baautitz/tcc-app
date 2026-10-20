@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { AiChatService } from "../application/chat/ai-chat.js";
-import { aiChatToolsFactory } from "../application/chat/chat-tools.js";
+import { aiChatToolsFactory } from "../../../container.js";
 import { contextProposalService } from "../application/context-proposals.js";
 import { throwApiError } from "../../../shared/lib/domain-error.js";
 import type { AppContext } from "../../../shared/middleware/auth.js";

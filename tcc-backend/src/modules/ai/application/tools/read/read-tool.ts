@@ -2,7 +2,6 @@ import { tool, type StructuredToolInterface } from "@langchain/core/tools";
 import type { z } from "zod";
 import type { DiscoveredColumn } from "../../../../data-sources/domain/external-source.js";
 import type { DiscoveredTable } from "../../../../data-sources/domain/data-source-catalog.js";
-import { externalSource } from "../../../../data-sources/application/external-source.js";
 import { MAX_DATA_SOURCE_CATALOG_TABLES } from "../../../../data-sources/domain/data-source-catalog.js";
 import type {
   AiReadSource,
@@ -47,7 +46,7 @@ export class AiReadTools {
   private runBoundedReadOnlyQuery: RunBoundedReadOnlyQuery = (...a) =>
     (
       this.options.runBoundedReadOnlyQuery ??
-      ((...b) => externalSource().runBoundedReadOnlyQuery(...b))
+      ((...b) => this.options.externalSource.runBoundedReadOnlyQuery(...b))
     )(...a);
 
   private async requireSource(dataSourceId: string): Promise<AiReadSource> {

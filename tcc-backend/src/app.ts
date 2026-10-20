@@ -10,17 +10,8 @@ import { permissionRoutes } from "./modules/identity/http/permissions.routes.js"
 import { dashboardRoutes } from "./modules/dashboards/http/dashboards.routes.js";
 import { dataSourceRoutes } from "./modules/data-sources/http/data-sources.routes.js";
 import { queryRoutes } from "./modules/queries/http/queries.routes.js";
-import { queryService } from "./modules/queries/application/query-admin.js";
-import { configureExternalSource } from "./modules/data-sources/application/external-source.js";
-import { configureSavedQueries } from "./modules/queries/application/saved-queries.js";
-import { savedQueriesAdapter } from "./modules/queries/infrastructure/saved-queries-adapter.js";
-import { externalSourceAdapter } from "./modules/data-sources/infrastructure/external-source-adapter.js";
-import { dashboardFilesAdapter } from "./modules/dashboards/infrastructure/dashboard-files-adapter.js";
 import { publicQueryRoutes } from "./modules/dashboards/http/public-query.routes.js";
 
-queryService.configureDashboardFiles(dashboardFilesAdapter);
-configureExternalSource(externalSourceAdapter);
-configureSavedQueries(savedQueriesAdapter);
 const environment = getEnvironment();
 const app = new Hono<{ Variables: AppVariables }>();
 

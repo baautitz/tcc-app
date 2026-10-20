@@ -119,6 +119,7 @@ function makeTools(
   return createAiReadTools({
     currentUser: options.currentUser ?? user,
     repository: repository(options.repo),
+    externalSource: {} as never,
     onToolEvent: options.onToolEvent,
   });
 }

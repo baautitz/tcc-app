@@ -16,7 +16,7 @@ import {
   bindQueryParameters,
 } from "../../../shared/security/query-security.js";
 import { dataSourceAdminService } from "../../data-sources/application/data-source-admin.js";
-import { externalSource } from "../../data-sources/application/external-source.js";
+import type { ExternalSourcePort } from "../../data-sources/domain/external-source.js";
 import {
   hasPermission,
   type AuthenticatedUser,
@@ -56,11 +56,11 @@ export interface QuerySaveInput {
 }
 
 export class QueryService {
-  private dashboardFiles: DashboardFilesPort | undefined;
-
   constructor(
     private readonly repo: SavedQueriesRepository,
     private readonly lifecycle: QueryLifecycleRepository,
+    private readonly externalSource: ExternalSourcePort,
+    private readonly dashboardFiles: DashboardFilesPort,
     private readonly sources: {
       getSourceOrThrow: (
         id: string,
@@ -70,10 +70,6 @@ export class QueryService {
         dataSourceAdminService.getSourceOrThrow(id),
     },
   ) {}
-
-  configureDashboardFiles(port: DashboardFilesPort): void {
-    this.dashboardFiles = port;
-  }
 
   listQueries() {
     return this.repo.listSummaries();
@@ -120,8 +116,8 @@ export class QueryService {
         input.parameters,
         input.values,
       );
-      return await externalSource().runReadOnlyQuery(
-        externalSource().sourceConnection(source),
+      return await this.externalSource.runReadOnlyQuery(
+        this.externalSource.sourceConnection(source),
         bound.sqlText,
         bound.values,
       );
@@ -206,8 +202,8 @@ export class QueryService {
         input.parameters,
         input.values,
       );
-      preview = await externalSource().runBoundedReadOnlyQueryWithRetry(
-        externalSource().sourceConnection(source),
+      preview = await this.externalSource.runBoundedReadOnlyQueryWithRetry(
+        this.externalSource.sourceConnection(source),
         bound.sqlText,
         bound.values,
         {
@@ -327,8 +323,6 @@ export class QueryService {
   }
 
   async deleteQueryWithDashboards(queryId: string): Promise<void> {
-    if (!this.dashboardFiles)
-      throw new Error("DashboardFilesPort não configurada.");
     const files = this.dashboardFiles;
     const dashboardRollbacks: Array<() => Promise<void>> = [];
     try {
@@ -421,8 +415,3 @@ export class QueryService {
     }
   }
 }
-
-export const queryService = new QueryService(
-  savedQueriesRepository,
-  queryLifecycleRepository,
-);

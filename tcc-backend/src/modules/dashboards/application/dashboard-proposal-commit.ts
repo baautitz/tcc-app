@@ -1,4 +1,4 @@
-import { externalSource } from "../../data-sources/application/external-source.js";
+import type { ExternalSourcePort } from "../../data-sources/domain/external-source.js";
 
 import { z } from "zod";
 
@@ -7,7 +7,7 @@ import {
   type DashboardFilesRepository,
 } from "../infrastructure/dashboard-files-repository.js";
 import { withDashboardFilesLock } from "../../../shared/db/db-executor.js";
-import { savedQueriesPort } from "../../queries/application/saved-queries.js";
+import type { SavedQueriesPort } from "../../queries/domain/saved-queries-port.js";
 import {
   parameterDefinitionSchema,
   dashboardDocumentSchema,
@@ -50,7 +50,11 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 export class DashboardProposalService {
-  constructor(private readonly files: DashboardFilesRepository) {}
+  constructor(
+    private readonly files: DashboardFilesRepository,
+    private readonly savedQueries: SavedQueriesPort,
+    private readonly externalSource: ExternalSourcePort,
+  ) {}
 
   async previewDashboardProposal(
     currentUser: AuthenticatedUser,
@@ -60,7 +64,7 @@ export class DashboardProposalService {
       componentIds: string[];
     },
   ) {
-    const receipt = await savedQueriesPort().findReceipt(receiptId);
+    const receipt = await this.savedQueries.findReceipt(receiptId);
     if (!receipt)
       throw new ApiError(409, "A prévia expirou. Gere uma nova proposta.");
     try {
@@ -107,7 +111,7 @@ export class DashboardProposalService {
       throw new ApiError(409, "A proposta não possui queries salvas.");
 
     const queryRows =
-      await savedQueriesPort().listWithSourcesByIds(referenceIds);
+      await this.savedQueries.listWithSourcesByIds(referenceIds);
     if (queryRows.length !== referenceIds.length)
       throw new ApiError(
         409,
@@ -228,8 +232,8 @@ export class DashboardProposalService {
           values,
         );
         previews[queryId] =
-          await externalSource().runBoundedReadOnlyQueryWithRetry(
-            externalSource().sourceConnection(entry.source),
+          await this.externalSource.runBoundedReadOnlyQueryWithRetry(
+            this.externalSource.sourceConnection(entry.source),
             bound.sqlText,
             bound.values,
             {
@@ -372,7 +376,7 @@ export class DashboardProposalService {
         ];
         if (referenceIds.length === 0)
           throw new ApiError(409, "A proposta não possui queries salvas.");
-        const queryRows = await savedQueriesPort().listWithSourcesByIds(
+        const queryRows = await this.savedQueries.listWithSourcesByIds(
           referenceIds,
           tx,
         );
@@ -540,7 +544,3 @@ export class DashboardProposalService {
     }
   }
 }
-
-export const dashboardProposalService = new DashboardProposalService(
-  new DrizzleDashboardFilesRepository(),
-);

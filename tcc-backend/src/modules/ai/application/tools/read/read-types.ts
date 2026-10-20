@@ -124,6 +124,7 @@ export type RunBoundedReadOnlyQuery =
   ExternalSourcePort["runBoundedReadOnlyQuery"];
 
 export interface CreateAiReadToolsOptions {
+  externalSource: ExternalSourcePort;
   runBoundedReadOnlyQuery?: RunBoundedReadOnlyQuery;
   currentUser: AuthenticatedUser;
   repository: AiReadToolsRepository;

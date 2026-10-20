@@ -1,7 +1,10 @@
 import type { AuthenticatedUser } from "../../../../identity/domain/auth-user.js";
 import { z } from "zod";
 import { parameterDefinitionSchema } from "../../../../../shared/lib/contracts.js";
-import type { UnsafeAiColumnType } from "../../../../data-sources/domain/external-source.js";
+import type {
+  ExternalSourcePort,
+  UnsafeAiColumnType,
+} from "../../../../data-sources/domain/external-source.js";
 import type {
   AiReadSource,
   AiReadTableName,
@@ -141,6 +144,7 @@ export interface AiQueryTestResult {
 }
 
 export interface CreateAiQueryTestToolsOptions {
+  externalSource: ExternalSourcePort;
   currentUser: AuthenticatedUser;
   repository: AiQueryTestRepository;
   onToolEvent?: (event: AiToolProgressEvent) => void | Promise<void>;

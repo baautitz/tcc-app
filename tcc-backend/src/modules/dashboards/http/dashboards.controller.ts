@@ -8,8 +8,10 @@ import { ApiError } from "../../../shared/lib/domain-error.js";
 import type { AppContext } from "../../../shared/middleware/auth.js";
 import { jsonBody } from "../../../shared/middleware/json-body.js";
 import { dashboardAdminService } from "../application/dashboard-admin.js";
-import { dashboardProposalService } from "../application/dashboard-proposal-commit.js";
-import { dashboardVisibilityService } from "../application/dashboard-visibility.js";
+import {
+  dashboardProposalService,
+  dashboardVisibilityService,
+} from "../../../container.js";
 
 const dashboardIdParam = (context: AppContext) =>
   z.string().uuid().parse(context.req.param("id")).toLowerCase();
