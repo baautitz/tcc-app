@@ -9,7 +9,7 @@ export const SESSION_COOKIE = "tcc_session";
 export class AuthService {
   constructor(
     private readonly repo: AuthRepository,
-    private readonly environment: { SESSION_TTL_DAYS: number },
+    private readonly environment: () => { SESSION_TTL_DAYS: number },
     private readonly now: () => number = Date.now,
   ) {}
 
@@ -20,7 +20,7 @@ export class AuthService {
   async createSession(userId: string): Promise<{ token: string; expiresAt: Date }> {
     const token = randomBytes(32).toString("base64url");
     const expiresAt = new Date(
-      this.now() + this.environment.SESSION_TTL_DAYS * 24 * 60 * 60 * 1000,
+      this.now() + this.environment().SESSION_TTL_DAYS * 24 * 60 * 60 * 1000,
     );
     await this.repo.insertSession({ userId, tokenHash: AuthService.hashToken(token), expiresAt });
     return { token, expiresAt };
@@ -45,4 +45,4 @@ export class AuthService {
   }
 }
 
-export const authService = new AuthService(new DrizzleAuthRepository(), getEnvironment());
+export const authService = new AuthService(new DrizzleAuthRepository(), getEnvironment);
