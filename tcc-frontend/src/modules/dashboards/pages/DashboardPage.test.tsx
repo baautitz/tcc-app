@@ -1,6 +1,6 @@
 import { cleanup } from "@testing-library/react";
 import { afterEach } from "vitest";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Dashboard } from "@/modules/dashboards/model/types";
 import { CurrentViewRefreshProvider } from "@/shared/context/CurrentViewRefreshContext";
@@ -47,15 +47,16 @@ describe("DashboardPage", () => {
   it("carrega uma query por componente", async () => {
     render(<CurrentViewRefreshProvider><DashboardPage dashboardId="d1" onEditContext={() => {}} /></CurrentViewRefreshProvider>);
     await screen.findByText("Painel");
-    expect(pending.map((p) => p.id).sort()).toEqual(["qa", "qb"]);
+    await waitFor(() => expect(pending.map((p) => p.id).sort()).toEqual(["qa", "qb"]));
     await act(async () => pending.forEach((p) => p.resolve(rowsOf(`val-${p.id}`))));
-    expect(screen.getByText("val-qa")).toBeTruthy();
-    expect(screen.getByText("val-qb")).toBeTruthy();
+    expect(await screen.findByText("val-qa")).toBeTruthy();
+    expect(await screen.findByText("val-qb")).toBeTruthy();
   });
 
   it("descarta resposta obsoleta resolvida fora de ordem", async () => {
     render(<CurrentViewRefreshProvider><DashboardPage dashboardId="d1" onEditContext={() => {}} /></CurrentViewRefreshProvider>);
     await screen.findByText("Painel");
+    await waitFor(() => expect(pending.length).toBe(2));
     const first = [...pending];
     pending.length = 0;
     fireEvent.click(screen.getByLabelText("Atualizar dashboard"));
