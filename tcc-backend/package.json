@@ -12,7 +12,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "smoke:context-approvals": "bash scripts/smoke-context-approvals.sh",
-    "arch": "depcruise src"
+    "arch": "depcruise src",
+    "format": "prettier --write \"{src,tests}/**/*.{ts,tsx,css,json}\" \"*.{ts,cjs,json}\"",
+    "format:check": "prettier --check \"{src,tests}/**/*.{ts,tsx,css,json}\" \"*.{ts,cjs,json}\""
   },
   "dependencies": {
     "@hono/node-server": "^1.19.9",
@@ -34,6 +36,7 @@
     "@types/pg-cursor": "^2.7.2",
     "dependency-cruiser": "16.10.4",
     "drizzle-kit": "^0.31.4",
+    "prettier": "3.9.9",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3",
     "vitest": "^3.2.4"
