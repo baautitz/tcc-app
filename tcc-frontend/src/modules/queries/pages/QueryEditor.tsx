@@ -76,9 +76,15 @@ export function QueryEditor({
     reloadOnConflict,
     isConflict,
   } = useSaveQuery();
-  const watchedSourceId = useWatch({ control: form.control, name: "dataSourceId" });
+  const watchedSourceId = useWatch({
+    control: form.control,
+    name: "dataSourceId",
+  });
   const watchedSqlText = useWatch({ control: form.control, name: "sqlText" });
-  const watchedParameters = useWatch({ control: form.control, name: "parameters" });
+  const watchedParameters = useWatch({
+    control: form.control,
+    name: "parameters",
+  });
   const watchedName = useWatch({ control: form.control, name: "name" });
   const currentDraftKey = JSON.stringify({
     dataSourceId: watchedSourceId,
@@ -237,6 +243,8 @@ export function QueryEditor({
           <Form {...form}>
             <form
               id="query-form"
+              // submit le o ref so no handler, nunca no render (falso positivo)
+              // eslint-disable-next-line react-hooks/refs
               onSubmit={form.handleSubmit(submit)}
               className="flex flex-col gap-6 p-6"
             >

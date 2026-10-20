@@ -196,8 +196,7 @@ export function ChatItemView({
         ? item.proposal.sourceName
         : `${item.proposal.sourceName} · ${item.proposal.schemaName}.${item.proposal.tableName}`;
     const pending =
-      item.proposal.status === "pending" &&
-      !isExpired(item.proposal.expiresAt);
+      item.proposal.status === "pending" && !isExpired(item.proposal.expiresAt);
     const statusLabel = pending
       ? "Aguardando confirmação"
       : item.proposal.status === "approved"

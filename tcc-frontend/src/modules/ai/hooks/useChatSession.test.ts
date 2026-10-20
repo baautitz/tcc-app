@@ -1,3 +1,4 @@
+import type { ChatItem } from "@/modules/ai/model/chat-items";
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { useChatSession } from "@/modules/ai/hooks/useChatSession";
@@ -36,8 +37,10 @@ describe("useChatSession", () => {
     act(() =>
       result.current.updateAssistant("a", (m) => ({ ...m, content: "novo" })),
     );
-    expect((result.current.items[0] as any).content).toBe("novo");
-    expect((result.current.items[1] as any).content).toBe("");
+    expect((result.current.items[0] as { content: string }).content).toBe(
+      "novo",
+    );
+    expect((result.current.items[1] as { content: string }).content).toBe("");
     rerender();
     expect(result.current.updateAssistant).toBe(first);
   });
@@ -49,13 +52,13 @@ describe("useChatSession", () => {
       result.current.insertBeforeAssistant("a", {
         id: "t1",
         kind: "tool",
-      } as any),
+      } as unknown as ChatItem),
     );
     act(() =>
       result.current.insertAfterAssistant("a", {
         id: "t2",
         kind: "tool",
-      } as any),
+      } as unknown as ChatItem),
     );
     expect(result.current.items.map((i) => i.id)).toEqual(["t1", "a", "t2"]);
   });

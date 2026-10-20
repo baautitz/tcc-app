@@ -10,7 +10,7 @@ describe("api client", () => {
   it("returns parsed body and sends credentials", async () => {
     mock({ ok: true, status: 200, json: async () => ({ a: 1 }) });
     await expect(request("/x")).resolves.toEqual({ a: 1 });
-    expect((fetch as any).mock.calls[0][1].credentials).toBe("include");
+    expect(vi.mocked(fetch).mock.calls[0][1]?.credentials).toBe("include");
   });
   it("returns undefined on 204", async () => {
     mock({ ok: true, status: 204 });
@@ -39,7 +39,7 @@ describe("api client", () => {
     const res = { ok: true } as Response;
     mock(res);
     await expect(stream("/s", { method: "POST" })).resolves.toBe(res);
-    expect((fetch as any).mock.calls[0][1]).toMatchObject({
+    expect(vi.mocked(fetch).mock.calls[0][1]).toMatchObject({
       credentials: "include",
       method: "POST",
     });

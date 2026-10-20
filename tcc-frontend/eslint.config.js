@@ -15,7 +15,6 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       // desligadas: quebram codigo pre-existente em massa
       'react-hooks/set-state-in-effect': 'off',
-      '@typescript-eslint/no-explicit-any': 'off',
     },
   },
 );

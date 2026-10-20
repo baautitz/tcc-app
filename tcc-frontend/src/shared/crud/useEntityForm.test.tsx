@@ -1,3 +1,4 @@
+import type { Resolver } from "react-hook-form";
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { toast } from "@/shared/ui/toast";
@@ -8,12 +9,18 @@ vi.mock("@/shared/ui/toast", () => ({
 }));
 
 type V = { name: string };
-const resolver = (async (values: V) => ({ values, errors: {} })) as any;
+const resolver = (async (values: V) => ({
+  values,
+  errors: {},
+})) as unknown as Resolver<V>;
 const toDefaults = (e: { name: string } | undefined) => ({
   name: e?.name ?? "",
 });
 
-function setup(save: any, extra: Record<string, unknown> = {}) {
+function setup(
+  save: (values: V) => Promise<string | void | undefined>,
+  extra: Record<string, unknown> = {},
+) {
   const onOpenChange = vi.fn();
   const onSaved = vi.fn().mockResolvedValue(undefined);
   const hook = renderHook(

@@ -12,14 +12,16 @@ vi.mock("@/modules/queries/api/queries.api", () => ({
   },
 }));
 
-const body = { name: "q" } as any;
+const body = { name: "q" } as unknown as Parameters<
+  typeof queriesApi.createQuery
+>[0];
 beforeEach(() => vi.clearAllMocks());
 
 describe("useSaveQuery", () => {
   it("persist cria sem id e atualiza com id + expectedUpdatedAt", async () => {
     const { result } = renderHook(() => useSaveQuery());
-    (queriesApi.createQuery as any).mockResolvedValue({ id: "n" });
-    (queriesApi.updateQuery as any).mockResolvedValue({ id: "1" });
+    vi.mocked(queriesApi.createQuery).mockResolvedValue({ id: "n" } as never);
+    vi.mocked(queriesApi.updateQuery).mockResolvedValue({ id: "1" } as never);
     await result.current.persist(undefined, body);
     expect(queriesApi.createQuery).toHaveBeenCalledWith(body);
     await result.current.persist("1", body, "t0");
@@ -56,8 +58,8 @@ describe("useSaveQuery", () => {
 
   it("reloadOnConflict devolve a query ou undefined se falhar", async () => {
     const { result } = renderHook(() => useSaveQuery());
-    (queriesApi.savedQuery as any)
-      .mockResolvedValueOnce({ id: "1" })
+    vi.mocked(queriesApi.savedQuery)
+      .mockResolvedValueOnce({ id: "1" } as never)
       .mockRejectedValueOnce(new Error("x"));
     expect(await result.current.reloadOnConflict("1")).toEqual({ id: "1" });
     expect(await result.current.reloadOnConflict("1")).toBeUndefined();

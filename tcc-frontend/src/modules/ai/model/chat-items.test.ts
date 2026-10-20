@@ -49,7 +49,7 @@ describe("chat-items", () => {
     const out = mergePendingContextProposals(cur, [
       p("p1", "new"),
       p("p2", "x"),
-    ]) as any[];
+    ]) as unknown as { id: string; proposal: { v: string } }[];
     expect(out.map((i) => i.id)).toEqual(["p1", "p2"]);
     expect(out[0].proposal.v).toBe("new");
   });
@@ -73,8 +73,8 @@ describe("chatItemOps", () => {
       state = typeof f === "function" ? f(state) : f;
     });
     ops.updateAssistant("b", (m) => ({ ...m, content: "x" }));
-    expect((state[0] as any).content).toBe("");
-    expect((state[1] as any).content).toBe("x");
+    expect((state[0] as { content: string }).content).toBe("");
+    expect((state[1] as { content: string }).content).toBe("x");
   });
 });
 
