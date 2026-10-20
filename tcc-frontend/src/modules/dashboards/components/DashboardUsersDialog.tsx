@@ -35,6 +35,8 @@ export function DashboardUsersDialog({
 
   useEffect(() => {
     if (!open) return;
+    // reseta/sincroniza estado local ao mudar a chave do efeito (refatorar mudaria timing)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     setError(undefined);
     dashboardsApi

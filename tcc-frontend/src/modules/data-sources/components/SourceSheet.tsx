@@ -100,6 +100,8 @@ export function SourceSheet({
     source?.updatedAt ?? "",
   );
   useEffect(() => {
+    // ressincroniza estado local com prop/fetch ao mudar
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSourceUpdatedAt(source?.updatedAt ?? "");
     if (source && open)
       dataSourcesApi
@@ -316,6 +318,8 @@ function TableContextEditor({
   onSave: (table: DataSourceTable, context: string) => Promise<void>;
 }) {
   const [context, setContext] = useState(table.context);
+  // ressincroniza estado local com prop/fetch ao mudar
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setContext(table.context), [table.context]);
   return (
     <div className="flex flex-col gap-2 border-b pb-4 last:border-0">

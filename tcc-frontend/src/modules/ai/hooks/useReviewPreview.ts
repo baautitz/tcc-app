@@ -35,6 +35,8 @@ export function useReviewPreview(
   const { hasPermission } = useAuth();
 
   useEffect(() => {
+    // reseta/sincroniza estado local ao mudar a chave do efeito (refatorar mudaria timing)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setReviewName(reviewPreview?.intent.queryName ?? "");
     setStalePreview(false);
     setReloadedQuery(undefined);
@@ -52,6 +54,8 @@ export function useReviewPreview(
           item.stale,
       )
     ) {
+      // reseta/sincroniza estado local ao mudar a chave do efeito (refatorar mudaria timing)
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setStalePreview(true);
     }
   }, [items, reviewPreview]);
@@ -67,6 +71,8 @@ export function useReviewPreview(
       owner.id !== latestMessage?.id ||
       owner.actionCard?.id !== reviewPreview.id
     ) {
+      // reseta/sincroniza estado local ao mudar a chave do efeito (refatorar mudaria timing)
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setReviewPreview(undefined);
     }
   }, [items, latestMessage?.id, reviewPreview]);

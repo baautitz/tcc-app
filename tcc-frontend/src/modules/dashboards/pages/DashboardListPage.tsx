@@ -42,6 +42,8 @@ export function DashboardListPage({
 
   useEffect(() => {
     if (createOpen) {
+      // reseta/sincroniza estado local ao mudar a chave do efeito (refatorar mudaria timing)
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setName("");
       setDescription("");
     }

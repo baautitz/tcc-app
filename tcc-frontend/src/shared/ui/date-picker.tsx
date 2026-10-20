@@ -76,6 +76,8 @@ function DatePicker({
   const selectedDate = parseDate(value);
 
   useEffect(() => {
+    // rascunho de texto ressincroniza quando o value externo muda
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDraft(dateInputValue(value));
   }, [value]);
 

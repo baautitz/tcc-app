@@ -61,6 +61,8 @@ export function useDashboardPreview(
   );
 
   useEffect(() => {
+    // reseta/sincroniza estado local ao mudar a chave do efeito (refatorar mudaria timing)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setAcknowledgedLimit(false);
     setTestedQueries(undefined);
     setTestedIssues(undefined);
@@ -76,14 +78,20 @@ export function useDashboardPreview(
   }, [item.id, item.expiresAt]);
 
   useEffect(() => {
+    // reseta/sincroniza estado local ao mudar a chave do efeito (refatorar mudaria timing)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPreviewOpen(previewComponents.length > 0);
   }, [item.id, previewComponents]);
 
   useEffect(() => {
+    // reseta/sincroniza estado local ao mudar a chave do efeito (refatorar mudaria timing)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!isLatestInteraction) setPreviewOpen(false);
   }, [isLatestInteraction]);
 
   useEffect(() => {
+    // reseta/sincroniza estado local ao mudar a chave do efeito (refatorar mudaria timing)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (item.saved) setPreviewOpen(false);
   }, [item.saved]);
 

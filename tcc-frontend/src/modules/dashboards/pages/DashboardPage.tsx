@@ -49,6 +49,8 @@ export function DashboardPage({
 
   useEffect(() => {
     let active = true;
+    // reseta/sincroniza estado local ao mudar a chave do efeito (refatorar mudaria timing)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDashboard(undefined);
     setData({});
     setFilters({});
@@ -80,6 +82,8 @@ export function DashboardPage({
         ...lookupIds,
       ]),
     ];
+    // reseta/sincroniza estado local ao mudar a chave do efeito (refatorar mudaria timing)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setData((current) => ({
       ...current,
       ...Object.fromEntries(

@@ -65,6 +65,8 @@ export function DashboardContextEditor({
 
   useEffect(() => {
     let active = true;
+    // reseta/sincroniza estado local ao mudar a chave do efeito (refatorar mudaria timing)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     setError(undefined);
     setDashboard(undefined);

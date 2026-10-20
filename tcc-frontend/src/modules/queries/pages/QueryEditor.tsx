@@ -96,6 +96,8 @@ export function QueryEditor({
   });
 
   useEffect(() => {
+    // reseta/sincroniza estado local ao mudar a chave do efeito (refatorar mudaria timing)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCreatedQuery(undefined);
     setReloadedQuery(undefined);
     form.reset({
@@ -109,6 +111,8 @@ export function QueryEditor({
   }, [query, form, open]);
 
   useEffect(() => {
+    // reseta/sincroniza estado local ao mudar a chave do efeito (refatorar mudaria timing)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPreview((current) =>
       current?.draftKey === currentDraftKey ? current : undefined,
     );

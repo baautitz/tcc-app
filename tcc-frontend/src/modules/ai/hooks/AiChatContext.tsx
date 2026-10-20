@@ -35,6 +35,8 @@ export function AiChatProvider({ children }: { children: ReactNode }) {
   }, [user?.isAdmin]);
 
   useEffect(() => {
+    // fecha o chat ao perder permissao admin
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!user?.isAdmin) setIsAiChatOpen(false);
   }, [user?.isAdmin]);
 

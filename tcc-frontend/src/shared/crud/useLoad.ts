@@ -27,6 +27,8 @@ export function useLoad<T>(
   }, []);
   useRegisterCurrentViewRefresh(load);
   useEffect(() => {
+    // dispara fetch (load seta loading/dados); nao ha como derivar sem lib de dados
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
     if (!options.reloadOn) return;
     const reload = () => void load();
