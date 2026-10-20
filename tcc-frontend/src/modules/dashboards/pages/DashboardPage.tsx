@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, RefreshCw, Settings, Table2, Users } from "lucide-react";
 import { dashboardsApi } from "@/modules/dashboards/api/dashboards.api";
 import { queriesApi } from "@/modules/queries/api/queries.api";
@@ -47,14 +47,18 @@ export function DashboardPage({
   }, [dashboardId]);
   useRegisterCurrentViewRefresh(refreshData);
 
-  useEffect(() => {
-    let active = true;
-    // reseta/sincroniza estado local ao mudar a chave do efeito (refatorar mudaria timing)
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+  // reseta o estado local durante o render quando o dashboardId muda
+  const [syncedDashboardId, setSyncedDashboardId] = useState(dashboardId);
+  if (syncedDashboardId !== dashboardId) {
+    setSyncedDashboardId(dashboardId);
     setDashboard(undefined);
     setData({});
     setFilters({});
     setError(undefined);
+  }
+
+  useEffect(() => {
+    let active = true;
     dashboardsApi
       .dashboard(dashboardId)
       .then((result) => {
@@ -68,13 +72,12 @@ export function DashboardPage({
     };
   }, [dashboardId]);
 
-  useEffect(() => {
-    if (!dashboard) return;
-    const requestSequence = ++querySequenceRef.current;
+  const queryIds = useMemo(() => {
+    if (!dashboard) return [];
     const lookupIds = dashboard.definition.workspace.params.flatMap(
       (parameter) => (parameter.lookup ? [parameter.lookup.queryUuid] : []),
     );
-    const queryIds = [
+    return [
       ...new Set([
         ...dashboard.definition.components.map(
           (component) => component.queryUuid,
@@ -82,8 +85,17 @@ export function DashboardPage({
         ...lookupIds,
       ]),
     ];
-    // reseta/sincroniza estado local ao mudar a chave do efeito (refatorar mudaria timing)
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+  }, [dashboard]);
+
+  // marca as queries como carregando durante o render quando a execucao muda
+  const [syncedRun, setSyncedRun] = useState<unknown[]>([]);
+  if (
+    dashboard &&
+    (syncedRun[0] !== dashboard ||
+      syncedRun[1] !== filters ||
+      syncedRun[2] !== dataRefreshVersion)
+  ) {
+    setSyncedRun([dashboard, filters, dataRefreshVersion]);
     setData((current) => ({
       ...current,
       ...Object.fromEntries(
@@ -99,6 +111,11 @@ export function DashboardPage({
         }),
       ),
     }));
+  }
+
+  useEffect(() => {
+    if (!dashboard) return;
+    const requestSequence = ++querySequenceRef.current;
     queryIds.forEach((queryId) => {
       queriesApi
         .query(queryId, queryArguments(dashboard, queryId, filters))
@@ -128,7 +145,7 @@ export function DashboardPage({
         querySequenceRef.current += 1;
       }
     };
-  }, [dashboard, filters, dataRefreshVersion]);
+  }, [dashboard, filters, dataRefreshVersion, queryIds]);
 
   if (error)
     return (

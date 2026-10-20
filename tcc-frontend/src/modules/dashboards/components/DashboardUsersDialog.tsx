@@ -33,12 +33,19 @@ export function DashboardUsersDialog({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
 
+  // inicia o carregamento durante o render ao abrir ou trocar de dashboard
+  const loadKey = open ? dashboardId : undefined;
+  const [syncedKey, setSyncedKey] = useState(loadKey);
+  if (syncedKey !== loadKey) {
+    setSyncedKey(loadKey);
+    if (open) {
+      setLoading(true);
+      setError(undefined);
+    }
+  }
+
   useEffect(() => {
     if (!open) return;
-    // reseta/sincroniza estado local ao mudar a chave do efeito (refatorar mudaria timing)
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setLoading(true);
-    setError(undefined);
     dashboardsApi
       .dashboardUsers(dashboardId)
       .then((result) => {

@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useMemo, type ReactNode } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -94,11 +94,15 @@ export function DashboardFilters({
         }
       });
     });
-  const defaults = Object.fromEntries(
-    parameters.map((parameter) => [
-      parameter.name,
-      parameter.type === "multi_select" ? [] : "",
-    ]),
+  const defaults = useMemo(
+    () =>
+      Object.fromEntries(
+        parameters.map((parameter) => [
+          parameter.name,
+          parameter.type === "multi_select" ? [] : "",
+        ]),
+      ),
+    [parameters],
   );
   const form = useForm<FilterValues>({
     resolver: zodResolver(schema),
@@ -106,11 +110,9 @@ export function DashboardFilters({
   });
   useEffect(() => {
     form.reset({ ...defaults, ...appliedFilters });
-    // defaults e recriado a cada render; incluir causaria reset a cada render
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [parameters, appliedFilters, form]);
+  }, [defaults, appliedFilters, form]);
   useEffect(() => {
-    // watch(callback) e a assinatura imperativa (sem re-render); nao usa o valor em render
+    // RHF 7.88 so oferece watch(callback) para observar mudancas sem re-render; sem useWatch/subscribe equivalente
     // eslint-disable-next-line react-hooks/incompatible-library
     const subscription = form.watch((values, metadata) => {
       if (metadata.type === "change")

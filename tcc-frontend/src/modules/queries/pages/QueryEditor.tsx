@@ -95,28 +95,29 @@ export function QueryEditor({
     queryUpdatedAt: activeQuery?.updatedAt ?? null,
   });
 
-  useEffect(() => {
-    // reseta/sincroniza estado local ao mudar a chave do efeito (refatorar mudaria timing)
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+  // reseta o estado local durante o render quando query/open mudam
+  const [syncedQuery, setSyncedQuery] = useState(query);
+  const [syncedOpen, setSyncedOpen] = useState(open);
+  if (syncedQuery !== query || syncedOpen !== open) {
+    setSyncedQuery(query);
+    setSyncedOpen(open);
     setCreatedQuery(undefined);
     setReloadedQuery(undefined);
+    setTestValues("{}");
+    setPreview(undefined);
+  }
+
+  useEffect(() => {
     form.reset({
       dataSourceId: query?.dataSourceId ?? "",
       name: query?.name ?? "",
       sqlText: query?.sqlText ?? "SELECT 1 AS valor",
       parameters: JSON.stringify(query?.parameters ?? [], null, 2),
     });
-    setTestValues("{}");
-    setPreview(undefined);
   }, [query, form, open]);
 
-  useEffect(() => {
-    // reseta/sincroniza estado local ao mudar a chave do efeito (refatorar mudaria timing)
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setPreview((current) =>
-      current?.draftKey === currentDraftKey ? current : undefined,
-    );
-  }, [currentDraftKey]);
+  // descarta a previa quando a definicao do rascunho muda
+  if (preview && preview.draftKey !== currentDraftKey) setPreview(undefined);
 
   const submit = async (values: QueryForm) => {
     if (savePendingRef.current || saving || testing) return;
@@ -247,9 +248,7 @@ export function QueryEditor({
           <Form {...form}>
             <form
               id="query-form"
-              // submit le o ref so no handler, nunca no render (falso positivo)
-              // eslint-disable-next-line react-hooks/refs
-              onSubmit={form.handleSubmit(submit)}
+              onSubmit={(event) => form.handleSubmit(submit)(event)}
               className="flex flex-col gap-6 p-6"
             >
               <QueryFormFields form={form} sources={sources} saving={saving} />

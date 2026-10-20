@@ -63,13 +63,17 @@ export function DashboardContextEditor({
   const [jsonDraft, setJsonDraft] = useState("");
   const [jsonError, setJsonError] = useState<string>();
 
-  useEffect(() => {
-    let active = true;
-    // reseta/sincroniza estado local ao mudar a chave do efeito (refatorar mudaria timing)
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+  // reseta o estado local durante o render quando o dashboardId muda
+  const [syncedDashboardId, setSyncedDashboardId] = useState(dashboardId);
+  if (syncedDashboardId !== dashboardId) {
+    setSyncedDashboardId(dashboardId);
     setLoading(true);
     setError(undefined);
     setDashboard(undefined);
+  }
+
+  useEffect(() => {
+    let active = true;
     Promise.all([
       dashboardsApi.dashboardContext(dashboardId),
       queriesApi.queries(),

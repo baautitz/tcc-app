@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { BarChart3, Plus } from "lucide-react";
 import { dashboardsApi } from "@/modules/dashboards/api/dashboards.api";
 import type { DashboardSummary } from "@/modules/dashboards/model/types";
@@ -40,14 +40,13 @@ export function DashboardListPage({
   const [description, setDescription] = useState("");
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    if (createOpen) {
-      // reseta/sincroniza estado local ao mudar a chave do efeito (refatorar mudaria timing)
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+  const handleCreateOpenChange = (next: boolean) => {
+    if (next) {
       setName("");
       setDescription("");
     }
-  }, [createOpen]);
+    setCreateOpen(next);
+  };
 
   const createDashboard = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -82,7 +81,7 @@ export function DashboardListPage({
           </p>
         </div>
         {canCreate && (
-          <Button onClick={() => setCreateOpen(true)}>
+          <Button onClick={() => handleCreateOpenChange(true)}>
             <Plus /> Novo dashboard
           </Button>
         )}
@@ -121,7 +120,7 @@ export function DashboardListPage({
           </CardContent>
         </Card>
       )}
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+      <Dialog open={createOpen} onOpenChange={handleCreateOpenChange}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Novo dashboard</DialogTitle>
