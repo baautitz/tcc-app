@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { } from "../../../shared/config/config.js";
-import { usersRepository } from "../infrastructure/users-repository.js";
+import { DrizzleUsersRepository } from "../infrastructure/users-repository.js";
 import type { users } from "../../../shared/db/schema.js";
 import {
   passwordSchema,
@@ -29,6 +29,7 @@ import { ApiError } from "../../../shared/lib/domain-error.js";
 import type { AppContext } from "../../../shared/middleware/auth.js";
 import { jsonBody } from "../../../shared/middleware/json-body.js";
 
+const usersRepository = new DrizzleUsersRepository();
 export async function listUsers(context: AppContext) {
   const rows = await usersRepository.listAll();
   const assignments = await usersRepository.listPermissionAssignments();

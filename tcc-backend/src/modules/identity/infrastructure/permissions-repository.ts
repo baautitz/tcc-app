@@ -9,8 +9,8 @@ export interface PermissionsRepository {
   replaceUserPermissions(userId: string, permissionIds: string[]): Promise<void>;
 }
 
-export const drizzlePermissionsRepository: PermissionsRepository = {
-  async upsertSystemPermission(definition) {
+export class DrizzlePermissionsRepository implements PermissionsRepository {
+  async upsertSystemPermission(definition: { key: string; name: string; description?: string }) {
     await db
       .insert(permissions)
       .values({ ...definition, system: true })
@@ -22,21 +22,21 @@ export const drizzlePermissionsRepository: PermissionsRepository = {
           system: true,
         },
       });
-  },
-  async deleteSystemPermissionsNotIn(keys) {
+  }
+  async deleteSystemPermissionsNotIn(keys: string[]) {
     await db
       .delete(permissions)
       .where(and(eq(permissions.system, true), notInArray(permissions.key, keys)));
-  },
-  async findPermissionIdsByKeys(keys) {
+  }
+  async findPermissionIdsByKeys(keys: string[]) {
     if (keys.length === 0) return [];
     const rows = await db
       .select({ id: permissions.id })
       .from(permissions)
       .where(inArray(permissions.key, keys));
     return rows.map((row) => row.id);
-  },
-  async replaceUserPermissions(userId, permissionIds) {
+  }
+  async replaceUserPermissions(userId: string, permissionIds: string[]) {
     await db.delete(userPermissions).where(eq(userPermissions.userId, userId));
     if (permissionIds.length > 0) {
       await db
@@ -44,5 +44,5 @@ export const drizzlePermissionsRepository: PermissionsRepository = {
         .values(permissionIds.map((permissionId) => ({ userId, permissionId })))
         .onConflictDoNothing();
     }
-  },
-};
+  }
+}

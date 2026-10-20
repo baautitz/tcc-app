@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { sha256Hex } from "../../../shared/lib/hash.js";
-import { drizzleAuthRepository, type AuthRepository } from "../infrastructure/auth-repository.js";
+import { DrizzleAuthRepository, type AuthRepository } from "../infrastructure/auth-repository.js";
 import { getEnvironment } from "../../../shared/config/config.js";
 import type { AuthenticatedUser } from "../domain/auth-user.js";
 
@@ -12,7 +12,7 @@ export function hashSessionToken(token: string): string {
 
 export async function createSession(
   userId: string,
-  repo: AuthRepository = drizzleAuthRepository,
+  repo: AuthRepository = new DrizzleAuthRepository(),
   environment = getEnvironment(),
   now: () => number = Date.now,
 ): Promise<{ token: string; expiresAt: Date }> {
@@ -26,7 +26,7 @@ export async function createSession(
 
 export async function revokeSession(
   token: string | undefined,
-  repo: AuthRepository = drizzleAuthRepository,
+  repo: AuthRepository = new DrizzleAuthRepository(),
 ): Promise<void> {
   if (!token) return;
   await repo.revokeSessionByHash(hashSessionToken(token));
@@ -34,7 +34,7 @@ export async function revokeSession(
 
 export async function findAuthenticatedUser(
   token: string | undefined,
-  repo: AuthRepository = drizzleAuthRepository,
+  repo: AuthRepository = new DrizzleAuthRepository(),
 ): Promise<AuthenticatedUser | null> {
   if (!token) return null;
   const user = await repo.findActiveUserByTokenHash(hashSessionToken(token));

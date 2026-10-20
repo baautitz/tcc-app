@@ -1,5 +1,5 @@
 import {
-  drizzlePermissionsRepository,
+  DrizzlePermissionsRepository,
   type PermissionsRepository,
 } from "../infrastructure/permissions-repository.js";
 
@@ -25,7 +25,7 @@ const API_PERMISSIONS = [
 type PermissionDefinition = { key: string; name: string; description?: string };
 
 export async function ensureSystemPermissions(
-  repo: PermissionsRepository = drizzlePermissionsRepository,
+  repo: PermissionsRepository = new DrizzlePermissionsRepository(),
 ): Promise<void> {
   const definitions: PermissionDefinition[] = API_PERMISSIONS.map(
     ([key, name]) => ({ key, name }),
@@ -37,7 +37,7 @@ export async function ensureSystemPermissions(
 export async function assignPermissionKeys(
   userId: string,
   keys: string[],
-  repo: PermissionsRepository = drizzlePermissionsRepository,
+  repo: PermissionsRepository = new DrizzlePermissionsRepository(),
 ): Promise<void> {
   const ids = await repo.findPermissionIdsByKeys(keys);
   if (ids.length !== keys.length) {

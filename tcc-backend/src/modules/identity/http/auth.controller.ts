@@ -3,7 +3,7 @@ import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 
 import { z } from "zod";
 import { getEnvironment } from "../../../shared/config/config.js";
-import { usersRepository } from "../infrastructure/users-repository.js";
+import { DrizzleUsersRepository } from "../infrastructure/users-repository.js";
 
 import { verifyPassword } from "../../../shared/lib/passwords.js";
 
@@ -14,7 +14,7 @@ import { ApiError } from "../../../shared/lib/domain-error.js";
 import type { AppContext } from "../../../shared/middleware/auth.js";
 import { jsonBody } from "../../../shared/middleware/json-body.js";
 
-const deps = { environment: getEnvironment(), users: usersRepository };
+const deps = { environment: getEnvironment(), users: new DrizzleUsersRepository() };
 
 export async function login(context: AppContext) {
   const body = await jsonBody(context, z.object({ email: z.string().email(), password: z.string().min(1) }));
