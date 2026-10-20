@@ -14,10 +14,28 @@ type ContextDeps = Parameters<
   typeof updateTableContextIfSourceVersionMatches
 >[0];
 
-export const dataSourcesRepository = {
+export interface DataSourcesRepository {
+  listAll(): Promise<(typeof dataSources.$inferSelect)[]>;
+  findById(
+    sourceId: string,
+  ): Promise<typeof dataSources.$inferSelect | undefined>;
+  listTables(
+    sourceId: string,
+    limit: number,
+  ): Promise<(typeof dataSourceTables.$inferSelect)[]>;
+  tableExists(sourceId: string, tableId: string): Promise<boolean>;
+  insert(
+    values: typeof dataSources.$inferInsert,
+  ): Promise<typeof dataSources.$inferSelect | undefined>;
+  deleteWithQueries(sourceId: string): Promise<{ id: string }[]>;
+  readonly catalogTransaction: CatalogDeps["transaction"];
+  readonly contextTransaction: ContextDeps["transaction"];
+}
+
+export class DrizzleDataSourcesRepository implements DataSourcesRepository {
   async listAll() {
     return db.select().from(dataSources).orderBy(asc(dataSources.name));
-  },
+  }
   async findById(sourceId: string) {
     return (
       await db
@@ -26,7 +44,7 @@ export const dataSourcesRepository = {
         .where(eq(dataSources.id, sourceId))
         .limit(1)
     )[0];
-  },
+  }
   async listTables(sourceId: string, limit: number) {
     return db
       .select()
@@ -37,7 +55,7 @@ export const dataSourcesRepository = {
         asc(dataSourceTables.tableName),
       )
       .limit(limit);
-  },
+  }
   async tableExists(sourceId: string, tableId: string) {
     return (
       (
@@ -53,10 +71,10 @@ export const dataSourcesRepository = {
           .limit(1)
       ).length > 0
     );
-  },
+  }
   async insert(values: typeof dataSources.$inferInsert) {
     return (await db.insert(dataSources).values(values).returning())[0];
-  },
+  }
   async deleteWithQueries(sourceId: string) {
     return db.transaction(async (tx) => {
       await tx
@@ -67,9 +85,9 @@ export const dataSourcesRepository = {
         .where(eq(dataSources.id, sourceId))
         .returning({ id: dataSources.id });
     });
-  },
+  }
   /** Adapter consumed by reconcileDataSourceCatalog. */
-  catalogTransaction: ((work) =>
+  readonly catalogTransaction = ((work) =>
     db.transaction(async (tx) =>
       work({
         async lockDataSource(dataSourceId) {
@@ -161,8 +179,8 @@ export const dataSourcesRepository = {
             );
         },
       }),
-    )) as CatalogDeps["transaction"],
-  contextTransaction: ((work) =>
+    )) as CatalogDeps["transaction"];
+  readonly contextTransaction = ((work) =>
     db.transaction((tx) =>
       work({
         async lockSourceUpdatedAt(dataSourceId) {
@@ -200,5 +218,5 @@ export const dataSourcesRepository = {
           )[0];
         },
       }),
-    )) as ContextDeps["transaction"],
-};
+    )) as ContextDeps["transaction"];
+}

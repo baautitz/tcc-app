@@ -1,4 +1,4 @@
-import { getSourceOrThrow } from "../../data-sources/application/data-source-admin.js";
+import { dataSourceAdminService } from "../../data-sources/application/data-source-admin.js";
 
 import { z } from "zod";
 
@@ -64,7 +64,9 @@ export const QUERY_LIFECYCLE_MESSAGES: Record<string, string> = {
 export async function runQueryDefinition(
   input: z.infer<typeof queryTestInputSchema>,
 ): Promise<Record<string, unknown>[]> {
-  const source = await getSourceOrThrow(input.dataSourceId);
+  const source = await dataSourceAdminService.getSourceOrThrow(
+    input.dataSourceId,
+  );
   try {
     assertReadOnlySql(input.sqlText);
     assertParameterDefinitions(input.parameters);

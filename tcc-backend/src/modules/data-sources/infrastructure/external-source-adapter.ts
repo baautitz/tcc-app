@@ -9,13 +9,25 @@ import {
 } from "./external-pg/index.js";
 import { sourceConnection } from "./source-connection.js";
 
-export const externalSourceAdapter: ExternalSourcePort = {
-  sourceConnection: (source) => sourceConnection(source),
-  runReadOnlyQuery: (...a) => runReadOnlyQuery(...a),
-  runBoundedReadOnlyQuery: (...a) => runBoundedReadOnlyQuery(...a),
-  runBoundedReadOnlyQueryWithRetry: (...a) =>
-    runBoundedReadOnlyQueryWithRetry(...a),
-  listPostgresBaseTables: (...a) => listPostgresBaseTables(...a),
-  findUnsafeAiColumnTypes: (...a) => findUnsafeAiColumnTypes(...a),
-  getPostgresTableColumns: (...a) => getPostgresTableColumns(...a),
-};
+export class PostgresExternalSourceAdapter implements ExternalSourcePort {
+  sourceConnection: ExternalSourcePort["sourceConnection"] = (source) =>
+    sourceConnection(source);
+  runReadOnlyQuery: ExternalSourcePort["runReadOnlyQuery"] = (...a) =>
+    runReadOnlyQuery(...a);
+  runBoundedReadOnlyQuery: ExternalSourcePort["runBoundedReadOnlyQuery"] = (
+    ...a
+  ) => runBoundedReadOnlyQuery(...a);
+  runBoundedReadOnlyQueryWithRetry: ExternalSourcePort["runBoundedReadOnlyQueryWithRetry"] =
+    (...a) => runBoundedReadOnlyQueryWithRetry(...a);
+  listPostgresBaseTables: ExternalSourcePort["listPostgresBaseTables"] = (
+    ...a
+  ) => listPostgresBaseTables(...a);
+  findUnsafeAiColumnTypes: ExternalSourcePort["findUnsafeAiColumnTypes"] = (
+    ...a
+  ) => findUnsafeAiColumnTypes(...a);
+  getPostgresTableColumns: ExternalSourcePort["getPostgresTableColumns"] = (
+    ...a
+  ) => getPostgresTableColumns(...a);
+}
+
+export const externalSourceAdapter = new PostgresExternalSourceAdapter();

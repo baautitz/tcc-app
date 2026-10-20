@@ -27,7 +27,7 @@ import { createQueryLifecycleRepository } from "../infrastructure/query-lifecycl
 
 import type { AppContext } from "../../../shared/middleware/auth.js";
 import { jsonBody } from "../../../shared/middleware/json-body.js";
-import { getSourceOrThrow } from "../../data-sources/application/data-source-admin.js";
+import { dataSourceAdminService } from "../../data-sources/application/data-source-admin.js";
 import { throwApiError } from "../../../shared/lib/domain-error.js";
 import {
   parseParameters,
@@ -70,7 +70,9 @@ export async function previewQuery(context: AppContext) {
   }
   validateQueryInput(input);
 
-  const source = await getSourceOrThrow(input.dataSourceId);
+  const source = await dataSourceAdminService.getSourceOrThrow(
+    input.dataSourceId,
+  );
   const sourceUpdatedAt = source.updatedAt;
   const sourceTargetHash = querySourceTargetHash(source);
   let queryTarget: typeof savedQueries.$inferSelect | undefined;
@@ -115,7 +117,7 @@ export async function previewQuery(context: AppContext) {
     );
   }
 
-  const latestSource = await getSourceOrThrow(source.id);
+  const latestSource = await dataSourceAdminService.getSourceOrThrow(source.id);
   if (
     latestSource.updatedAt.getTime() !== sourceUpdatedAt.getTime() ||
     querySourceTargetHash(latestSource) !== sourceTargetHash
