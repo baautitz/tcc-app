@@ -29,7 +29,7 @@ function SectionHeading({
   loading,
 }: {
   section: Section;
-  onCreate: () => void;
+  onCreate?: () => void;
   onRefresh: () => void;
   loading: boolean;
 }) {
@@ -52,7 +52,7 @@ function SectionHeading({
           <RefreshCw className={loading ? "animate-spin" : undefined} />
           <span className="sr-only">Atualizar dados</span>
         </Button>
-        {section !== "permissions" && (
+        {onCreate && (
           <Button onClick={onCreate}>
             <Plus /> Novo
           </Button>
@@ -72,7 +72,7 @@ export function SectionLayout({
   children,
 }: {
   section: Section;
-  onCreate: () => void;
+  onCreate?: () => void;
   onRefresh: () => void;
   loading: boolean;
   error?: string;

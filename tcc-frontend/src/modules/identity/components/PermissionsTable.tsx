@@ -11,14 +11,10 @@ export function PermissionsTable({
   permissions,
   loading,
   isMobile,
-  onEdit: _onEdit,
-  onDelete: _onDelete,
 }: {
   permissions: Permission[];
   loading: boolean;
   isMobile: boolean;
-  onEdit?: (permission: Permission) => void;
-  onDelete?: (permission: Permission) => void;
 }) {
   return (
     <Card>

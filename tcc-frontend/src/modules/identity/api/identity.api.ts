@@ -23,16 +23,4 @@ export const identityApi = {
   deleteUser: (id: string) =>
     request<void>(`/api/users/${id}`, { method: "DELETE" }),
   permissions: () => request<Permission[]>("/api/permissions"),
-  createPermission: (body: unknown) =>
-    request<Permission>("/api/permissions", {
-      method: "POST",
-      body: JSON.stringify(body),
-    }),
-  updatePermission: (id: string, body: unknown) =>
-    request<Permission>(`/api/permissions/${id}`, {
-      method: "PATCH",
-      body: JSON.stringify(body),
-    }),
-  deletePermission: (id: string) =>
-    request<void>(`/api/permissions/${id}`, { method: "DELETE" }),
 };
