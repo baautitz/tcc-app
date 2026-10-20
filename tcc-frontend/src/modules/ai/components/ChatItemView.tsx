@@ -29,6 +29,7 @@ import {
   type DashboardPreviewItem,
   type ChatItem,
   toolLabel,
+  isExpired,
 } from "@/modules/ai/model/chat-items";
 import { DashboardPreviewCard } from "@/modules/ai/components/DashboardPreviewCard";
 const ChatMarkdown = lazy(() =>
@@ -196,7 +197,7 @@ export function ChatItemView({
         : `${item.proposal.sourceName} · ${item.proposal.schemaName}.${item.proposal.tableName}`;
     const pending =
       item.proposal.status === "pending" &&
-      Date.parse(item.proposal.expiresAt) > Date.now();
+      !isExpired(item.proposal.expiresAt);
     const statusLabel = pending
       ? "Aguardando confirmação"
       : item.proposal.status === "approved"

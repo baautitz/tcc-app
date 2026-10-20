@@ -1,4 +1,5 @@
 import type { AiContextProposal } from "@/modules/ai/model/types";
+import { isExpired } from "@/modules/ai/model/chat-items";
 import { Button } from "@/shared/ui/button";
 import {
   Dialog,
@@ -118,7 +119,7 @@ export function ReviewContextDialog({
             Cancelar
           </Button>
           {reviewContext?.status === "pending" &&
-            Date.parse(reviewContext.expiresAt) > Date.now() && (
+            !isExpired(reviewContext.expiresAt) && (
               <>
                 <Button
                   variant="outline"

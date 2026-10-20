@@ -454,3 +454,7 @@ export function mergePendingContextProposals(
     })),
   ];
 }
+
+export function isExpired(expiresAt: string): boolean {
+  return !(Date.parse(expiresAt) > Date.now());
+}
