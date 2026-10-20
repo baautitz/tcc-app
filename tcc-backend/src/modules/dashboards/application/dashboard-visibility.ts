@@ -3,10 +3,7 @@ import type { SavedQueriesPort } from "../../queries/domain/saved-queries-port.j
 
 import type { AuthenticatedUser } from "../../identity/domain/auth-user.js";
 
-import {
-  dashboardRegistry,
-  type DashboardRegistryService,
-} from "./dashboard-registry.js";
+import { type DashboardRegistryService } from "./dashboard-registry.js";
 import { dashboardSyncService } from "./dashboard-sync.js";
 import { canAccessDashboard } from "../domain/dashboard-access.js";
 

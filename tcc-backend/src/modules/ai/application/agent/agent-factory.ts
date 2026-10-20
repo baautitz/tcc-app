@@ -23,8 +23,6 @@ import {
 import {
   clearPendingResponse,
   dashboardPreflightIssue,
-  hasDashboardProposal,
-  hasPendingDashboardQuestion,
   hasActionCardResult,
   hasUnresolvedTestQueryCall,
   latestQueryTestResult,
@@ -467,7 +465,7 @@ class LangChainAiAgent implements AiChatAgent {
 
   constructor(
     private readonly options: AiAgentOptions,
-    private readonly config: AiConfigService,
+    config: AiConfigService,
     private readonly checkpointer: AiCheckpointer,
   ) {
     this.model = config.createModel(options.configuration);

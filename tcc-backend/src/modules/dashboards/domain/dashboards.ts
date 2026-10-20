@@ -9,10 +9,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { isAbsolute, relative, resolve } from "node:path";
-import {
-  dashboardCreateSchema,
-  dashboardDocumentSchema,
-} from "../../../shared/lib/contracts.js";
+import { dashboardDocumentSchema } from "../../../shared/lib/contracts.js";
 
 export type DashboardDocument = ReturnType<
   typeof dashboardDocumentSchema.parse

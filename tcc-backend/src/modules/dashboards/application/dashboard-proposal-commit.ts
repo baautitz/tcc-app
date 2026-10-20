@@ -2,10 +2,7 @@ import type { ExternalSourcePort } from "../../data-sources/domain/external-sour
 
 import { z } from "zod";
 
-import {
-  DrizzleDashboardFilesRepository,
-  type DashboardFilesRepository,
-} from "../infrastructure/dashboard-files-repository.js";
+import { type DashboardFilesRepository } from "../infrastructure/dashboard-files-repository.js";
 import { withDashboardFilesLock } from "../../../shared/db/db-executor.js";
 import type { SavedQueriesPort } from "../../queries/domain/saved-queries-port.js";
 import {

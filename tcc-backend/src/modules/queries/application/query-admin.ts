@@ -30,11 +30,7 @@ import {
   type QueryLifecycleQuery,
   type QueryLifecycleRepository,
 } from "../domain/query-lifecycle.js";
-import { queryLifecycleRepository } from "../infrastructure/query-lifecycle-repository.js";
-import {
-  savedQueriesRepository,
-  type SavedQueriesRepository,
-} from "../infrastructure/saved-queries-repository.js";
+import { type SavedQueriesRepository } from "../infrastructure/saved-queries-repository.js";
 
 export const QUERY_LIFECYCLE_MESSAGES: Record<string, string> = {
   SOURCE_NOT_FOUND: "Servidor PostgreSQL não encontrado.",

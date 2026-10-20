@@ -4,11 +4,7 @@ import {
   ExternalQueryExecutionError,
   type UnsafeAiColumnType,
 } from "../../../../data-sources/domain/external-source.js";
-import type {
-  AiReadSource,
-  AiReadTableName,
-  AiToolProgressEvent,
-} from "../ai-read-tools.js";
+import type { AiReadSource, AiReadTableName } from "../ai-read-tools.js";
 import {
   assertAiReadOnlySql,
   assertParameterDefinitions,

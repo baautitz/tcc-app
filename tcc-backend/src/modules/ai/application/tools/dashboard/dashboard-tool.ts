@@ -8,7 +8,6 @@ import {
   dashboardDocumentSchema,
   parameterDefinitionSchema,
 } from "../../../../../shared/lib/contracts.js";
-import type { AuthenticatedUser } from "../../../../identity/domain/auth-user.js";
 import {
   dashboardSyncService,
   type DashboardQueryMetadata,
@@ -32,7 +31,6 @@ import type { AiToolProgressEvent } from "../ai-read-tools.js";
 import type {
   AiDashboardToolsOptions,
   AiDashboardQueryPreview,
-  AiDashboardToolsRepository,
 } from "./dashboard-types.js";
 import { validateDashboardPreviewFields } from "../../../../dashboards/domain/dashboard-preview-validation.js";
 
