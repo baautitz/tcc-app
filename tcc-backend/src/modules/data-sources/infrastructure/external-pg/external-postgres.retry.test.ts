@@ -40,15 +40,12 @@ describe("retry técnico de preview", () => {
       });
     });
     const startedAt = Date.now();
-    await expect(runBoundedReadOnlyQueryWithRetry(
-      connection,
-      "SELECT 1",
-      [],
-      {
+    await expect(
+      runBoundedReadOnlyQueryWithRetry(connection, "SELECT 1", [], {
         createClient: factory.createClient,
         createCursor: () => ({ read: async () => [], close: async () => {} }),
-      },
-    )).resolves.toMatchObject({ rows: [], truncated: false });
+      }),
+    ).resolves.toMatchObject({ rows: [], truncated: false });
     expect(Date.now() - startedAt).toBeGreaterThanOrEqual(
       AI_QUERY_RETRY_MIN_DELAY_MS + AI_QUERY_RETRY_JITTER_MS,
     );

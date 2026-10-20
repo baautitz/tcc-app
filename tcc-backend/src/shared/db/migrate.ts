@@ -5,19 +5,30 @@ import { pool } from "./client.js";
 const migrations = [
   {
     id: "0000_initial",
-    path: fileURLToPath(new URL("./migrations/0000_initial.sql", import.meta.url)),
+    path: fileURLToPath(
+      new URL("./migrations/0000_initial.sql", import.meta.url),
+    ),
   },
   {
     id: "0001_query_test_runs",
-    path: fileURLToPath(new URL("./migrations/0001_query_test_runs.sql", import.meta.url)),
+    path: fileURLToPath(
+      new URL("./migrations/0001_query_test_runs.sql", import.meta.url),
+    ),
   },
   {
     id: "0002_dashboard_proposal_receipts",
-    path: fileURLToPath(new URL("./migrations/0002_dashboard_proposal_receipts.sql", import.meta.url)),
+    path: fileURLToPath(
+      new URL(
+        "./migrations/0002_dashboard_proposal_receipts.sql",
+        import.meta.url,
+      ),
+    ),
   },
   {
     id: "0003_ai_context_approvals",
-    path: fileURLToPath(new URL("./migrations/0003_ai_context_approvals.sql", import.meta.url)),
+    path: fileURLToPath(
+      new URL("./migrations/0003_ai_context_approvals.sql", import.meta.url),
+    ),
   },
 ];
 
@@ -57,18 +68,25 @@ try {
       const relations = existing.rows[0]?.tables ?? [];
       const installed = relations.every(Boolean);
       if (installed) {
-        await client.query("INSERT INTO schema_migrations (id) VALUES ($1) ON CONFLICT DO NOTHING", [migration.id]);
+        await client.query(
+          "INSERT INTO schema_migrations (id) VALUES ($1) ON CONFLICT DO NOTHING",
+          [migration.id],
+        );
         continue;
       }
       if (relations.some(Boolean)) {
-        throw new Error("O schema existente está incompleto; 0000_initial não será reaplicada sobre tabelas parciais.");
+        throw new Error(
+          "O schema existente está incompleto; 0000_initial não será reaplicada sobre tabelas parciais.",
+        );
       }
     }
 
     await client.query("BEGIN");
     try {
       await client.query(await readFile(migration.path, "utf8"));
-      await client.query("INSERT INTO schema_migrations (id) VALUES ($1)", [migration.id]);
+      await client.query("INSERT INTO schema_migrations (id) VALUES ($1)", [
+        migration.id,
+      ]);
       await client.query("COMMIT");
       console.info(`Migração ${migration.id} aplicada com sucesso.`);
     } catch (error) {
@@ -77,7 +95,9 @@ try {
     }
   }
 } finally {
-  await client.query("SELECT pg_advisory_unlock(hashtext('tcc-app:migrations'))").catch(() => undefined);
+  await client
+    .query("SELECT pg_advisory_unlock(hashtext('tcc-app:migrations'))")
+    .catch(() => undefined);
   client.release();
   await pool.end();
 }

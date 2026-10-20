@@ -1,13 +1,21 @@
 import { createAgent } from "langchain";
 import { createMiddleware } from "langchain";
-import { AIMessage, RemoveMessage, SystemMessage, ToolMessage } from "@langchain/core/messages";
+import {
+  AIMessage,
+  RemoveMessage,
+  SystemMessage,
+  ToolMessage,
+} from "@langchain/core/messages";
 import { REMOVE_ALL_MESSAGES } from "@langchain/langgraph";
 import { getAiCheckpointer } from "../../infrastructure/checkpointer.js";
 import type { AIMessageChunk } from "@langchain/core/messages";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import type { StructuredToolInterface } from "@langchain/core/tools";
 import { z } from "zod";
-import { createAiModel, type ResolvedAiConfiguration } from "./agent-model-config.js";
+import {
+  createAiModel,
+  type ResolvedAiConfiguration,
+} from "./agent-model-config.js";
 import {
   clearPendingResponse,
   dashboardPreflightIssue,
@@ -24,16 +32,24 @@ import {
 // staged schema analysis, bounded query retries, and the final QA pass.
 export const AI_AGENT_RECURSION_LIMIT = 96;
 
-
-type AnyMessage = { type?: string; id?: string; tool_calls?: Array<{ id?: string; name: string }>; tool_call_id?: string; content?: unknown };
+type AnyMessage = {
+  type?: string;
+  id?: string;
+  tool_calls?: Array<{ id?: string; name: string }>;
+  tool_call_id?: string;
+  content?: unknown;
+};
 
 function lastHumanIndex(messages: readonly { type?: string }[]): number {
-  for (let index = messages.length - 1; index >= 0; index -= 1) if (messages[index]?.type === "human") return index;
+  for (let index = messages.length - 1; index >= 0; index -= 1)
+    if (messages[index]?.type === "human") return index;
   return -1;
 }
 
 /** Messages of the run in progress: the checkpointer keeps older turns, but the QA hooks must only judge this one. */
-export function currentTurn<T extends { type?: string }>(messages: readonly T[]): T[] {
+export function currentTurn<T extends { type?: string }>(
+  messages: readonly T[],
+): T[] {
   const start = lastHumanIndex(messages);
   return start < 0 ? [...messages] : messages.slice(start);
 }
@@ -46,27 +62,62 @@ const HISTORY_KEEP = 50;
  * Keeps the persisted thread valid and small: answers dangling tool calls (a run stopped right after a
  * card was emitted), shrinks tool results of earlier turns and drops the oldest turns.
  */
-export function repairThreadMessages(messages: readonly AnyMessage[]): AnyMessage[] | undefined {
+export function repairThreadMessages(
+  messages: readonly AnyMessage[],
+): AnyMessage[] | undefined {
   const turnStart = lastHumanIndex(messages);
   let changed = false;
   let result: AnyMessage[] = [];
-  const answered = new Set(messages.flatMap((message) => (message.type === "tool" && message.tool_call_id ? [message.tool_call_id] : [])));
+  const answered = new Set(
+    messages.flatMap((message) =>
+      message.type === "tool" && message.tool_call_id
+        ? [message.tool_call_id]
+        : [],
+    ),
+  );
   messages.forEach((message, index) => {
     let next = message;
-    if (message.type === "tool" && index < turnStart && typeof message.content === "string" && message.content.length > STALE_TOOL_RESULT_CHARS) {
-      next = { ...message, content: `${message.content.slice(0, STALE_TOOL_RESULT_CHARS)}… [resultado antigo truncado]` };
+    if (
+      message.type === "tool" &&
+      index < turnStart &&
+      typeof message.content === "string" &&
+      message.content.length > STALE_TOOL_RESULT_CHARS
+    ) {
+      next = {
+        ...message,
+        content: `${message.content.slice(0, STALE_TOOL_RESULT_CHARS)}… [resultado antigo truncado]`,
+      };
       changed = true;
     }
     result.push(next);
     if (message.type !== "ai") return;
     for (const call of message.tool_calls ?? []) {
       if (!call.id || answered.has(call.id)) continue;
-      result.push({ type: "tool", tool_call_id: call.id, content: JSON.stringify(call.name === "create_or_update_dashboard" ? { ok: true, message: "Prévia já exibida ao administrador; aguarde a decisão dele no cartão." } : { ok: false, message: "Execução interrompida antes do resultado." }), name: call.name } as AnyMessage);
+      result.push({
+        type: "tool",
+        tool_call_id: call.id,
+        content: JSON.stringify(
+          call.name === "create_or_update_dashboard"
+            ? {
+                ok: true,
+                message:
+                  "Prévia já exibida ao administrador; aguarde a decisão dele no cartão.",
+              }
+            : {
+                ok: false,
+                message: "Execução interrompida antes do resultado.",
+              },
+        ),
+        name: call.name,
+      } as AnyMessage);
       changed = true;
     }
   });
   if (result.length > HISTORY_SOFT_LIMIT) {
-    const cut = result.findIndex((message, index) => index >= result.length - HISTORY_KEEP && message.type === "human");
+    const cut = result.findIndex(
+      (message, index) =>
+        index >= result.length - HISTORY_KEEP && message.type === "human",
+    );
     if (cut > 0) {
       result = result.slice(cut);
       changed = true;
@@ -86,10 +137,24 @@ export const threadMaintenance = createMiddleware({
   }),
   beforeAgent: (state) => {
     // Retry counters are per turn; the thread persists them otherwise.
-    const reset = { emptyResponseRetries: 0, zeroRowsReviewRetries: 0, queryResultReviewRetries: 0, queryUpdateRetries: 0, dashboardProposalRetries: 0 };
-    const repaired = repairThreadMessages(state.messages as unknown as AnyMessage[]);
+    const reset = {
+      emptyResponseRetries: 0,
+      zeroRowsReviewRetries: 0,
+      queryResultReviewRetries: 0,
+      queryUpdateRetries: 0,
+      dashboardProposalRetries: 0,
+    };
+    const repaired = repairThreadMessages(
+      state.messages as unknown as AnyMessage[],
+    );
     if (!repaired) return reset;
-    return { ...reset, messages: [new RemoveMessage({ id: REMOVE_ALL_MESSAGES }), ...(repaired as never[])] };
+    return {
+      ...reset,
+      messages: [
+        new RemoveMessage({ id: REMOVE_ALL_MESSAGES }),
+        ...(repaired as never[]),
+      ],
+    };
   },
 });
 
@@ -111,15 +176,21 @@ const finalResponseQa = createMiddleware({
         content: JSON.stringify({
           ok: false,
           code: "QUERY_APPROVAL_REQUIRED",
-          message: "A prévia da query precisa ser aprovada antes das próximas ações.",
-          instruction: "Encerre esta rodada e aguarde a confirmação explícita do administrador no cartão da prévia. Só continue usando o UUID depois que a query for salva; nunca use testRunId como queryUuid.",
+          message:
+            "A prévia da query precisa ser aprovada antes das próximas ações.",
+          instruction:
+            "Encerre esta rodada e aguarde a confirmação explícita do administrador no cartão da prévia. Só continue usando o UUID depois que a query for salva; nunca use testRunId como queryUuid.",
         }),
         tool_call_id: request.toolCall.id ?? crypto.randomUUID(),
         name: request.toolCall.name,
       });
     }
     if (request.toolCall.name === "create_or_update_dashboard") {
-      const issue = dashboardPreflightIssue(currentTurn(request.state.messages), request.toolCall.args, request.runtime.context);
+      const issue = dashboardPreflightIssue(
+        currentTurn(request.state.messages),
+        request.toolCall.args,
+        request.runtime.context,
+      );
       if (issue) {
         clearPendingResponse(request.runtime.context);
         return new ToolMessage({
@@ -127,7 +198,8 @@ const finalResponseQa = createMiddleware({
             ok: false,
             code: "DASHBOARD_CONTEXT_REQUIRED",
             message: issue,
-            instruction: "Não aplique o patch ainda. Leia o dashboard alvo com get_current_dashboard, use os filtros e bindings retornados, preserve os componentes não mencionados e só então tente novamente.",
+            instruction:
+              "Não aplique o patch ainda. Leia o dashboard alvo com get_current_dashboard, use os filtros e bindings retornados, preserve os componentes não mencionados e só então tente novamente.",
           }),
           tool_call_id: request.toolCall.id ?? crypto.randomUUID(),
           name: request.toolCall.name,
@@ -153,7 +225,7 @@ const finalResponseQa = createMiddleware({
           ? "A query ainda não foi executada. Repita test_query com os mesmos SQL, parâmetros e valores, corrigindo purpose para dashboard. O pedido de adicionar o componente continua pendente."
           : issue.includes("NULL/lista vazia")
             ? "Corrija o SQL para preservar required=false e fazer seleção ausente, NULL ou array vazio significar ausência do filtro. Use COALESCE(CARDINALITY(array), 0) = 0 OR coluna = ANY(array); depois execute test_query novamente."
-          : "Não execute SQL ainda. Complete a etapa de análise indicada usando as ferramentas de leitura; depois reavalie a query e tente uma vez com SQL fundamentado no catálogo.",
+            : "Não execute SQL ainda. Complete a etapa de análise indicada usando as ferramentas de leitura; depois reavalie a query e tente uma vez com SQL fundamentado no catálogo.",
       }),
       tool_call_id: request.toolCall.id ?? crypto.randomUUID(),
       name: "test_query",
@@ -172,20 +244,37 @@ const finalResponseQa = createMiddleware({
     hook: (state, runtime) => {
       const lastMessage = state.messages.at(-1);
       if (!lastMessage || lastMessage.type !== "ai") return;
-      const toolCalls = "tool_calls" in lastMessage && Array.isArray(lastMessage.tool_calls)
-        ? lastMessage.tool_calls
-        : [];
+      const toolCalls =
+        "tool_calls" in lastMessage && Array.isArray(lastMessage.tool_calls)
+          ? lastMessage.tool_calls
+          : [];
 
-      const missingEmptyAnalysis = missingEmptyPreviewAnalysis(currentTurn(state.messages));
-      if ((missingEmptyAnalysis.date || missingEmptyAnalysis.dimensions) && state.zeroRowsReviewRetries < 2) {
-        const onlyAnalysisCalls = toolCalls.length > 0 && toolCalls.every((call) =>
-          call.name === "analyze_date_coverage" || call.name === "analyze_column_values");
+      const missingEmptyAnalysis = missingEmptyPreviewAnalysis(
+        currentTurn(state.messages),
+      );
+      if (
+        (missingEmptyAnalysis.date || missingEmptyAnalysis.dimensions) &&
+        state.zeroRowsReviewRetries < 2
+      ) {
+        const onlyAnalysisCalls =
+          toolCalls.length > 0 &&
+          toolCalls.every(
+            (call) =>
+              call.name === "analyze_date_coverage" ||
+              call.name === "analyze_column_values",
+          );
         if (onlyAnalysisCalls) return;
         if (!lastMessage.id) return;
         clearPendingResponse(runtime.context);
         const requiredAnalyses = [
-          ...(missingEmptyAnalysis.date ? ["analyze_date_coverage na coluna temporal usada pela query"] : []),
-          ...(missingEmptyAnalysis.dimensions ? ["analyze_column_values na dimensão ligada ao filtro multi_select"] : []),
+          ...(missingEmptyAnalysis.date
+            ? ["analyze_date_coverage na coluna temporal usada pela query"]
+            : []),
+          ...(missingEmptyAnalysis.dimensions
+            ? [
+                "analyze_column_values na dimensão ligada ao filtro multi_select",
+              ]
+            : []),
         ].join(" e ");
         return {
           messages: [
@@ -201,16 +290,28 @@ const finalResponseQa = createMiddleware({
       if (toolCalls.length > 0) return;
 
       const content0 = lastMessage.content;
-      const claimText = (typeof content0 === "string" ? content0 : "").replace(/<think>[\s\S]*?<\/think>/gi, "");
+      const claimText = (typeof content0 === "string" ? content0 : "").replace(
+        /<think>[\s\S]*?<\/think>/gi,
+        "",
+      );
       // The model must never announce a card/proposal that no tool produced in this turn.
-      const claimsCard = /pronta para revis|aplicar altera|no cart[aã]o|cart[aã]o de pr[eé]via/i.test(claimText);
-      if (claimsCard && !hasActionCardResult(currentTurn(state.messages)) && lastMessage.id) {
+      const claimsCard =
+        /pronta para revis|aplicar altera|no cart[aã]o|cart[aã]o de pr[eé]via/i.test(
+          claimText,
+        );
+      if (
+        claimsCard &&
+        !hasActionCardResult(currentTurn(state.messages)) &&
+        lastMessage.id
+      ) {
         clearPendingResponse(runtime.context);
         if (state.dashboardProposalRetries < 1) {
           return {
             messages: [
               new RemoveMessage({ id: lastMessage.id }),
-              new SystemMessage("Você anunciou uma prévia ou cartão, mas nenhuma ferramenta o produziu nesta rodada. Chame a ferramenta adequada (create_or_update_dashboard, test_query ou ask_admin_questions) antes de responder; se ela falhar, diga que nada foi gerado nem alterado."),
+              new SystemMessage(
+                "Você anunciou uma prévia ou cartão, mas nenhuma ferramenta o produziu nesta rodada. Chame a ferramenta adequada (create_or_update_dashboard, test_query ou ask_admin_questions) antes de responder; se ela falhar, diga que nada foi gerado nem alterado.",
+              ),
             ],
             dashboardProposalRetries: state.dashboardProposalRetries + 1,
             jumpTo: "model" as const,
@@ -219,39 +320,61 @@ const finalResponseQa = createMiddleware({
         return {
           messages: [
             new RemoveMessage({ id: lastMessage.id }),
-            new AIMessage({ content: "Não consegui gerar o cartão de prévia nesta rodada. Nada foi alterado; tente novamente." }),
+            new AIMessage({
+              content:
+                "Não consegui gerar o cartão de prévia nesta rodada. Nada foi alterado; tente novamente.",
+            }),
           ],
         };
       }
 
       const latestTest = latestQueryTestResult(currentTurn(state.messages));
       const content = lastMessage.content;
-      const text = typeof content === "string"
-        ? content
-        : Array.isArray(content)
-          ? content.flatMap((part) => (
-            part && typeof part === "object" && "type" in part && part.type === "text" && "text" in part && typeof part.text === "string"
-              ? [part.text]
-              : []
-          )).join("")
-          : "";
-      const userFacingText = text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
-      const needsQueryResultReview = latestTest
-        && latestTest.askUser !== true
-        && (latestTest.ok === false || (latestTest.ok === true && latestTest.rowCount === 0));
+      const text =
+        typeof content === "string"
+          ? content
+          : Array.isArray(content)
+            ? content
+                .flatMap((part) =>
+                  part &&
+                  typeof part === "object" &&
+                  "type" in part &&
+                  part.type === "text" &&
+                  "text" in part &&
+                  typeof part.text === "string"
+                    ? [part.text]
+                    : [],
+                )
+                .join("")
+            : "";
+      const userFacingText = text
+        .replace(/<think>[\s\S]*?<\/think>/gi, "")
+        .trim();
+      const needsQueryResultReview =
+        latestTest &&
+        latestTest.askUser !== true &&
+        (latestTest.ok === false ||
+          (latestTest.ok === true && latestTest.rowCount === 0));
       if (needsQueryResultReview && state.queryResultReviewRetries < 1) {
-        const resultIsEmpty = latestTest.ok === true && latestTest.rowCount === 0;
+        const resultIsEmpty =
+          latestTest.ok === true && latestTest.rowCount === 0;
         const statesOutcome = resultIsEmpty
-          ? /(?:zero|0|nenhuma|sem)\s+linhas|amostra\s+vazia/i.test(userFacingText)
-          : /(?:falh|erro|não foi valid|não foi conclu|não execut|não terminou)/i.test(userFacingText);
+          ? /(?:zero|0|nenhuma|sem)\s+linhas|amostra\s+vazia/i.test(
+              userFacingText,
+            )
+          : /(?:falh|erro|não foi valid|não foi conclu|não execut|não terminou)/i.test(
+              userFacingText,
+            );
         if (!statesOutcome && lastMessage.id) {
           clearPendingResponse(runtime.context);
           return {
             messages: [
               new RemoveMessage({ id: lastMessage.id }),
-              new SystemMessage(resultIsEmpty
-                ? "QA da prévia: a última execução foi bem-sucedida, mas retornou zero linhas. Responda com uma frase completa dizendo isso explicitamente, deixe claro que a query ainda não foi salva e indique o próximo passo de análise ou revisão sem declarar sucesso dos dados."
-                : "QA da query: a última validação falhou ou não foi concluída. Responda com uma frase completa dizendo isso explicitamente, informe que a query não foi validada nem salva e indique o próximo passo concreto com base no erro recebido."),
+              new SystemMessage(
+                resultIsEmpty
+                  ? "QA da prévia: a última execução foi bem-sucedida, mas retornou zero linhas. Responda com uma frase completa dizendo isso explicitamente, deixe claro que a query ainda não foi salva e indique o próximo passo de análise ou revisão sem declarar sucesso dos dados."
+                  : "QA da query: a última validação falhou ou não foi concluída. Responda com uma frase completa dizendo isso explicitamente, informe que a query não foi validada nem salva e indique o próximo passo concreto com base no erro recebido.",
+              ),
             ],
             queryResultReviewRetries: state.queryResultReviewRetries + 1,
             jumpTo: "model" as const,
@@ -262,9 +385,11 @@ const finalResponseQa = createMiddleware({
 
       clearPendingResponse(runtime.context);
       return {
-        messages: [new SystemMessage(
-          "Revisão QA: a resposta final anterior não continha texto útil visível. Produza agora uma resposta curta em português que diga o resultado real e a próxima ação disponível. Não narre etapas internas e nunca diga que salvou sem a confirmação explícita da aplicação.",
-        )],
+        messages: [
+          new SystemMessage(
+            "Revisão QA: a resposta final anterior não continha texto útil visível. Produza agora uma resposta curta em português que diga o resultado real e a próxima ação disponível. Não narre etapas internas e nunca diga que salvou sem a confirmação explícita da aplicação.",
+          ),
+        ],
         emptyResponseRetries: state.emptyResponseRetries + 1,
         jumpTo: "model" as const,
       };
@@ -303,7 +428,10 @@ export type AiAgentToken = readonly [
 export interface AiChatAgent {
   stream(
     input: { messages: Array<{ role: AiChatRole; content: string }> },
-    config: RunnableConfig & { streamMode: "messages"; context?: AiAgentContext },
+    config: RunnableConfig & {
+      streamMode: "messages";
+      context?: AiAgentContext;
+    },
   ): Promise<AsyncIterable<AiAgentToken>>;
 }
 
@@ -323,12 +451,14 @@ const DEFAULT_SYSTEM_PROMPT = [
   "Não afirme que executou consultas, salvou alterações ou atualizou a interface.",
 ].join(" ");
 
-export function createAiAgent(options: {
-  systemPrompt?: string;
-  configuration?: ResolvedAiConfiguration;
-  tools?: StructuredToolInterface[];
-  context?: AiAgentContext;
-} = {}): AiChatAgent {
+export function createAiAgent(
+  options: {
+    systemPrompt?: string;
+    configuration?: ResolvedAiConfiguration;
+    tools?: StructuredToolInterface[];
+    context?: AiAgentContext;
+  } = {},
+): AiChatAgent {
   const model = createAiModel(options.configuration);
   const { threadId, currentUserId } = options.context ?? {};
   const buildAgent = async () =>
@@ -348,7 +478,14 @@ export function createAiAgent(options: {
       const result = await agent.stream(input, {
         ...runConfig,
         // Scoped by user so a guessed thread id never exposes another admin's history.
-        ...(threadId ? { configurable: { ...runConfig.configurable, thread_id: `${currentUserId ?? "anon"}:${threadId}` } } : {}),
+        ...(threadId
+          ? {
+              configurable: {
+                ...runConfig.configurable,
+                thread_id: `${currentUserId ?? "anon"}:${threadId}`,
+              },
+            }
+          : {}),
       });
       return result as AsyncIterable<AiAgentToken>;
     },

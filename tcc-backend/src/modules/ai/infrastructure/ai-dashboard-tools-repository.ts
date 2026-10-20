@@ -2,32 +2,52 @@ import { externalSource } from "../../data-sources/application/external-source.j
 import { asc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../../shared/db/client.js";
-import { dashboardProposalReceipts, dataSources, savedQueries } from "../../../shared/db/schema.js";
-import { AI_QUERY_MAX_BYTES, AI_QUERY_MAX_ROWS, type ExternalPostgresConfig } from "../../data-sources/domain/external-source.js";
+import {
+  dashboardProposalReceipts,
+  dataSources,
+  savedQueries,
+} from "../../../shared/db/schema.js";
+import {
+  AI_QUERY_MAX_BYTES,
+  AI_QUERY_MAX_ROWS,
+  type ExternalPostgresConfig,
+} from "../../data-sources/domain/external-source.js";
 import { getRegisteredDashboardFiles } from "../../dashboards/application/dashboard-registry.js";
 import { querySourceTargetHash } from "../../queries/domain/query-lifecycle.js";
 import { dashboardDocumentFingerprint } from "../../dashboards/domain/dashboard-proposals.js";
-import { assertParameterDefinitions, assertSqlParameters, bindQueryParameters } from "../../../shared/security/query-security.js";
-import type { AiDashboardQuery, AiDashboardQueryDefinition, AiDashboardToolsRepository } from "../application/tools/ai-dashboard-tools.js";
+import {
+  assertParameterDefinitions,
+  assertSqlParameters,
+  bindQueryParameters,
+} from "../../../shared/security/query-security.js";
+import type {
+  AiDashboardQuery,
+  AiDashboardQueryDefinition,
+  AiDashboardToolsRepository,
+} from "../application/tools/ai-dashboard-tools.js";
 import { parameterDefinitionSchema } from "../../../shared/lib/contracts.js";
 
 export function createAiDashboardToolsRepository(): AiDashboardToolsRepository {
   return {
     async listSavedQueries(): Promise<AiDashboardQuery[]> {
-      const rows = await db.select({
-        id: savedQueries.id,
-        name: savedQueries.name,
-        dataSourceId: savedQueries.dataSourceId,
-        parameters: savedQueries.parameters,
-        updatedAt: savedQueries.updatedAt,
-        sourceUpdatedAt: dataSources.updatedAt,
-        sourceHost: dataSources.host,
-        sourcePort: dataSources.port,
-        sourceDatabase: dataSources.databaseName,
-        sourceUsername: dataSources.username,
-        sourcePassword: dataSources.encryptedPassword,
-      }).from(savedQueries).innerJoin(dataSources, eq(savedQueries.dataSourceId, dataSources.id))
-        .orderBy(asc(savedQueries.name)).limit(201);
+      const rows = await db
+        .select({
+          id: savedQueries.id,
+          name: savedQueries.name,
+          dataSourceId: savedQueries.dataSourceId,
+          parameters: savedQueries.parameters,
+          updatedAt: savedQueries.updatedAt,
+          sourceUpdatedAt: dataSources.updatedAt,
+          sourceHost: dataSources.host,
+          sourcePort: dataSources.port,
+          sourceDatabase: dataSources.databaseName,
+          sourceUsername: dataSources.username,
+          sourcePassword: dataSources.encryptedPassword,
+        })
+        .from(savedQueries)
+        .innerJoin(dataSources, eq(savedQueries.dataSourceId, dataSources.id))
+        .orderBy(asc(savedQueries.name))
+        .limit(201);
       return rows.map((row) => ({
         id: row.id,
         name: row.name,
@@ -46,17 +66,22 @@ export function createAiDashboardToolsRepository(): AiDashboardToolsRepository {
         }),
       }));
     },
-    async findSavedQueries(ids: string[]): Promise<AiDashboardQueryDefinition[]> {
+    async findSavedQueries(
+      ids: string[],
+    ): Promise<AiDashboardQueryDefinition[]> {
       if (ids.length === 0) return [];
-      const rows = await db.select({
-        id: savedQueries.id,
-        name: savedQueries.name,
-        dataSourceId: savedQueries.dataSourceId,
-        sqlText: savedQueries.sqlText,
-        parameters: savedQueries.parameters,
-        updatedAt: savedQueries.updatedAt,
-        source: dataSources,
-      }).from(savedQueries).innerJoin(dataSources, eq(savedQueries.dataSourceId, dataSources.id))
+      const rows = await db
+        .select({
+          id: savedQueries.id,
+          name: savedQueries.name,
+          dataSourceId: savedQueries.dataSourceId,
+          sqlText: savedQueries.sqlText,
+          parameters: savedQueries.parameters,
+          updatedAt: savedQueries.updatedAt,
+          source: dataSources,
+        })
+        .from(savedQueries)
+        .innerJoin(dataSources, eq(savedQueries.dataSourceId, dataSources.id))
         .where(inArray(savedQueries.id, ids));
       return rows.map((row) => ({
         id: row.id,
@@ -71,14 +96,20 @@ export function createAiDashboardToolsRepository(): AiDashboardToolsRepository {
       }));
     },
     async findDashboard(id: string) {
-      const match = (await getRegisteredDashboardFiles()).find((item) => item.dashboard.id === id.toLowerCase());
-      return match ? {
-        document: match.dashboard,
-        fingerprint: dashboardDocumentFingerprint(match.dashboard),
-      } : undefined;
+      const match = (await getRegisteredDashboardFiles()).find(
+        (item) => item.dashboard.id === id.toLowerCase(),
+      );
+      return match
+        ? {
+            document: match.dashboard,
+            fingerprint: dashboardDocumentFingerprint(match.dashboard),
+          }
+        : undefined;
     },
     async runPreview(query, values) {
-      const parameters = z.array(parameterDefinitionSchema).parse(query.parameters);
+      const parameters = z
+        .array(parameterDefinitionSchema)
+        .parse(query.parameters);
       assertParameterDefinitions(parameters);
       assertSqlParameters(query.sqlText, parameters);
       const bound = bindQueryParameters(query.sqlText, parameters, values);

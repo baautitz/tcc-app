@@ -23,7 +23,12 @@ describe("UserService", () => {
     const repo = fakeRepo();
     const service = new UserService(repo, permissions);
     await expect(
-      service.createUser({ name: "Ana", email: "A@x.com", password: "Senha#12345", permissionKeys: ["nope:x"] }),
+      service.createUser({
+        name: "Ana",
+        email: "A@x.com",
+        password: "Senha#12345",
+        permissionKeys: ["nope:x"],
+      }),
     ).rejects.toMatchObject({ status: 400 });
     expect(repo.insert).not.toHaveBeenCalled();
   });
@@ -31,7 +36,9 @@ describe("UserService", () => {
   it("nao deixa excluir a si mesmo", async () => {
     const repo = fakeRepo();
     const service = new UserService(repo, permissions);
-    await expect(service.deleteUser("u1", "u1")).rejects.toMatchObject({ status: 400 });
+    await expect(service.deleteUser("u1", "u1")).rejects.toMatchObject({
+      status: 400,
+    });
     expect(repo.delete).not.toHaveBeenCalled();
   });
 });

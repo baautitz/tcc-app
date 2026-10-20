@@ -2,7 +2,10 @@ import type { z } from "zod";
 import type { parameterDefinitionSchema } from "../../../../../shared/lib/contracts.js";
 import type { AuthenticatedUser } from "../../../../identity/domain/auth-user.js";
 import type { DiscoveredTable } from "../../../../data-sources/domain/data-source-catalog.js";
-import type { DiscoveredColumn, ExternalPostgresConfig } from "../../../../data-sources/domain/external-source.js";
+import type {
+  DiscoveredColumn,
+  ExternalPostgresConfig,
+} from "../../../../data-sources/domain/external-source.js";
 import type { ExternalSourcePort } from "../../../../data-sources/domain/external-source.js";
 import type { ContextProposalProgressEvent } from "../../../domain/ai-context-proposals.js";
 import type { AiQuestionnaireProgressEvent } from "../../ai-questionnaire.js";
@@ -32,11 +35,19 @@ export interface AiReadTable extends AiReadTableName {
 }
 
 export interface AiReadToolsRepository {
-  listSources(offset: number, limit: number): Promise<{ sources: AiReadSourceSummary[]; total: number }>;
+  listSources(
+    offset: number,
+    limit: number,
+  ): Promise<{ sources: AiReadSourceSummary[]; total: number }>;
   findSource(dataSourceId: string): Promise<AiReadSource | undefined>;
   listCatalogTables(dataSourceId: string): Promise<AiReadTableName[]>;
-  findCatalogTable(dataSourceId: string, tableId: string): Promise<AiReadTable | undefined>;
-  listLiveBaseTables(connection: ExternalPostgresConfig): Promise<DiscoveredTable[]>;
+  findCatalogTable(
+    dataSourceId: string,
+    tableId: string,
+  ): Promise<AiReadTable | undefined>;
+  listLiveBaseTables(
+    connection: ExternalPostgresConfig,
+  ): Promise<DiscoveredTable[]>;
   getLiveColumns(
     connection: ExternalPostgresConfig,
     schemaName: string,
@@ -86,15 +97,18 @@ export type AiToolProgressEvent =
       definition: import("../../../../../shared/lib/contracts.js").DashboardDefinition;
       changeSummary: string[];
       componentChanges: Record<string, "added" | "modified" | "unchanged">;
-      queries: Record<string, {
-        rows: Record<string, unknown>[];
-        rowLimit: number;
-        byteLimit: number;
-        bytes: number;
-        truncated: boolean;
-        truncationReason: "row_limit" | "byte_limit" | null;
-        error?: string;
-      }>;
+      queries: Record<
+        string,
+        {
+          rows: Record<string, unknown>[];
+          rowLimit: number;
+          byteLimit: number;
+          bytes: number;
+          truncated: boolean;
+          truncationReason: "row_limit" | "byte_limit" | null;
+          error?: string;
+        }
+      >;
     }
   | {
       type: "dashboard_applied";
@@ -106,7 +120,8 @@ export type AiToolProgressEvent =
   | AiQuestionnaireProgressEvent;
 
 /** Porta de execução de consultas limitadas somente leitura. */
-export type RunBoundedReadOnlyQuery = ExternalSourcePort["runBoundedReadOnlyQuery"];
+export type RunBoundedReadOnlyQuery =
+  ExternalSourcePort["runBoundedReadOnlyQuery"];
 
 export interface CreateAiReadToolsOptions {
   runBoundedReadOnlyQuery?: RunBoundedReadOnlyQuery;

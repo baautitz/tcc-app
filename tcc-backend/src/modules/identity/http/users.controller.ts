@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { passwordSchema, permissionKeySchema } from "../../../shared/lib/contracts.js";
+import {
+  passwordSchema,
+  permissionKeySchema,
+} from "../../../shared/lib/contracts.js";
 import { userService } from "../application/users.js";
 import type { AppContext } from "../../../shared/middleware/auth.js";
 import { jsonBody } from "../../../shared/middleware/json-body.js";

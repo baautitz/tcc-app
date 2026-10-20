@@ -2,7 +2,10 @@ import { and, eq, inArray, ne } from "drizzle-orm";
 import { db } from "../../../shared/db/client.js";
 import { dashboards } from "../../../shared/db/schema.js";
 
-export type DashboardDbExecutor = Pick<typeof db, "select" | "insert" | "delete">;
+export type DashboardDbExecutor = Pick<
+  typeof db,
+  "select" | "insert" | "delete"
+>;
 export type DashboardRow = { dashboardId: string; filePath: string };
 
 export interface DashboardsRepository {
@@ -20,24 +23,37 @@ export function createDashboardsRepository(
   return {
     list: () =>
       executor
-        .select({ dashboardId: dashboards.dashboardId, filePath: dashboards.filePath })
+        .select({
+          dashboardId: dashboards.dashboardId,
+          filePath: dashboards.filePath,
+        })
         .from(dashboards),
     async deleteByPathExceptId(filePath, dashboardId) {
       await executor
         .delete(dashboards)
-        .where(and(eq(dashboards.filePath, filePath), ne(dashboards.dashboardId, dashboardId)));
+        .where(
+          and(
+            eq(dashboards.filePath, filePath),
+            ne(dashboards.dashboardId, dashboardId),
+          ),
+        );
     },
     async upsert(row) {
       await executor
         .insert(dashboards)
         .values(row)
-        .onConflictDoUpdate({ target: dashboards.dashboardId, set: { filePath: row.filePath } });
+        .onConflictDoUpdate({
+          target: dashboards.dashboardId,
+          set: { filePath: row.filePath },
+        });
     },
     async insert(row) {
       await executor.insert(dashboards).values(row);
     },
     async deleteByIds(ids) {
-      await executor.delete(dashboards).where(inArray(dashboards.dashboardId, ids));
+      await executor
+        .delete(dashboards)
+        .where(inArray(dashboards.dashboardId, ids));
     },
   };
 }

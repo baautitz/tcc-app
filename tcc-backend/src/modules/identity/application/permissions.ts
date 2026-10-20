@@ -31,8 +31,11 @@ export class PermissionService {
     const definitions: PermissionDefinition[] = API_PERMISSIONS.map(
       ([key, name]) => ({ key, name }),
     );
-    for (const definition of definitions) await this.repo.upsertSystemPermission(definition);
-    await this.repo.deleteSystemPermissionsNotIn(definitions.map((permission) => permission.key));
+    for (const definition of definitions)
+      await this.repo.upsertSystemPermission(definition);
+    await this.repo.deleteSystemPermissionsNotIn(
+      definitions.map((permission) => permission.key),
+    );
   }
 
   async assignPermissionKeys(userId: string, keys: string[]): Promise<void> {
@@ -44,4 +47,6 @@ export class PermissionService {
   }
 }
 
-export const permissionService = new PermissionService(new DrizzlePermissionsRepository());
+export const permissionService = new PermissionService(
+  new DrizzlePermissionsRepository(),
+);

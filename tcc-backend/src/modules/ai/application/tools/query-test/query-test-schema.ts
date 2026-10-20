@@ -2,7 +2,11 @@ import type { AuthenticatedUser } from "../../../../identity/domain/auth-user.js
 import { z } from "zod";
 import { parameterDefinitionSchema } from "../../../../../shared/lib/contracts.js";
 import type { UnsafeAiColumnType } from "../../../../data-sources/domain/external-source.js";
-import type { AiReadSource, AiReadTableName, AiToolProgressEvent } from "../ai-read-tools.js";
+import type {
+  AiReadSource,
+  AiReadTableName,
+  AiToolProgressEvent,
+} from "../ai-read-tools.js";
 import type { AiCatalogTableReference } from "../../../../../shared/security/query-security.js";
 import type { QueryLifecycleQuery } from "../../../../queries/domain/query-lifecycle.js";
 
@@ -17,18 +21,33 @@ export const inputSchema = z
       .describe(
         "ID de um servidor PostgreSQL cadastrado, obtido pela ferramenta list_data_sources.",
       ),
-    mode: z.enum(["create", "update"]).default("create").describe(
-      "A intenção da revisão: create para salvar nova query ou update para editar uma query existente.",
-    ),
-    purpose: z.enum(["dashboard", "quick_query"]).describe(
-      "Obrigatório. Use dashboard sempre que o administrador pedir para adicionar/criar um gráfico, tabela, indicador ou métrica em um dashboard, inclusive quando indicar a posição em relação a um componente existente (por exemplo, ao lado, acima ou abaixo), mesmo que a query seja criada primeiro. Use quick_query somente para consulta/análise sem pedido de alteração do dashboard.",
-    ),
-    queryId: z.string().uuid().optional().describe(
-      "ID da query existente que será editada; obrigatório quando mode=update. Nunca invente este ID.",
-    ),
-    queryName: z.string().trim().min(2).max(160).optional().describe(
-      "Nome proposto para a query; em edição, omitido mantém o nome salvo atual.",
-    ),
+    mode: z
+      .enum(["create", "update"])
+      .default("create")
+      .describe(
+        "A intenção da revisão: create para salvar nova query ou update para editar uma query existente.",
+      ),
+    purpose: z
+      .enum(["dashboard", "quick_query"])
+      .describe(
+        "Obrigatório. Use dashboard sempre que o administrador pedir para adicionar/criar um gráfico, tabela, indicador ou métrica em um dashboard, inclusive quando indicar a posição em relação a um componente existente (por exemplo, ao lado, acima ou abaixo), mesmo que a query seja criada primeiro. Use quick_query somente para consulta/análise sem pedido de alteração do dashboard.",
+      ),
+    queryId: z
+      .string()
+      .uuid()
+      .optional()
+      .describe(
+        "ID da query existente que será editada; obrigatório quando mode=update. Nunca invente este ID.",
+      ),
+    queryName: z
+      .string()
+      .trim()
+      .min(2)
+      .max(160)
+      .optional()
+      .describe(
+        "Nome proposto para a query; em edição, omitido mantém o nome salvo atual.",
+      ),
     sqlText: z
       .string()
       .trim()
@@ -94,7 +113,12 @@ export interface AiQueryTestRepository {
   findSourceVersion(
     dataSourceId: string,
   ): Promise<{ updatedAt: Date; targetHash: string } | undefined>;
-  findQueryTarget(queryId: string): Promise<Pick<QueryLifecycleQuery, "id" | "dataSourceId" | "name" | "updatedAt"> | undefined>;
+  findQueryTarget(
+    queryId: string,
+  ): Promise<
+    | Pick<QueryLifecycleQuery, "id" | "dataSourceId" | "name" | "updatedAt">
+    | undefined
+  >;
   createTestReceipt(input: {
     actorId: string;
     dataSourceId: string;

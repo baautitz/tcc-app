@@ -1,6 +1,13 @@
 import { DomainError } from "../../../shared/lib/domain-error.js";
 import { randomUUID } from "node:crypto";
-import { mkdir, readdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  readdir,
+  readFile,
+  rename,
+  unlink,
+  writeFile,
+} from "node:fs/promises";
 import { isAbsolute, relative, resolve } from "node:path";
 import {
   dashboardCreateSchema,
@@ -28,7 +35,11 @@ export class DashboardFileCompensationError extends DomainError {
     public readonly operationError: unknown,
     public readonly compensationError: unknown,
   ) {
-    super("The dashboard file could not be compensated after the database transaction failed.", "FILE_COMPENSATION_FAILED", "conflict");
+    super(
+      "The dashboard file could not be compensated after the database transaction failed.",
+      "FILE_COMPENSATION_FAILED",
+      "conflict",
+    );
     this.name = "DashboardFileCompensationError";
   }
 }
@@ -45,7 +56,10 @@ export async function withDashboardFileCompensation<T>(
       try {
         await rollback();
       } catch (compensationError) {
-        throw new DashboardFileCompensationError(operationError, compensationError);
+        throw new DashboardFileCompensationError(
+          operationError,
+          compensationError,
+        );
       }
     }
     throw operationError;
@@ -59,7 +73,9 @@ export async function writeDashboardDocumentAtomically(
 ): Promise<() => Promise<void>> {
   const resolvedPath = resolve(filePath);
   if (!isEditableDashboardFilePath(resolvedPath)) {
-    throw new Error("O dashboard só pode ser gravado dentro da pasta dashboards da aplicação.");
+    throw new Error(
+      "O dashboard só pode ser gravado dentro da pasta dashboards da aplicação.",
+    );
   }
   const dashboard = validateDashboardDocument(value);
   const body = `${JSON.stringify(dashboard, null, 2)}\n`;
@@ -102,7 +118,9 @@ export function isEditableDashboardFilePath(filePath: string): boolean {
   return isPathInside(resolve(process.cwd(), "dashboards"), filePath);
 }
 
-export async function readDashboardFile(filePath: string): Promise<DashboardDocument> {
+export async function readDashboardFile(
+  filePath: string,
+): Promise<DashboardDocument> {
   if (!isEditableDashboardFilePath(filePath)) {
     throw new Error(
       "O arquivo do dashboard deve estar dentro da pasta dashboards da aplicação.",

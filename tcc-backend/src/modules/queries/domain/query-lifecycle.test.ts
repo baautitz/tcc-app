@@ -29,7 +29,9 @@ const source: QueryLifecycleSource = {
   username: "reader",
   encryptedPassword: "encrypted-secret",
 };
-const parameters = [{ name: "start", label: "Início", type: "date" as const, required: true }];
+const parameters = [
+  { name: "start", label: "Início", type: "date" as const, required: true },
+];
 const queryDraft = {
   dataSourceId: sourceId,
   sqlText: "SELECT count(*) FROM public.orders WHERE created_at >= {{start}}",
@@ -63,7 +65,13 @@ function makeRepository() {
         },
         async consumeReceipt(id, actor, at) {
           const receipt = staged.receipts.get(id);
-          if (!receipt || receipt.actorId !== actor || receipt.consumedAt || receipt.expiresAt <= at) return undefined;
+          if (
+            !receipt ||
+            receipt.actorId !== actor ||
+            receipt.consumedAt ||
+            receipt.expiresAt <= at
+          )
+            return undefined;
           const consumed = { ...receipt, consumedAt: at };
           staged.receipts.set(id, consumed);
           return consumed;
@@ -111,17 +119,25 @@ function receiptInput(mode: "create" | "update" = "create") {
 
 describe("query preview receipts", () => {
   it("fingerprints the canonical SQL and parameter definitions without values", () => {
-    expect(queryDraftFingerprint({ ...queryDraft, sqlText: `\n${queryDraft.sqlText}\r\n` })).toBe(
-      queryDraftFingerprint(queryDraft),
-    );
-    expect(queryDraftFingerprint({
-      ...queryDraft,
-      parameters: [...parameters].reverse(),
-    })).toBe(queryDraftFingerprint(queryDraft));
-    expect(queryDraftFingerprint({
-      ...queryDraft,
-      sqlText: "SELECT count(*) FROM public.orders WHERE created_at >= {{start}} /* changed */",
-    })).not.toBe(queryDraftFingerprint(queryDraft));
+    expect(
+      queryDraftFingerprint({
+        ...queryDraft,
+        sqlText: `\n${queryDraft.sqlText}\r\n`,
+      }),
+    ).toBe(queryDraftFingerprint(queryDraft));
+    expect(
+      queryDraftFingerprint({
+        ...queryDraft,
+        parameters: [...parameters].reverse(),
+      }),
+    ).toBe(queryDraftFingerprint(queryDraft));
+    expect(
+      queryDraftFingerprint({
+        ...queryDraft,
+        sqlText:
+          "SELECT count(*) FROM public.orders WHERE created_at >= {{start}} /* changed */",
+      }),
+    ).not.toBe(queryDraftFingerprint(queryDraft));
   });
 
   it("requires a matching receipt and consumes it once in the same transaction as create", async () => {
@@ -140,43 +156,49 @@ describe("query preview receipts", () => {
     expect(saved.name).toBe("Pedidos");
     expect(state.queries.size).toBe(1);
     expect(state.receipts.get(testRunId)?.consumedAt).toEqual(now);
-    await expect(saveQueryWithTestReceipt(repository, {
-      receiptId: testRunId,
-      actorId,
-      mode: "create",
-      ...queryDraft,
-      name: "Replay",
-      createdBy: actorId,
-      now,
-    })).rejects.toMatchObject({ code: "RECEIPT_INVALID" });
+    await expect(
+      saveQueryWithTestReceipt(repository, {
+        receiptId: testRunId,
+        actorId,
+        mode: "create",
+        ...queryDraft,
+        name: "Replay",
+        createdBy: actorId,
+        now,
+      }),
+    ).rejects.toMatchObject({ code: "RECEIPT_INVALID" });
     expect(state.queries.size).toBe(1);
   });
 
   it("rolls back receipt consumption when the actor or draft does not match", async () => {
     const { repository, state } = makeRepository();
     const testRunId = await issueQueryTestReceipt(repository, receiptInput());
-    await expect(saveQueryWithTestReceipt(repository, {
-      receiptId: testRunId,
-      actorId: "00000000-0000-4000-8000-000000000099",
-      mode: "create",
-      ...queryDraft,
-      name: "Tampered",
-      createdBy: actorId,
-      now,
-    })).rejects.toMatchObject({ code: "RECEIPT_INVALID" });
+    await expect(
+      saveQueryWithTestReceipt(repository, {
+        receiptId: testRunId,
+        actorId: "00000000-0000-4000-8000-000000000099",
+        mode: "create",
+        ...queryDraft,
+        name: "Tampered",
+        createdBy: actorId,
+        now,
+      }),
+    ).rejects.toMatchObject({ code: "RECEIPT_INVALID" });
     expect(state.queries.size).toBe(0);
     expect(state.receipts.get(testRunId)?.consumedAt).toBeNull();
 
-    await expect(saveQueryWithTestReceipt(repository, {
-      receiptId: testRunId,
-      actorId,
-      mode: "create",
-      ...queryDraft,
-      sqlText: "SELECT 2 AS changed",
-      name: "Tampered",
-      createdBy: actorId,
-      now,
-    })).rejects.toMatchObject({ code: "RECEIPT_STALE" });
+    await expect(
+      saveQueryWithTestReceipt(repository, {
+        receiptId: testRunId,
+        actorId,
+        mode: "create",
+        ...queryDraft,
+        sqlText: "SELECT 2 AS changed",
+        name: "Tampered",
+        createdBy: actorId,
+        now,
+      }),
+    ).rejects.toMatchObject({ code: "RECEIPT_STALE" });
     expect(state.queries.size).toBe(0);
     expect(state.receipts.get(testRunId)?.consumedAt).toBeNull();
   });
@@ -194,21 +216,30 @@ describe("query preview receipts", () => {
       updatedAt: now,
     };
     state.queries.set(queryId, existing);
-    const testRunId = await issueQueryTestReceipt(repository, receiptInput("update"));
+    const testRunId = await issueQueryTestReceipt(
+      repository,
+      receiptInput("update"),
+    );
     const conflictAt = new Date(now.getTime() + 2);
-    state.queries.set(queryId, { ...existing, name: "Mudou em outra sessão", updatedAt: conflictAt });
+    state.queries.set(queryId, {
+      ...existing,
+      name: "Mudou em outra sessão",
+      updatedAt: conflictAt,
+    });
 
-    await expect(saveQueryWithTestReceipt(repository, {
-      receiptId: testRunId,
-      actorId,
-      mode: "update",
-      queryId,
-      expectedUpdatedAt: now,
-      ...queryDraft,
-      name: "Nova versão",
-      createdBy: actorId,
-      now,
-    })).rejects.toBeInstanceOf(QueryLifecycleError);
+    await expect(
+      saveQueryWithTestReceipt(repository, {
+        receiptId: testRunId,
+        actorId,
+        mode: "update",
+        queryId,
+        expectedUpdatedAt: now,
+        ...queryDraft,
+        name: "Nova versão",
+        createdBy: actorId,
+        now,
+      }),
+    ).rejects.toBeInstanceOf(QueryLifecycleError);
     expect(state.queries.get(queryId)?.name).toBe("Mudou em outra sessão");
     expect(state.receipts.get(testRunId)?.consumedAt).toBeNull();
 
@@ -236,15 +267,17 @@ describe("query preview receipts", () => {
       ...receiptInput(),
       now: new Date(now.getTime() - 20 * 60 * 1_000),
     });
-    await expect(saveQueryWithTestReceipt(repository, {
-      receiptId: testRunId,
-      actorId,
-      mode: "create",
-      ...queryDraft,
-      name: "Expirada",
-      createdBy: actorId,
-      now,
-    })).rejects.toMatchObject({ code: "RECEIPT_INVALID" });
+    await expect(
+      saveQueryWithTestReceipt(repository, {
+        receiptId: testRunId,
+        actorId,
+        mode: "create",
+        ...queryDraft,
+        name: "Expirada",
+        createdBy: actorId,
+        now,
+      }),
+    ).rejects.toMatchObject({ code: "RECEIPT_INVALID" });
     expect(state.queries.size).toBe(0);
   });
 });

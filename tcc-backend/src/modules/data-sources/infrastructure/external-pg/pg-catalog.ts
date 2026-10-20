@@ -1,7 +1,11 @@
 import { Client, type QueryResultRow } from "pg";
 import { MAX_DATA_SOURCE_CATALOG_TABLES } from "../../domain/data-source-catalog.js";
 import { type AiCatalogTableReference } from "../../../../shared/security/query-security.js";
-import type { DiscoveredColumn, ExternalPostgresConfig, UnsafeAiColumnType } from "../../domain/external-source.js";
+import type {
+  DiscoveredColumn,
+  ExternalPostgresConfig,
+  UnsafeAiColumnType,
+} from "../../domain/external-source.js";
 export type { DiscoveredColumn, UnsafeAiColumnType };
 
 import type { DiscoveredTable } from "../../domain/data-source-catalog.js";

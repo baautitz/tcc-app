@@ -88,16 +88,21 @@ function validateTestParameterValues(
   }
 }
 
-export const queryTestInputSchema = queryTestDraftSchema
-  .superRefine((input, context) => {
+export const queryTestInputSchema = queryTestDraftSchema.superRefine(
+  (input, context) => {
     validateTestParameterValues(input, context);
-  });
+  },
+);
 
 export const queryPreviewInputSchema = queryTestDraftSchema
   .extend({
     mode: z.enum(["create", "update"]).default("create"),
     queryId: z.string().uuid().optional(),
-    expectedUpdatedAt: z.string().datetime().transform((value) => new Date(value)).optional(),
+    expectedUpdatedAt: z
+      .string()
+      .datetime()
+      .transform((value) => new Date(value))
+      .optional(),
   })
   .strict()
   .superRefine((input, context) => {
@@ -120,19 +125,25 @@ export const queryPreviewInputSchema = queryTestDraftSchema
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["mode"],
-        message: "Uma prévia de criação não pode apontar para uma query existente.",
+        message:
+          "Uma prévia de criação não pode apontar para uma query existente.",
       });
     }
   });
 
-export const queryCreateInputSchema = queryInputSchema.extend({
-  testRunId: z.string().uuid(),
-}).strict();
+export const queryCreateInputSchema = queryInputSchema
+  .extend({
+    testRunId: z.string().uuid(),
+  })
+  .strict();
 
 export const queryUpdateInputSchema = queryInputSchema
   .extend({
     testRunId: z.string().uuid(),
-    expectedUpdatedAt: z.string().datetime().transform((value) => new Date(value)),
+    expectedUpdatedAt: z
+      .string()
+      .datetime()
+      .transform((value) => new Date(value)),
   })
   .strict();
 
@@ -224,7 +235,13 @@ export const queryBindingSchema = z
 const dashboardDocumentComponentSchema = z
   .object({
     id: z.string().trim().min(1).max(160),
-    component: z.enum(["stat_card", "bar_chart", "line_chart", "pie_chart", "data_table"]),
+    component: z.enum([
+      "stat_card",
+      "bar_chart",
+      "line_chart",
+      "pie_chart",
+      "data_table",
+    ]),
     layoutProps: z
       .object({
         colSpan: z.number().int().min(1).max(12).default(12),
@@ -312,7 +329,13 @@ export const queryInputBindingSchema = queryBindingSchema;
 const componentSchema = z
   .object({
     id: z.string().trim().min(1).max(160),
-    type: z.enum(["stat_card", "bar_chart", "line_chart", "pie_chart", "data_table"]),
+    type: z.enum([
+      "stat_card",
+      "bar_chart",
+      "line_chart",
+      "pie_chart",
+      "data_table",
+    ]),
     title: z.string().trim().min(1).max(160),
     queryUuid: z.string().uuid(),
     layoutProps: z

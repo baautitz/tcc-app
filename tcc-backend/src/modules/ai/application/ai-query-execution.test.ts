@@ -108,27 +108,36 @@ describe("execução limitada de consultas da IA", () => {
 
   it("mantém UDFs no teste manual e deixa a política estrita ativa para a IA", async () => {
     const h = harness({ rows: [{ total: 1 }] });
-    await expect(runBoundedReadOnlyQuery(
-      connection,
-      "SELECT public.custom_reporting_function(order_id) AS total FROM public.orders",
-      [],
-      {
-        allowGeneralReadOnlySql: true,
-        preserveConfiguredSearchPath: true,
-        createClient: h.createClient,
-        createCursor: h.createCursor,
-      },
-    )).resolves.toMatchObject({ rows: [{ total: "1" }] });
+    await expect(
+      runBoundedReadOnlyQuery(
+        connection,
+        "SELECT public.custom_reporting_function(order_id) AS total FROM public.orders",
+        [],
+        {
+          allowGeneralReadOnlySql: true,
+          preserveConfiguredSearchPath: true,
+          createClient: h.createClient,
+          createCursor: h.createCursor,
+        },
+      ),
+    ).resolves.toMatchObject({ rows: [{ total: "1" }] });
     expect(h.statements).not.toContain("SET LOCAL search_path = pg_catalog");
-    expect(h.cursorQueries[0]?.sqlText).toContain("public.custom_reporting_function");
+    expect(h.cursorQueries[0]?.sqlText).toContain(
+      "public.custom_reporting_function",
+    );
 
     const strict = harness();
-    await expect(runBoundedReadOnlyQuery(
-      connection,
-      "SELECT public.custom_reporting_function(order_id) FROM public.orders",
-      [],
-      { createClient: strict.createClient, createCursor: strict.createCursor },
-    )).rejects.toMatchObject({ name: "QueryInputValidationError" });
+    await expect(
+      runBoundedReadOnlyQuery(
+        connection,
+        "SELECT public.custom_reporting_function(order_id) FROM public.orders",
+        [],
+        {
+          createClient: strict.createClient,
+          createCursor: strict.createCursor,
+        },
+      ),
+    ).rejects.toMatchObject({ name: "QueryInputValidationError" });
     expect(strict.createClient).not.toHaveBeenCalled();
   });
 
@@ -136,7 +145,10 @@ describe("execução limitada de consultas da IA", () => {
     const connectionReset = Object.assign(new Error("connection reset"), {
       code: "ECONNRESET",
     });
-    const h = harness({ rows: [{ total: 1 }], connectErrors: [connectionReset] });
+    const h = harness({
+      rows: [{ total: 1 }],
+      connectErrors: [connectionReset],
+    });
     const result = await runBoundedReadOnlyQueryWithRetry(
       connection,
       "SELECT public.custom_reporting_function(order_id) AS total FROM public.orders",
@@ -152,7 +164,9 @@ describe("execução limitada de consultas da IA", () => {
     expect(result.rows).toEqual([{ total: "1" }]);
     expect(h.createClient).toHaveBeenCalledTimes(2);
     expect(h.statements).not.toContain("SET LOCAL search_path = pg_catalog");
-    expect(h.cursorQueries[0]?.sqlText).toContain("public.custom_reporting_function");
+    expect(h.cursorQueries[0]?.sqlText).toContain(
+      "public.custom_reporting_function",
+    );
   });
 
   it("limita linhas enquanto percorre o cursor e não devolve a linha excedente", async () => {

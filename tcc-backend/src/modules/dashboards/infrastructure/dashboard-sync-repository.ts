@@ -7,5 +7,7 @@ export interface DashboardSyncRepository {
 
 export const drizzleDashboardSyncRepository: DashboardSyncRepository = {
   listQueryCatalog: () =>
-    db.select({ id: savedQueries.id, parameters: savedQueries.parameters }).from(savedQueries),
+    db
+      .select({ id: savedQueries.id, parameters: savedQueries.parameters })
+      .from(savedQueries),
 };

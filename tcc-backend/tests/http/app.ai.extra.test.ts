@@ -2,11 +2,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const h = vi.hoisted(() => {
   process.env.DATABASE_URL = "postgres://u:p@localhost:5432/x";
-  process.env.CREDENTIAL_ENCRYPTION_KEY = "a2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2s=";
+  process.env.CREDENTIAL_ENCRYPTION_KEY =
+    "a2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2s=";
   const state = {
     queue: [] as unknown[],
-    user: null as null | { id: string; name: string; email: string; isAdmin: boolean; permissions: string[] },
-    stream: (async function* () {}) as (opts: { signal: AbortSignal }) => AsyncIterable<unknown>,
+    user: null as null | {
+      id: string;
+      name: string;
+      email: string;
+      isAdmin: boolean;
+      permissions: string[];
+    },
+    stream: async function* () {} as (opts: {
+      signal: AbortSignal;
+    }) => AsyncIterable<unknown>,
     toolEvents: null as null | ((e: unknown) => unknown),
   };
   const chain = (): unknown => {
@@ -15,7 +24,8 @@ const h = vi.hoisted(() => {
         if (key === "then") {
           const next = state.queue.shift();
           return (res: (v: unknown) => void, rej: (e: unknown) => void) => {
-            if (next instanceof Error) rej(next); else res(next ?? []);
+            if (next instanceof Error) rej(next);
+            else res(next ?? []);
           };
         }
         return () => p;
@@ -23,33 +33,56 @@ const h = vi.hoisted(() => {
     });
     return p;
   };
-  const fakeDb: Record<string, unknown> = new Proxy({}, {
-    get: (_t, key) => key === "transaction"
-      ? async (fn: (tx: unknown) => unknown) => fn(fakeDb)
-      : () => chain(),
-  });
+  const fakeDb: Record<string, unknown> = new Proxy(
+    {},
+    {
+      get: (_t, key) =>
+        key === "transaction"
+          ? async (fn: (tx: unknown) => unknown) => fn(fakeDb)
+          : () => chain(),
+    },
+  );
   return { state, fakeDb };
 });
 
 vi.mock("../../src/shared/db/client.js", () => ({ db: h.fakeDb, pool: {} }));
 vi.mock("../../src/modules/identity/application/auth.js", async (orig) => ({
-  ...(await orig<typeof import("../../src/modules/identity/application/auth.js")>()),
-  authService: { findAuthenticatedUser: vi.fn(async (token?: string) => (token ? h.state.user : null)) },
+  ...(await orig<
+    typeof import("../../src/modules/identity/application/auth.js")
+  >()),
+  authService: {
+    findAuthenticatedUser: vi.fn(async (token?: string) =>
+      token ? h.state.user : null,
+    ),
+  },
 }));
 vi.mock("../../src/modules/ai/application/agent/ai-agent.js", async (orig) => ({
-  ...(await orig<typeof import("../../src/modules/ai/application/agent/ai-agent.js")>()),
+  ...(await orig<
+    typeof import("../../src/modules/ai/application/agent/ai-agent.js")
+  >()),
   resolveAiConfiguration: vi.fn(() => ({
-    enabled: true, baseURL: "https://ai.test/v1", apiKey: "secret-key", model: "m", requestTimeoutMs: 60_000,
+    enabled: true,
+    baseURL: "https://ai.test/v1",
+    apiKey: "secret-key",
+    model: "m",
+    requestTimeoutMs: 60_000,
   })),
   createAiAgent: vi.fn(() => ({
-    stream: async (_i: unknown, opts: { signal: AbortSignal }) => h.state.stream(opts),
+    stream: async (_i: unknown, opts: { signal: AbortSignal }) =>
+      h.state.stream(opts),
   })),
 }));
 
 import { app } from "../../src/app.js";
 
 const UUID = "11111111-1111-4111-8111-111111111111";
-const admin = { id: UUID, name: "Admin", email: "a@x.com", isAdmin: true, permissions: [] };
+const admin = {
+  id: UUID,
+  name: "Admin",
+  email: "a@x.com",
+  isAdmin: true,
+  permissions: [],
+};
 const COOKIE = { Cookie: "tcc_session=abc" };
 const body = { messages: [{ role: "user", content: "Olá, tudo bem?" }] };
 
@@ -64,11 +97,15 @@ const parse = (wire: string) =>
   wire.split(/\r?\n\r?\n/).flatMap((blk) => {
     const event = blk.match(/^event: ?(.+)$/m)?.[1];
     const data = blk.match(/^data: ?(.+)$/m)?.[1];
-    return event && data ? [{ event, data: JSON.parse(data) as Record<string, unknown> }] : [];
+    return event && data
+      ? [{ event, data: JSON.parse(data) as Record<string, unknown> }]
+      : [];
   });
 
-const tok = (content: string, finish?: string) =>
-  [{ content, response_metadata: finish ? { finish_reason: finish } : {} }, { langgraph_node: "model_request" }];
+const tok = (content: string, finish?: string) => [
+  { content, response_metadata: finish ? { finish_reason: finish } : {} },
+  { langgraph_node: "model_request" },
+];
 
 beforeEach(() => {
   h.state.queue = [];
@@ -90,10 +127,18 @@ describe("chat IA SSE via app", () => {
     expect(ev.map((e) => e.event)).toEqual(["start", "token", "token", "done"]);
     expect(ev[0].data).toMatchObject({ version: 1, type: "start" });
     const msgId = ev[0].data.messageId;
-    expect(ev.slice(1, 3).map((e) => e.data.delta).join("")).toBe("Oi, tudo bem!");
+    expect(
+      ev
+        .slice(1, 3)
+        .map((e) => e.data.delta)
+        .join(""),
+    ).toBe("Oi, tudo bem!");
     expect(ev[1].data.messageId).toBe(msgId);
     expect(JSON.stringify(ev)).not.toContain("ignorado");
-    expect(ev[3].data).toMatchObject({ messageId: msgId, finishReason: "stop" });
+    expect(ev[3].data).toMatchObject({
+      messageId: msgId,
+      finishReason: "stop",
+    });
   });
 
   it("erro do provedor -> error AI_PROVIDER_ERROR sem vazar chave, e fim do stream sem done", async () => {
@@ -104,7 +149,10 @@ describe("chat IA SSE via app", () => {
     const wire = await (await chat()).text();
     const ev = parse(wire);
     expect(ev.map((e) => e.event)).toEqual(["start", "error"]);
-    expect(ev[1].data).toMatchObject({ code: "AI_PROVIDER_ERROR", retryable: true });
+    expect(ev[1].data).toMatchObject({
+      code: "AI_PROVIDER_ERROR",
+      retryable: true,
+    });
     expect(wire).not.toContain("secret-key");
   });
 
@@ -130,20 +178,28 @@ describe("chat IA SSE via app", () => {
   it("não-admin -> 403 e sem sessão -> 401", async () => {
     h.state.user = { ...admin, isAdmin: false };
     expect((await chat()).status).toBe(403);
-    const res = await app.request("/api/admin/ai/chat", { method: "POST", body: "{}" });
+    const res = await app.request("/api/admin/ai/chat", {
+      method: "POST",
+      body: "{}",
+    });
     expect(res.status).toBe(401);
   });
 });
 
 describe("propostas de contexto admin (fake db)", () => {
   it("GET inexistente -> erro de domínio (não 200)", async () => {
-    const res = await app.request(`/api/admin/ai/context-proposals/${UUID}`, { headers: COOKIE });
+    const res = await app.request(`/api/admin/ai/context-proposals/${UUID}`, {
+      headers: COOKIE,
+    });
     expect(res.status).toBeGreaterThanOrEqual(400);
     expect(res.status).toBeLessThan(500);
   });
   it("dismiss e approve com id inválido -> 400", async () => {
     for (const a of ["approve", "dismiss"]) {
-      const res = await app.request(`/api/admin/ai/context-proposals/xyz/${a}`, { method: "POST", headers: COOKIE });
+      const res = await app.request(
+        `/api/admin/ai/context-proposals/xyz/${a}`,
+        { method: "POST", headers: COOKIE },
+      );
       expect(res.status).toBe(400);
     }
   });

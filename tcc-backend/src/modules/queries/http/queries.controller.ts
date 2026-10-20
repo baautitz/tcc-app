@@ -1,23 +1,11 @@
-
-
 import { z } from "zod";
-import { } from "../../../shared/config/config.js";
+import {} from "../../../shared/config/config.js";
 import { savedQueriesRepository } from "../infrastructure/saved-queries-repository.js";
 import type { savedQueries } from "../../../shared/db/schema.js";
 import {
-  
-  
-  
-  
   queryCreateInputSchema,
   queryPreviewInputSchema,
-  
   queryUpdateInputSchema,
-  
-  
-  
-  
-  
 } from "../../../shared/lib/contracts.js";
 
 import { externalSource } from "../../data-sources/application/external-source.js";
@@ -25,7 +13,13 @@ import { hasPermission } from "../../identity/domain/auth-user.js";
 
 import { bindQueryParameters } from "../../../shared/security/query-security.js";
 
-import { issueQueryTestReceipt, queryDraftFingerprint, querySourceTargetHash, saveQueryWithTestReceipt, type QueryLifecycleQuery } from "../domain/query-lifecycle.js";
+import {
+  issueQueryTestReceipt,
+  queryDraftFingerprint,
+  querySourceTargetHash,
+  saveQueryWithTestReceipt,
+  type QueryLifecycleQuery,
+} from "../domain/query-lifecycle.js";
 
 import { ApiError } from "../../../shared/lib/domain-error.js";
 
@@ -35,25 +29,44 @@ import type { AppContext } from "../../../shared/middleware/auth.js";
 import { jsonBody } from "../../../shared/middleware/json-body.js";
 import { getSourceOrThrow } from "../../data-sources/application/data-source-admin.js";
 import { throwApiError } from "../../../shared/lib/domain-error.js";
-import { parseParameters, validateQueryInput, getQueryOrThrow, QUERY_LIFECYCLE_MESSAGES, runQueryDefinition, deleteQueryWithDashboards } from "../application/query-admin.js";
+import {
+  parseParameters,
+  validateQueryInput,
+  getQueryOrThrow,
+  QUERY_LIFECYCLE_MESSAGES,
+  runQueryDefinition,
+  deleteQueryWithDashboards,
+} from "../application/query-admin.js";
 
 export async function listQueries(context: AppContext) {
   return context.json(await savedQueriesRepository.listSummaries());
 }
 
 export async function getQuery(context: AppContext) {
-  return context.json(await getQueryOrThrow(z.string().uuid().parse(context.req.param("id"))));
+  return context.json(
+    await getQueryOrThrow(z.string().uuid().parse(context.req.param("id"))),
+  );
 }
 
 export async function previewQuery(context: AppContext) {
   const currentUser = context.get("currentUser");
-  if (!hasPermission(currentUser, "queries:create") && !hasPermission(currentUser, "queries:update")) {
-    throw new ApiError(403, "A permissão 'queries:create' ou 'queries:update' é necessária para testar uma query.");
+  if (
+    !hasPermission(currentUser, "queries:create") &&
+    !hasPermission(currentUser, "queries:update")
+  ) {
+    throw new ApiError(
+      403,
+      "A permissão 'queries:create' ou 'queries:update' é necessária para testar uma query.",
+    );
   }
   const input = await jsonBody(context, queryPreviewInputSchema);
-  const requiredPermission = input.mode === "create" ? "queries:create" : "queries:update";
+  const requiredPermission =
+    input.mode === "create" ? "queries:create" : "queries:update";
   if (!hasPermission(currentUser, requiredPermission)) {
-    throw new ApiError(403, `A permissão '${requiredPermission}' é necessária para pré-visualizar esta ação.`);
+    throw new ApiError(
+      403,
+      `A permissão '${requiredPermission}' é necessária para pré-visualizar esta ação.`,
+    );
   }
   validateQueryInput(input);
 
@@ -66,20 +79,40 @@ export async function previewQuery(context: AppContext) {
     if (!queryTarget || queryTarget.dataSourceId !== source.id) {
       throw new ApiError(404, "A query para edição não existe neste servidor.");
     }
-    if (!input.expectedUpdatedAt || queryTarget.updatedAt.getTime() !== input.expectedUpdatedAt.getTime()) {
-      throw new ApiError(409, "A query foi alterada desde que foi aberta. Recarregue-a e teste novamente.");
+    if (
+      !input.expectedUpdatedAt ||
+      queryTarget.updatedAt.getTime() !== input.expectedUpdatedAt.getTime()
+    ) {
+      throw new ApiError(
+        409,
+        "A query foi alterada desde que foi aberta. Recarregue-a e teste novamente.",
+      );
     }
   }
 
   let preview;
   try {
-    const bound = bindQueryParameters(input.sqlText, input.parameters, input.values);
-    preview = await externalSource().runBoundedReadOnlyQueryWithRetry(externalSource().sourceConnection(source), bound.sqlText, bound.values, {
-      preserveConfiguredSearchPath: true,
-      allowGeneralReadOnlySql: true,
-    });
+    const bound = bindQueryParameters(
+      input.sqlText,
+      input.parameters,
+      input.values,
+    );
+    preview = await externalSource().runBoundedReadOnlyQueryWithRetry(
+      externalSource().sourceConnection(source),
+      bound.sqlText,
+      bound.values,
+      {
+        preserveConfiguredSearchPath: true,
+        allowGeneralReadOnlySql: true,
+      },
+    );
   } catch (error) {
-    throw new ApiError(400, error instanceof Error ? error.message : "Não foi possível testar a query.");
+    throw new ApiError(
+      400,
+      error instanceof Error
+        ? error.message
+        : "Não foi possível testar a query.",
+    );
   }
 
   const latestSource = await getSourceOrThrow(source.id);
@@ -87,12 +120,18 @@ export async function previewQuery(context: AppContext) {
     latestSource.updatedAt.getTime() !== sourceUpdatedAt.getTime() ||
     querySourceTargetHash(latestSource) !== sourceTargetHash
   ) {
-    throw new ApiError(409, "O servidor foi alterado durante o teste. Gere uma nova prévia.");
+    throw new ApiError(
+      409,
+      "O servidor foi alterado durante o teste. Gere uma nova prévia.",
+    );
   }
   if (queryTarget) {
     const latestQuery = await getQueryOrThrow(queryTarget.id);
     if (latestQuery.updatedAt.getTime() !== queryTarget.updatedAt.getTime()) {
-      throw new ApiError(409, "A query foi alterada durante o teste. Recarregue-a e teste novamente.");
+      throw new ApiError(
+        409,
+        "A query foi alterada durante o teste. Recarregue-a e teste novamente.",
+      );
     }
   }
 
@@ -119,10 +158,12 @@ export async function previewQuery(context: AppContext) {
     intent: {
       mode: input.mode,
       queryName: queryTarget?.name ?? "Nova query",
-      ...(queryTarget ? {
-        queryId: queryTarget.id,
-        queryUpdatedAt: queryTarget.updatedAt.toISOString(),
-      } : {}),
+      ...(queryTarget
+        ? {
+            queryId: queryTarget.id,
+            queryUpdatedAt: queryTarget.updatedAt.toISOString(),
+          }
+        : {}),
     },
     sqlText: input.sqlText,
     parameters: input.parameters,
@@ -179,14 +220,25 @@ export async function updateQuery(context: AppContext) {
 }
 
 export async function testSavedQuery(context: AppContext) {
-  const query = await getQueryOrThrow(z.string().uuid().parse(context.req.param("id")));
-  const body = await jsonBody(context, z.object({ parameters: z.record(z.union([z.string(), z.array(z.string())])).default({}) }));
-  return context.json({ rows: await runQueryDefinition({
-    dataSourceId: query.dataSourceId,
-    sqlText: query.sqlText,
-    parameters: parseParameters(query.parameters),
-    values: body.parameters,
-  }) });
+  const query = await getQueryOrThrow(
+    z.string().uuid().parse(context.req.param("id")),
+  );
+  const body = await jsonBody(
+    context,
+    z.object({
+      parameters: z
+        .record(z.union([z.string(), z.array(z.string())]))
+        .default({}),
+    }),
+  );
+  return context.json({
+    rows: await runQueryDefinition({
+      dataSourceId: query.dataSourceId,
+      sqlText: query.sqlText,
+      parameters: parseParameters(query.parameters),
+      values: body.parameters,
+    }),
+  });
 }
 
 export async function deleteQuery(context: AppContext) {

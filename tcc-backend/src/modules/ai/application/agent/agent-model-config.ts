@@ -1,8 +1,14 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { DomainError } from "../../../../shared/lib/domain-error.js";
-import { getEnvironment, type Environment } from "../../../../shared/config/config.js";
+import {
+  getEnvironment,
+  type Environment,
+} from "../../../../shared/config/config.js";
 
-type AiEnvironment = Pick<Environment, "AI_BASE_URL" | "AI_API_KEY" | "AI_MODEL" | "AI_REQUEST_TIMEOUT_MS">;
+type AiEnvironment = Pick<
+  Environment,
+  "AI_BASE_URL" | "AI_API_KEY" | "AI_MODEL" | "AI_REQUEST_TIMEOUT_MS"
+>;
 
 export const DEFAULT_AI_REQUEST_TIMEOUT_MS = 180_000;
 export const MIN_AI_REQUEST_TIMEOUT_MS = 1_000;
@@ -14,15 +20,24 @@ export type AiConfigurationIssue =
   | { enabled: false; code: "AI_CONFIGURATION_INVALID"; message: string };
 
 export type ResolvedAiConfiguration =
-  | { enabled: true; baseURL: string; apiKey: string; model: string; requestTimeoutMs: number }
+  | {
+      enabled: true;
+      baseURL: string;
+      apiKey: string;
+      model: string;
+      requestTimeoutMs: number;
+    }
   | AiConfigurationIssue;
-
 
 export class AiUnavailableError extends DomainError {
   constructor(public readonly issue: AiConfigurationIssue) {
-    super(issue.code === "AI_NOT_CONFIGURED"
-      ? "O serviço de IA não está configurado."
-      : "A configuração do serviço de IA é inválida.", issue.code, "bad_request");
+    super(
+      issue.code === "AI_NOT_CONFIGURED"
+        ? "O serviço de IA não está configurado."
+        : "A configuração do serviço de IA é inválida.",
+      issue.code,
+      "bad_request",
+    );
     this.name = "AiUnavailableError";
   }
 }
@@ -43,7 +58,9 @@ export function resolveAiConfiguration(
     ["AI_BASE_URL", baseURL],
     ["AI_API_KEY", apiKey],
     ["AI_MODEL", model],
-  ].filter((entry): entry is [string, undefined] => entry[1] === undefined).map(([key]) => key);
+  ]
+    .filter((entry): entry is [string, undefined] => entry[1] === undefined)
+    .map(([key]) => key);
 
   if (missing.length > 0) {
     return { enabled: false, code: "AI_NOT_CONFIGURED", missing };
@@ -51,7 +68,10 @@ export function resolveAiConfiguration(
 
   try {
     const parsedBaseURL = new URL(baseURL!);
-    if (parsedBaseURL.protocol !== "http:" && parsedBaseURL.protocol !== "https:") {
+    if (
+      parsedBaseURL.protocol !== "http:" &&
+      parsedBaseURL.protocol !== "https:"
+    ) {
       throw new Error("unsupported protocol");
     }
   } catch {
@@ -65,9 +85,11 @@ export function resolveAiConfiguration(
   let requestTimeoutMs = DEFAULT_AI_REQUEST_TIMEOUT_MS;
   if (configuredTimeout !== undefined) {
     const parsedTimeout = Number(configuredTimeout);
-    if (!Number.isSafeInteger(parsedTimeout)
-      || parsedTimeout < MIN_AI_REQUEST_TIMEOUT_MS
-      || parsedTimeout > MAX_AI_REQUEST_TIMEOUT_MS) {
+    if (
+      !Number.isSafeInteger(parsedTimeout) ||
+      parsedTimeout < MIN_AI_REQUEST_TIMEOUT_MS ||
+      parsedTimeout > MAX_AI_REQUEST_TIMEOUT_MS
+    ) {
       return {
         enabled: false,
         code: "AI_CONFIGURATION_INVALID",
@@ -77,18 +99,26 @@ export function resolveAiConfiguration(
     requestTimeoutMs = parsedTimeout;
   }
 
-  return { enabled: true, baseURL: baseURL!, apiKey: apiKey!, model: model!, requestTimeoutMs };
+  return {
+    enabled: true,
+    baseURL: baseURL!,
+    apiKey: apiKey!,
+    model: model!,
+    requestTimeoutMs,
+  };
 }
 
-export function getAiAvailability(values: AiEnvironment = getEnvironment()):
-  | { enabled: true; model: string }
-  | AiConfigurationIssue {
+export function getAiAvailability(
+  values: AiEnvironment = getEnvironment(),
+): { enabled: true; model: string } | AiConfigurationIssue {
   const configuration = resolveAiConfiguration(values);
   if (!configuration.enabled) return configuration;
   return { enabled: true, model: configuration.model };
 }
 
-export function createAiModel(configuration = resolveAiConfiguration()): ChatOpenAI {
+export function createAiModel(
+  configuration = resolveAiConfiguration(),
+): ChatOpenAI {
   if (!configuration.enabled) throw new AiUnavailableError(configuration);
 
   const aiHost = new URL(configuration.baseURL).hostname.toLowerCase();
@@ -96,7 +126,8 @@ export function createAiModel(configuration = resolveAiConfiguration()): ChatOpe
     aiHost === "minimax.io" ||
     aiHost.endsWith(".minimax.io") ||
     /minimax/i.test(configuration.model);
-  const isMiniMaxM3 = isMiniMax && /minimax[-_. ]?m3/i.test(configuration.model);
+  const isMiniMaxM3 =
+    isMiniMax && /minimax[-_. ]?m3/i.test(configuration.model);
 
   return new ChatOpenAI({
     model: configuration.model,

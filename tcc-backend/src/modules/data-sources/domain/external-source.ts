@@ -83,20 +83,40 @@ export interface UnsafeAiColumnType extends AiCatalogTableReference {
   typeKind: string;
 }
 
-
-
 /** Porta de acesso ao Postgres externo; implementada em data-sources/infrastructure e injetada na composicao. */
 export interface ExternalSourcePort {
-  sourceConnection(source: typeof dataSources.$inferSelect): ExternalPostgresConfig;
-  runReadOnlyQuery(config: ExternalPostgresConfig, sqlText: string, values: unknown[]): Promise<Record<string, unknown>[]>;
-  runBoundedReadOnlyQuery(config: ExternalPostgresConfig, sqlText: string, values: unknown[], options?: BoundedReadOnlyQueryOptions): Promise<BoundedReadOnlyQueryResult>;
+  sourceConnection(
+    source: typeof dataSources.$inferSelect,
+  ): ExternalPostgresConfig;
+  runReadOnlyQuery(
+    config: ExternalPostgresConfig,
+    sqlText: string,
+    values: unknown[],
+  ): Promise<Record<string, unknown>[]>;
+  runBoundedReadOnlyQuery(
+    config: ExternalPostgresConfig,
+    sqlText: string,
+    values: unknown[],
+    options?: BoundedReadOnlyQueryOptions,
+  ): Promise<BoundedReadOnlyQueryResult>;
   runBoundedReadOnlyQueryWithRetry(
     config: ExternalPostgresConfig,
     sqlText: string,
     values: unknown[],
-    options?: BoundedReadOnlyQueryOptions & { beforeAttempt?: (attempt: number) => boolean | Promise<boolean> },
+    options?: BoundedReadOnlyQueryOptions & {
+      beforeAttempt?: (attempt: number) => boolean | Promise<boolean>;
+    },
   ): Promise<BoundedReadOnlyQueryResult>;
-  listPostgresBaseTables(config: ExternalPostgresConfig): Promise<DiscoveredTable[]>;
-  findUnsafeAiColumnTypes(config: ExternalPostgresConfig, tables: AiCatalogTableReference[]): Promise<UnsafeAiColumnType[]>;
-  getPostgresTableColumns(config: ExternalPostgresConfig, schemaName: string, tableName: string): Promise<DiscoveredColumn[]>;
+  listPostgresBaseTables(
+    config: ExternalPostgresConfig,
+  ): Promise<DiscoveredTable[]>;
+  findUnsafeAiColumnTypes(
+    config: ExternalPostgresConfig,
+    tables: AiCatalogTableReference[],
+  ): Promise<UnsafeAiColumnType[]>;
+  getPostgresTableColumns(
+    config: ExternalPostgresConfig,
+    schemaName: string,
+    tableName: string,
+  ): Promise<DiscoveredColumn[]>;
 }

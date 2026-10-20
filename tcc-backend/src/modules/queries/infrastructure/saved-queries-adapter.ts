@@ -6,6 +6,7 @@ export const savedQueriesAdapter: SavedQueriesPort = {
   listParametersByIds: (ids) => savedQueriesRepository.listParametersByIds(ids),
   listAllIds: () => savedQueriesRepository.listAllIds(),
   findReceipt: (id) => savedQueriesRepository.findReceipt(id),
-  listWithSourcesByIds: (ids, tx) => savedQueriesRepository.listWithSourcesByIds(ids, tx),
+  listWithSourcesByIds: (ids, tx) =>
+    savedQueriesRepository.listWithSourcesByIds(ids, tx),
   createLifecycleRepository: () => createQueryLifecycleRepository(),
 };

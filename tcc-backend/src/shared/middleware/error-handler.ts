@@ -5,7 +5,8 @@ import { ZodError } from "zod";
 import { ApiError } from "../lib/domain-error.js";
 
 export const errorHandler: ErrorHandler = (error, context) => {
-  if (error instanceof ApiError) return context.json({ error: error.message }, error.status as never);
+  if (error instanceof ApiError)
+    return context.json({ error: error.message }, error.status as never);
   if (error instanceof ZodError) {
     const issue = error.issues[0];
     const path = issue?.path.join(".");

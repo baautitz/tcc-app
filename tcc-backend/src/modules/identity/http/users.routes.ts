@@ -1,9 +1,38 @@
 import { Hono } from "hono";
-import { authentication, permissionRequired, type AppVariables } from "../../../shared/middleware/auth.js";
-import { createUser, deleteUser, listUsers, updateUser } from "./users.controller.js";
+import {
+  authentication,
+  permissionRequired,
+  type AppVariables,
+} from "../../../shared/middleware/auth.js";
+import {
+  createUser,
+  deleteUser,
+  listUsers,
+  updateUser,
+} from "./users.controller.js";
 
 export const userRoutes = new Hono<{ Variables: AppVariables }>();
-userRoutes.get("/api/users", authentication, permissionRequired("users:read"), listUsers);
-userRoutes.post("/api/users", authentication, permissionRequired("users:create"), createUser);
-userRoutes.patch("/api/users/:id", authentication, permissionRequired("users:update"), updateUser);
-userRoutes.delete("/api/users/:id", authentication, permissionRequired("users:delete"), deleteUser);
+userRoutes.get(
+  "/api/users",
+  authentication,
+  permissionRequired("users:read"),
+  listUsers,
+);
+userRoutes.post(
+  "/api/users",
+  authentication,
+  permissionRequired("users:create"),
+  createUser,
+);
+userRoutes.patch(
+  "/api/users/:id",
+  authentication,
+  permissionRequired("users:update"),
+  updateUser,
+);
+userRoutes.delete(
+  "/api/users/:id",
+  authentication,
+  permissionRequired("users:delete"),
+  deleteUser,
+);

@@ -12,20 +12,34 @@ export interface DashboardProposalReceiptState {
 }
 
 export class DashboardProposalConflict extends DomainError {
-  constructor(public readonly code: "ACTOR_MISMATCH" | "EXPIRED" | "REPLAY" | "DOCUMENT_CHANGED" | "REFERENCES_CHANGED" | "DASHBOARD_CHANGED" | "TRUNCATION_UNACKNOWLEDGED") {
+  constructor(
+    public readonly code:
+      | "ACTOR_MISMATCH"
+      | "EXPIRED"
+      | "REPLAY"
+      | "DOCUMENT_CHANGED"
+      | "REFERENCES_CHANGED"
+      | "DASHBOARD_CHANGED"
+      | "TRUNCATION_UNACKNOWLEDGED",
+  ) {
     super(code, code, "conflict");
     this.name = "DashboardProposalConflict";
   }
 }
 
 export function isDashboardProposalAlreadyApplied(
-  receipt: Pick<DashboardProposalReceiptState, "actorId" | "consumedAt" | "documentFingerprint">,
+  receipt: Pick<
+    DashboardProposalReceiptState,
+    "actorId" | "consumedAt" | "documentFingerprint"
+  >,
   actorId: string,
   persistedDocumentFingerprint: string | null,
 ): boolean {
-  return receipt.actorId === actorId
-    && receipt.consumedAt !== null
-    && persistedDocumentFingerprint === receipt.documentFingerprint;
+  return (
+    receipt.actorId === actorId &&
+    receipt.consumedAt !== null &&
+    persistedDocumentFingerprint === receipt.documentFingerprint
+  );
 }
 
 export function assertDashboardPreviewAcknowledged(
@@ -42,9 +56,14 @@ export function assertDashboardProposalUsable(
   actorId: string,
   now: Date,
 ): void {
-  if (receipt.actorId !== actorId) throw new DashboardProposalConflict("ACTOR_MISMATCH");
+  if (receipt.actorId !== actorId)
+    throw new DashboardProposalConflict("ACTOR_MISMATCH");
   if (receipt.consumedAt) throw new DashboardProposalConflict("REPLAY");
-  assertLive(receipt.expiresAt, now, () => new DashboardProposalConflict("EXPIRED"));
+  assertLive(
+    receipt.expiresAt,
+    now,
+    () => new DashboardProposalConflict("EXPIRED"),
+  );
 }
 
 export function assertDashboardProposalFresh(
@@ -55,11 +74,20 @@ export function assertDashboardProposalFresh(
     dashboardFingerprint: string | null;
   },
 ): void {
-  if (receipt.documentFingerprint !== current.documentFingerprint) throw new DashboardProposalConflict("DOCUMENT_CHANGED");
-  if (receipt.referenceFingerprint !== current.referenceFingerprint) throw new DashboardProposalConflict("REFERENCES_CHANGED");
+  if (receipt.documentFingerprint !== current.documentFingerprint)
+    throw new DashboardProposalConflict("DOCUMENT_CHANGED");
+  if (receipt.referenceFingerprint !== current.referenceFingerprint)
+    throw new DashboardProposalConflict("REFERENCES_CHANGED");
   if (receipt.mode === "create") {
-    if (receipt.expectedDashboardFingerprint !== null || current.dashboardFingerprint !== null) throw new DashboardProposalConflict("DASHBOARD_CHANGED");
-  } else if (!receipt.expectedDashboardFingerprint || receipt.expectedDashboardFingerprint !== current.dashboardFingerprint) {
+    if (
+      receipt.expectedDashboardFingerprint !== null ||
+      current.dashboardFingerprint !== null
+    )
+      throw new DashboardProposalConflict("DASHBOARD_CHANGED");
+  } else if (
+    !receipt.expectedDashboardFingerprint ||
+    receipt.expectedDashboardFingerprint !== current.dashboardFingerprint
+  ) {
     throw new DashboardProposalConflict("DASHBOARD_CHANGED");
   }
 }

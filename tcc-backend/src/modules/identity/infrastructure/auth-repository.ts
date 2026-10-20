@@ -1,25 +1,42 @@
 import { and, eq, gt, isNull } from "drizzle-orm";
 import { db } from "../../../shared/db/client.js";
-import { permissions, sessions, userPermissions, users } from "../../../shared/db/schema.js";
+import {
+  permissions,
+  sessions,
+  userPermissions,
+  users,
+} from "../../../shared/db/schema.js";
 
 export type AuthUserRow = typeof users.$inferSelect;
 
 export interface AuthRepository {
-  insertSession(values: { userId: string; tokenHash: string; expiresAt: Date }): Promise<void>;
+  insertSession(values: {
+    userId: string;
+    tokenHash: string;
+    expiresAt: Date;
+  }): Promise<void>;
   revokeSessionByHash(tokenHash: string): Promise<void>;
-  findActiveUserByTokenHash(tokenHash: string): Promise<AuthUserRow | undefined>;
+  findActiveUserByTokenHash(
+    tokenHash: string,
+  ): Promise<AuthUserRow | undefined>;
   listPermissionKeys(userId: string): Promise<string[]>;
 }
 
 export class DrizzleAuthRepository implements AuthRepository {
-  async insertSession(values: { userId: string; tokenHash: string; expiresAt: Date }) {
+  async insertSession(values: {
+    userId: string;
+    tokenHash: string;
+    expiresAt: Date;
+  }) {
     await db.insert(sessions).values(values);
   }
   async revokeSessionByHash(tokenHash: string) {
     await db
       .update(sessions)
       .set({ revokedAt: new Date() })
-      .where(and(eq(sessions.tokenHash, tokenHash), isNull(sessions.revokedAt)));
+      .where(
+        and(eq(sessions.tokenHash, tokenHash), isNull(sessions.revokedAt)),
+      );
   }
   async findActiveUserByTokenHash(tokenHash: string) {
     const rows = await db

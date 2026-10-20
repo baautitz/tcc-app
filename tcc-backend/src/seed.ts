@@ -1,6 +1,11 @@
 import { eq } from "drizzle-orm";
 import { db, pool } from "./shared/db/client.js";
-import { dataSources, permissions, savedQueries, users } from "./shared/db/schema.js";
+import {
+  dataSources,
+  permissions,
+  savedQueries,
+  users,
+} from "./shared/db/schema.js";
 import { getEnvironment } from "./shared/config/config.js";
 import { encryptCredential } from "./shared/lib/credentials.js";
 import type { ParameterDefinition } from "./shared/lib/contracts.js";
@@ -16,7 +21,8 @@ const demoQueries = [
   {
     id: "00000000-0000-4000-8000-000000000001",
     name: "Categorias Olist",
-    sqlText: "SELECT category_name AS value, COALESCE(category_name_english, category_name) AS label FROM olist.categories ORDER BY label",
+    sqlText:
+      "SELECT category_name AS value, COALESCE(category_name_english, category_name) AS label FROM olist.categories ORDER BY label",
     parameters: [] as ParameterDefinition[],
   },
   {
@@ -38,9 +44,19 @@ SELECT ROW_NUMBER() OVER (ORDER BY venda_geral DESC, vendedor_id) AS ranking, ve
 FROM vendas_vendedor
 ORDER BY ranking`,
     parameters: [
-      { name: "start_date", label: "Data Inicial", type: "date", required: true },
+      {
+        name: "start_date",
+        label: "Data Inicial",
+        type: "date",
+        required: true,
+      },
       { name: "end_date", label: "Data Final", type: "date", required: true },
-      { name: "categories", label: "Categorias", type: "multi_select", required: false },
+      {
+        name: "categories",
+        label: "Categorias",
+        type: "multi_select",
+        required: false,
+      },
     ] as ParameterDefinition[],
   },
   {
@@ -54,9 +70,19 @@ WHERE o.purchased_at >= {{start_date}}::date
   AND o.purchased_at < ({{end_date}}::date + INTERVAL '1 day')
   AND ({{categories}}::text[] IS NULL OR p.category_name = ANY({{categories}}::text[]))`,
     parameters: [
-      { name: "start_date", label: "Data Inicial", type: "date", required: true },
+      {
+        name: "start_date",
+        label: "Data Inicial",
+        type: "date",
+        required: true,
+      },
       { name: "end_date", label: "Data Final", type: "date", required: true },
-      { name: "categories", label: "Categorias", type: "multi_select", required: false },
+      {
+        name: "categories",
+        label: "Categorias",
+        type: "multi_select",
+        required: false,
+      },
     ] as ParameterDefinition[],
   },
 ];
@@ -64,7 +90,9 @@ WHERE o.purchased_at >= {{start_date}}::date
 async function seedDemoDataSource(administratorId: string): Promise<void> {
   const port = Number(process.env.OLIST_SOURCE_PORT ?? "5433");
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
-    throw new Error("OLIST_SOURCE_PORT deve ser uma porta válida entre 1 e 65535.");
+    throw new Error(
+      "OLIST_SOURCE_PORT deve ser uma porta válida entre 1 e 65535.",
+    );
   }
   const environment = getEnvironment();
   const source = {
@@ -74,13 +102,29 @@ async function seedDemoDataSource(administratorId: string): Promise<void> {
     port,
     databaseName: process.env.OLIST_SOURCE_DATABASE ?? "olist",
     username: process.env.OLIST_SOURCE_USERNAME ?? "olist_reader",
-    encryptedPassword: encryptCredential(process.env.OLIST_SOURCE_PASSWORD ?? "olist_readonly_password", environment.CREDENTIAL_ENCRYPTION_KEY),
-    context: "Fonte analítica local usada pelas queries de demonstração do dashboard Fechamento de Mês.",
+    encryptedPassword: encryptCredential(
+      process.env.OLIST_SOURCE_PASSWORD ?? "olist_readonly_password",
+      environment.CREDENTIAL_ENCRYPTION_KEY,
+    ),
+    context:
+      "Fonte analítica local usada pelas queries de demonstração do dashboard Fechamento de Mês.",
     createdBy: administratorId,
   };
-  await db.insert(dataSources).values(source).onConflictDoNothing({ target: dataSources.id });
-  const savedSource = (await db.select({ id: dataSources.id }).from(dataSources).where(eq(dataSources.id, DEMO_SOURCE_ID)).limit(1))[0];
-  if (!savedSource) throw new Error("O nome da fonte de teste já está associado a outro registro.");
+  await db
+    .insert(dataSources)
+    .values(source)
+    .onConflictDoNothing({ target: dataSources.id });
+  const savedSource = (
+    await db
+      .select({ id: dataSources.id })
+      .from(dataSources)
+      .where(eq(dataSources.id, DEMO_SOURCE_ID))
+      .limit(1)
+  )[0];
+  if (!savedSource)
+    throw new Error(
+      "O nome da fonte de teste já está associado a outro registro.",
+    );
 
   for (const query of demoQueries) {
     const queryValues = {
@@ -89,30 +133,59 @@ async function seedDemoDataSource(administratorId: string): Promise<void> {
       createdBy: administratorId,
     };
     if (query.id === "00000000-0000-4000-8000-000000000002") {
-      await db.insert(savedQueries).values(queryValues).onConflictDoUpdate({
-        target: savedQueries.id,
-        set: { sqlText: query.sqlText, parameters: query.parameters },
-      });
+      await db
+        .insert(savedQueries)
+        .values(queryValues)
+        .onConflictDoUpdate({
+          target: savedQueries.id,
+          set: { sqlText: query.sqlText, parameters: query.parameters },
+        });
     } else {
-      await db.insert(savedQueries).values(queryValues).onConflictDoNothing({ target: savedQueries.id });
+      await db
+        .insert(savedQueries)
+        .values(queryValues)
+        .onConflictDoNothing({ target: savedQueries.id });
     }
   }
 }
 
 try {
   await permissionService.ensureSystemPermissions();
-  const existingAdmin = await db.select().from(users).where(eq(users.email, ADMIN_EMAIL)).limit(1);
-  const administrator = existingAdmin[0] ?? (await db.insert(users).values({
-    name: "Administrador TCC",
-    email: ADMIN_EMAIL,
-    passwordHash: hashPassword(ADMIN_PASSWORD),
-    isAdmin: true,
-  }).returning())[0];
+  const existingAdmin = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, ADMIN_EMAIL))
+    .limit(1);
+  const administrator =
+    existingAdmin[0] ??
+    (
+      await db
+        .insert(users)
+        .values({
+          name: "Administrador TCC",
+          email: ADMIN_EMAIL,
+          passwordHash: hashPassword(ADMIN_PASSWORD),
+          isAdmin: true,
+        })
+        .returning()
+    )[0];
 
-  if (!administrator) throw new Error("Não foi possível criar o administrador inicial.");
-  await db.update(users).set({ isAdmin: true }).where(eq(users.id, administrator.id));
-  const systemPermissionKeys = (await db.select({ key: permissions.key }).from(permissions).where(eq(permissions.system, true))).map((permission) => permission.key);
-  await permissionService.assignPermissionKeys(administrator.id, systemPermissionKeys);
+  if (!administrator)
+    throw new Error("Não foi possível criar o administrador inicial.");
+  await db
+    .update(users)
+    .set({ isAdmin: true })
+    .where(eq(users.id, administrator.id));
+  const systemPermissionKeys = (
+    await db
+      .select({ key: permissions.key })
+      .from(permissions)
+      .where(eq(permissions.system, true))
+  ).map((permission) => permission.key);
+  await permissionService.assignPermissionKeys(
+    administrator.id,
+    systemPermissionKeys,
+  );
   await seedDemoDataSource(administrator.id);
   await syncDashboardDirectory();
   console.info(`Administrador de desenvolvimento pronto: ${ADMIN_EMAIL}`);

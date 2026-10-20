@@ -1,5 +1,3 @@
-
-
 import { dashboardAccessRepository } from "../infrastructure/dashboard-access-repository.js";
 import { savedQueriesPort } from "../../queries/application/saved-queries.js";
 
@@ -14,24 +12,48 @@ import { ApiError } from "../../../shared/lib/domain-error.js";
 export async function getAccessibleDashboards(currentUser: AuthenticatedUser) {
   const registered = await getRegisteredDashboards();
   if (currentUser.isAdmin) return registered;
-  const assignments = await dashboardAccessRepository.listAssignedDashboardIds(currentUser.id);
-  const assignedIds = new Set(assignments.map((assignment) => assignment.dashboardId));
-  return registered.filter((dashboard) => canAccessDashboard(currentUser, dashboard.id, assignedIds));
+  const assignments = await dashboardAccessRepository.listAssignedDashboardIds(
+    currentUser.id,
+  );
+  const assignedIds = new Set(
+    assignments.map((assignment) => assignment.dashboardId),
+  );
+  return registered.filter((dashboard) =>
+    canAccessDashboard(currentUser, dashboard.id, assignedIds),
+  );
 }
 
-export async function assertDashboardAccess(currentUser: AuthenticatedUser, dashboardId: string): Promise<void> {
+export async function assertDashboardAccess(
+  currentUser: AuthenticatedUser,
+  dashboardId: string,
+): Promise<void> {
   if (currentUser.isAdmin) return;
-  const assignment = await dashboardAccessRepository.findAssignment(dashboardId, currentUser.id);
-  if (!canAccessDashboard(currentUser, dashboardId, new Set(assignment ? [assignment.dashboardId] : []))) {
+  const assignment = await dashboardAccessRepository.findAssignment(
+    dashboardId,
+    currentUser.id,
+  );
+  if (
+    !canAccessDashboard(
+      currentUser,
+      dashboardId,
+      new Set(assignment ? [assignment.dashboardId] : []),
+    )
+  ) {
     throw new ApiError(403, "O usuário não possui acesso a este dashboard.");
   }
 }
 
-export async function accessibleQueryIds(currentUser: AuthenticatedUser): Promise<Set<string>> {
+export async function accessibleQueryIds(
+  currentUser: AuthenticatedUser,
+): Promise<Set<string>> {
   if (currentUser.isAdmin) {
     const rows = await savedQueriesPort().listAllIds();
     return new Set(rows.map((row) => row.id));
   }
   const dashboardsForUser = await getAccessibleDashboards(currentUser);
-  return new Set(dashboardsForUser.flatMap((dashboard) => [...dashboardQueryReferences(dashboard)]));
+  return new Set(
+    dashboardsForUser.flatMap((dashboard) => [
+      ...dashboardQueryReferences(dashboard),
+    ]),
+  );
 }

@@ -91,8 +91,7 @@ export async function syncDashboardDirectory(
   const orphanIds = existing
     .filter((row) => !registeredPaths.includes(row.filePath))
     .map((row) => row.dashboardId);
-  if (orphanIds.length > 0)
-    await repo.deleteByIds(orphanIds);
+  if (orphanIds.length > 0) await repo.deleteByIds(orphanIds);
 
   return {
     dashboardIds,

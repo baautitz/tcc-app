@@ -4,9 +4,7 @@ import type { AiToolProgressEvent } from "../../tools/ai-read-tools.js";
 import type { AiContextProposal } from "../../../domain/ai-context-proposals.js";
 
 export type AiChatProgressPhase =
-  | "waiting_for_model"
-  | "running_tool"
-  | "preparing_response";
+  "waiting_for_model" | "running_tool" | "preparing_response";
 
 export type AiSseEvent =
   | { version: 1; type: "start"; requestId: string; messageId: string }

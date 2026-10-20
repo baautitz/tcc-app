@@ -21,8 +21,13 @@ export type { AiDashboardQueryPreview };
 export interface AiDashboardToolsRepository {
   listSavedQueries(): Promise<AiDashboardQuery[]>;
   findSavedQueries(ids: string[]): Promise<AiDashboardQueryDefinition[]>;
-  findDashboard(id: string): Promise<{ document: DashboardDocument; fingerprint: string } | undefined>;
-  runPreview(query: AiDashboardQueryDefinition, values: Record<string, string | string[]>): Promise<AiDashboardQueryPreview>;
+  findDashboard(
+    id: string,
+  ): Promise<{ document: DashboardDocument; fingerprint: string } | undefined>;
+  runPreview(
+    query: AiDashboardQueryDefinition,
+    values: Record<string, string | string[]>,
+  ): Promise<AiDashboardQueryPreview>;
   issueReceipt(input: {
     id: string;
     actorId: string;

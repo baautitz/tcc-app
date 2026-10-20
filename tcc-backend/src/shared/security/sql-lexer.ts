@@ -257,9 +257,7 @@ export function significantTokens(tokens: Token[]): Token[] {
 export class QueryInputValidationError extends DomainError {
   constructor(
     public readonly code:
-      | "INVALID_SQL"
-      | "INVALID_PARAMETERS"
-      | "MISSING_PARAMETERS",
+      "INVALID_SQL" | "INVALID_PARAMETERS" | "MISSING_PARAMETERS",
     message: string,
   ) {
     super(message, code, "bad_request");

@@ -1,4 +1,9 @@
-import { QueryInputValidationError, significantTokens, tokenizeSql, type Token } from "./sql-lexer.js";
+import {
+  QueryInputValidationError,
+  significantTokens,
+  tokenizeSql,
+  type Token,
+} from "./sql-lexer.js";
 
 const FORBIDDEN_KEYWORDS = new Set([
   "insert",

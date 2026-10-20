@@ -151,4 +151,3 @@ export function structuredResponseFallback(
       return undefined;
   }
 }
-

@@ -1,4 +1,10 @@
-import { QueryInputValidationError, normalizeIdentifier, significantTokens, tokenizeSql, type Token } from "./sql-lexer.js";
+import {
+  QueryInputValidationError,
+  normalizeIdentifier,
+  significantTokens,
+  tokenizeSql,
+  type Token,
+} from "./sql-lexer.js";
 
 export interface AiCatalogTableReference {
   schemaName: string;
@@ -113,7 +119,6 @@ function skipBalancedParentheses(tokens: Token[], openIndex: number): number {
   }
   return tokens.length;
 }
-
 
 function assertRelationAt(
   tokens: Token[],

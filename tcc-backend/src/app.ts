@@ -24,17 +24,31 @@ configureSavedQueries(savedQueriesAdapter);
 const environment = getEnvironment();
 const app = new Hono<{ Variables: AppVariables }>();
 
-app.use("*", cors({
-  origin: environment.FRONTEND_ORIGIN,
-  credentials: true,
-  allowHeaders: ["Content-Type"],
-  allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-}));
+app.use(
+  "*",
+  cors({
+    origin: environment.FRONTEND_ORIGIN,
+    credentials: true,
+    allowHeaders: ["Content-Type"],
+    allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  }),
+);
 app.onError(errorHandler);
 
-app.get("/api/health", (context) => context.json({ status: "ok", timestamp: new Date().toISOString() }));
+app.get("/api/health", (context) =>
+  context.json({ status: "ok", timestamp: new Date().toISOString() }),
+);
 
-for (const routes of [aiAdminRoutes, authRoutes, userRoutes, permissionRoutes, dashboardRoutes, dataSourceRoutes, queryRoutes, publicQueryRoutes]) {
+for (const routes of [
+  aiAdminRoutes,
+  authRoutes,
+  userRoutes,
+  permissionRoutes,
+  dashboardRoutes,
+  dataSourceRoutes,
+  queryRoutes,
+  publicQueryRoutes,
+]) {
   app.route("/", routes);
 }
 

@@ -18,7 +18,9 @@ export class AiReasoningFilter {
       if (this.insideThinkBlock) {
         const closeIndex = normalized.indexOf(CLOSE_THINK_TAG);
         if (closeIndex < 0) {
-          this.pending = this.keepPossibleTagPrefix(this.pending, [CLOSE_THINK_TAG]);
+          this.pending = this.keepPossibleTagPrefix(this.pending, [
+            CLOSE_THINK_TAG,
+          ]);
           break;
         }
         this.pending = this.pending.slice(closeIndex + CLOSE_THINK_TAG.length);
@@ -37,7 +39,10 @@ export class AiReasoningFilter {
           OPEN_THINK_TAG,
           CLOSE_THINK_TAG,
         ]);
-        visible += this.pending.slice(0, this.pending.length - remainder.length);
+        visible += this.pending.slice(
+          0,
+          this.pending.length - remainder.length,
+        );
         this.pending = remainder;
         break;
       }
@@ -65,7 +70,10 @@ export class AiReasoningFilter {
       OPEN_THINK_TAG,
       CLOSE_THINK_TAG,
     ]);
-    const visible = this.pending.slice(0, this.pending.length - remainder.length);
+    const visible = this.pending.slice(
+      0,
+      this.pending.length - remainder.length,
+    );
     this.pending = "";
     return visible;
   }

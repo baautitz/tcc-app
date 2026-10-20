@@ -4,7 +4,10 @@ import { ZodError, z } from "zod";
 
 import { ApiError } from "../lib/domain-error.js";
 
-export async function jsonBody<Schema extends z.ZodTypeAny>(context: Context, schema: Schema): Promise<z.output<Schema>> {
+export async function jsonBody<Schema extends z.ZodTypeAny>(
+  context: Context,
+  schema: Schema,
+): Promise<z.output<Schema>> {
   try {
     return schema.parse(await context.req.json());
   } catch (error) {

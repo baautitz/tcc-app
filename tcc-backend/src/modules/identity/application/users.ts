@@ -1,7 +1,10 @@
 import { ApiError } from "../../../shared/lib/domain-error.js";
 import { hashPassword } from "../../../shared/lib/passwords.js";
 import type { users } from "../../../shared/db/schema.js";
-import { DrizzleUsersRepository, type UsersRepository } from "../infrastructure/users-repository.js";
+import {
+  DrizzleUsersRepository,
+  type UsersRepository,
+} from "../infrastructure/users-repository.js";
 import { permissionService, type PermissionService } from "./permissions.js";
 
 export interface CreateUserInput {
@@ -22,7 +25,10 @@ export interface UpdateUserInput {
 export class UserService {
   constructor(
     private readonly repo: UsersRepository,
-    private readonly permissions: Pick<PermissionService, "assignPermissionKeys">,
+    private readonly permissions: Pick<
+      PermissionService,
+      "assignPermissionKeys"
+    >,
   ) {}
 
   async listUsers() {
@@ -35,7 +41,9 @@ export class UserService {
       isAdmin: user.isAdmin,
       active: user.active,
       createdAt: user.createdAt,
-      permissions: assignments.filter((assignment) => assignment.userId === user.id).map((assignment) => assignment.key),
+      permissions: assignments
+        .filter((assignment) => assignment.userId === user.id)
+        .map((assignment) => assignment.key),
     }));
   }
 
@@ -51,23 +59,33 @@ export class UserService {
     return { id: user.id };
   }
 
-  async updateUser(userId: string, input: UpdateUserInput): Promise<{ id: string }> {
-    if (input.permissionKeys) await this.assertKnownPermissionKeys(input.permissionKeys);
-    const update: Partial<typeof users.$inferInsert> = { updatedAt: new Date() };
+  async updateUser(
+    userId: string,
+    input: UpdateUserInput,
+  ): Promise<{ id: string }> {
+    if (input.permissionKeys)
+      await this.assertKnownPermissionKeys(input.permissionKeys);
+    const update: Partial<typeof users.$inferInsert> = {
+      updatedAt: new Date(),
+    };
     if (input.name !== undefined) update.name = input.name;
     if (input.email !== undefined) update.email = input.email.toLowerCase();
     if (input.active !== undefined) update.active = input.active;
-    if (input.password !== undefined) update.passwordHash = hashPassword(input.password);
+    if (input.password !== undefined)
+      update.passwordHash = hashPassword(input.password);
     const user = await this.repo.update(userId, update);
     if (!user) throw new ApiError(404, "Usuário não encontrado.");
-    if (input.permissionKeys) await this.permissions.assignPermissionKeys(userId, input.permissionKeys);
+    if (input.permissionKeys)
+      await this.permissions.assignPermissionKeys(userId, input.permissionKeys);
     return { id: user.id };
   }
 
   async deleteUser(userId: string, currentUserId: string): Promise<void> {
-    if (userId === currentUserId) throw new ApiError(400, "O usuário não pode excluir a própria conta.");
+    if (userId === currentUserId)
+      throw new ApiError(400, "O usuário não pode excluir a própria conta.");
     const deleted = await this.repo.delete(userId);
-    if (deleted.length === 0) throw new ApiError(404, "Usuário não encontrado.");
+    if (deleted.length === 0)
+      throw new ApiError(404, "Usuário não encontrado.");
   }
 
   listSystemPermissions() {
@@ -77,8 +95,15 @@ export class UserService {
   private async assertKnownPermissionKeys(keys: string[]): Promise<void> {
     if (keys.length === 0) return;
     const known = await this.repo.findKnownPermissionKeys(keys);
-    if (known.length !== keys.length) throw new ApiError(400, "Uma ou mais permissões não existem no catálogo.");
+    if (known.length !== keys.length)
+      throw new ApiError(
+        400,
+        "Uma ou mais permissões não existem no catálogo.",
+      );
   }
 }
 
-export const userService = new UserService(new DrizzleUsersRepository(), permissionService);
+export const userService = new UserService(
+  new DrizzleUsersRepository(),
+  permissionService,
+);

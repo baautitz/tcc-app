@@ -1,8 +1,15 @@
 import { tool, type StructuredToolInterface } from "@langchain/core/tools";
 import type { z } from "zod";
-import { ExternalQueryExecutionError, type UnsafeAiColumnType } from "../../../../data-sources/domain/external-source.js";
+import {
+  ExternalQueryExecutionError,
+  type UnsafeAiColumnType,
+} from "../../../../data-sources/domain/external-source.js";
 import { externalSource } from "../../../../data-sources/application/external-source.js";
-import type { AiReadSource, AiReadTableName, AiToolProgressEvent } from "../ai-read-tools.js";
+import type {
+  AiReadSource,
+  AiReadTableName,
+  AiToolProgressEvent,
+} from "../ai-read-tools.js";
 import {
   assertAiReadOnlySql,
   assertParameterDefinitions,
@@ -35,10 +42,15 @@ export function createAiQueryTestTools({
   repository,
   onToolEvent,
   runQuery = async (source, sqlText, values, beforeAttempt, signal) =>
-    externalSource().runBoundedReadOnlyQueryWithRetry(source.connection, sqlText, values, {
-      beforeAttempt,
-      retrySignal: signal,
-    }),
+    externalSource().runBoundedReadOnlyQueryWithRetry(
+      source.connection,
+      sqlText,
+      values,
+      {
+        beforeAttempt,
+        retrySignal: signal,
+      },
+    ),
 }: CreateAiQueryTestToolsOptions): StructuredToolInterface[] {
   if (!currentUser.isAdmin)
     throw new Error(
@@ -80,7 +92,8 @@ export function createAiQueryTestTools({
             return {
               ok: false,
               code: "DATABASE_ATTEMPT_LIMIT_REACHED",
-              message: "A validação SQL não pode executar outra consulta ao banco nesta rodada.",
+              message:
+                "A validação SQL não pode executar outra consulta ao banco nesta rodada.",
               askUser: false,
               retryable: false,
               instruction:
@@ -108,7 +121,8 @@ export function createAiQueryTestTools({
               retryable: false,
             };
 
-          let sourceVersion: { updatedAt: Date; targetHash: string } | undefined;
+          let sourceVersion:
+            { updatedAt: Date; targetHash: string } | undefined;
           try {
             sourceVersion = await repository.findSourceVersion(source.id);
           } catch {
@@ -128,7 +142,12 @@ export function createAiQueryTestTools({
             };
           }
 
-          let queryTarget: Pick<QueryLifecycleQuery, "id" | "dataSourceId" | "name" | "updatedAt"> | undefined;
+          let queryTarget:
+            | Pick<
+                QueryLifecycleQuery,
+                "id" | "dataSourceId" | "name" | "updatedAt"
+              >
+            | undefined;
           if (input.mode === "update") {
             try {
               queryTarget = await repository.findQueryTarget(input.queryId!);
@@ -136,7 +155,8 @@ export function createAiQueryTestTools({
               return {
                 ok: false,
                 code: "QUERY_LOOKUP_FAILED",
-                message: "Não foi possível localizar a query selecionada para edição.",
+                message:
+                  "Não foi possível localizar a query selecionada para edição.",
                 retryable: false,
               };
             }
@@ -249,48 +269,62 @@ export function createAiQueryTestTools({
             };
           }
 
-          let currentSourceVersion: { updatedAt: Date; targetHash: string } | undefined;
+          let currentSourceVersion:
+            { updatedAt: Date; targetHash: string } | undefined;
           try {
-            currentSourceVersion = await repository.findSourceVersion(source.id);
+            currentSourceVersion = await repository.findSourceVersion(
+              source.id,
+            );
           } catch {
             return {
               ok: false,
               code: "DATA_SOURCE_CHANGED",
-              message: "Não foi possível confirmar a versão do servidor antes da consulta.",
+              message:
+                "Não foi possível confirmar a versão do servidor antes da consulta.",
               retryable: false,
             };
           }
           if (
             !currentSourceVersion ||
-            currentSourceVersion.updatedAt.getTime() !== sourceVersion.updatedAt.getTime() ||
+            currentSourceVersion.updatedAt.getTime() !==
+              sourceVersion.updatedAt.getTime() ||
             currentSourceVersion.targetHash !== sourceVersion.targetHash
           ) {
             return {
               ok: false,
               code: "DATA_SOURCE_CHANGED",
-              message: "O servidor foi alterado durante a validação. Gere uma nova prévia.",
+              message:
+                "O servidor foi alterado durante a validação. Gere uma nova prévia.",
               retryable: false,
               askUser: true,
             };
           }
 
           if (queryTarget) {
-            let currentQuery: Awaited<ReturnType<typeof repository.findQueryTarget>>;
+            let currentQuery: Awaited<
+              ReturnType<typeof repository.findQueryTarget>
+            >;
             try {
               currentQuery = await repository.findQueryTarget(queryTarget.id);
             } catch {
               return {
                 ok: false,
                 code: "QUERY_CHANGED",
-                message: "Não foi possível confirmar a versão da query editada.",
+                message:
+                  "Não foi possível confirmar a versão da query editada.",
                 retryable: false,
               };
             }
-            if (!currentQuery || currentQuery.updatedAt.getTime() !== queryTarget.updatedAt.getTime()) {
+            if (
+              !currentQuery ||
+              currentQuery.updatedAt.getTime() !==
+                queryTarget.updatedAt.getTime()
+            ) {
               return {
                 ok: false,
                 code: "QUERY_CHANGED",
-                message: "A query mudou durante a validação. Leia a versão atual e gere uma nova prévia.",
+                message:
+                  "A query mudou durante a validação. Leia a versão atual e gere uma nova prévia.",
                 retryable: false,
                 askUser: true,
               };
@@ -311,7 +345,13 @@ export function createAiQueryTestTools({
               runtime.signal,
             );
             throwIfAborted(runtime.signal);
-            const recheck = await recheckAfterQuery(repository, input.dataSourceId, currentSource, sourceVersion, queryTarget);
+            const recheck = await recheckAfterQuery(
+              repository,
+              input.dataSourceId,
+              currentSource,
+              sourceVersion,
+              queryTarget,
+            );
             if ("failure" in recheck) return recheck.failure;
             const finalQueryTarget = recheck.finalQueryTarget;
 
@@ -331,18 +371,27 @@ export function createAiQueryTestTools({
               return {
                 ok: false,
                 code: "PREVIEW_STALE",
-                message: "O servidor ou a query mudou no fim do teste. A amostra foi descartada; gere uma nova prévia.",
+                message:
+                  "O servidor ou a query mudou no fim do teste. A amostra foi descartada; gere uma nova prévia.",
                 retryable: false,
                 askUser: true,
               };
             }
-            const { previewEvent, payload } = buildQueryPreview(input, source, finalQueryTarget, result, testRunId, toolCallId);
+            const { previewEvent, payload } = buildQueryPreview(
+              input,
+              source,
+              finalQueryTarget,
+              result,
+              testRunId,
+              toolCallId,
+            );
             await emit(previewEvent);
             return payload;
           } catch (error) {
             if (runtime.signal?.aborted)
               throw (
-                runtime.signal.reason ?? new DOMException("Aborted", "AbortError")
+                runtime.signal.reason ??
+                new DOMException("Aborted", "AbortError")
               );
             if (error instanceof Error && error.name === "AbortError")
               throw error;

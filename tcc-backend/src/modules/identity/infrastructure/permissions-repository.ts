@@ -3,14 +3,25 @@ import { db } from "../../../shared/db/client.js";
 import { permissions, userPermissions } from "../../../shared/db/schema.js";
 
 export interface PermissionsRepository {
-  upsertSystemPermission(def: { key: string; name: string; description?: string }): Promise<void>;
+  upsertSystemPermission(def: {
+    key: string;
+    name: string;
+    description?: string;
+  }): Promise<void>;
   deleteSystemPermissionsNotIn(keys: string[]): Promise<void>;
   findPermissionIdsByKeys(keys: string[]): Promise<string[]>;
-  replaceUserPermissions(userId: string, permissionIds: string[]): Promise<void>;
+  replaceUserPermissions(
+    userId: string,
+    permissionIds: string[],
+  ): Promise<void>;
 }
 
 export class DrizzlePermissionsRepository implements PermissionsRepository {
-  async upsertSystemPermission(definition: { key: string; name: string; description?: string }) {
+  async upsertSystemPermission(definition: {
+    key: string;
+    name: string;
+    description?: string;
+  }) {
     await db
       .insert(permissions)
       .values({ ...definition, system: true })
@@ -26,7 +37,9 @@ export class DrizzlePermissionsRepository implements PermissionsRepository {
   async deleteSystemPermissionsNotIn(keys: string[]) {
     await db
       .delete(permissions)
-      .where(and(eq(permissions.system, true), notInArray(permissions.key, keys)));
+      .where(
+        and(eq(permissions.system, true), notInArray(permissions.key, keys)),
+      );
   }
   async findPermissionIdsByKeys(keys: string[]) {
     if (keys.length === 0) return [];

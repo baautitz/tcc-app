@@ -344,4 +344,3 @@ export const TYPE_LITERAL_BOUNDARY_WORDS = new Set([
   "when",
   "where",
 ]);
-

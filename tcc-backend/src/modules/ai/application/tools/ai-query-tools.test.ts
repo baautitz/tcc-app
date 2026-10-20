@@ -44,27 +44,30 @@ function makeTools(
   const findSource = vi.fn(async (requestedId: string) =>
     requestedId === sourceId ? source : undefined,
   );
-  const repository = Object.assign({
-    findSource,
-    listCatalogTables: async () => [
-      {
-        id: "00000000-0000-4000-8000-000000000003",
-        dataSourceId: sourceId,
-        schemaName: "public",
-        tableName: "orders",
-      },
-    ],
-    listLiveBaseTables: async () => [
-      { schemaName: "public", tableName: "orders" },
-    ],
-    findUnsafeColumnTypes: async () => [],
-    findSourceVersion: async () => ({
-      updatedAt: new Date("2026-09-29T12:00:00.000Z"),
-      targetHash: "a".repeat(64),
-    }),
-    findQueryTarget: async () => undefined,
-    createTestReceipt: async () => "00000000-0000-4000-8000-000000000010",
-  }, options.repository);
+  const repository = Object.assign(
+    {
+      findSource,
+      listCatalogTables: async () => [
+        {
+          id: "00000000-0000-4000-8000-000000000003",
+          dataSourceId: sourceId,
+          schemaName: "public",
+          tableName: "orders",
+        },
+      ],
+      listLiveBaseTables: async () => [
+        { schemaName: "public", tableName: "orders" },
+      ],
+      findUnsafeColumnTypes: async () => [],
+      findSourceVersion: async () => ({
+        updatedAt: new Date("2026-09-29T12:00:00.000Z"),
+        targetHash: "a".repeat(64),
+      }),
+      findQueryTarget: async () => undefined,
+      createTestReceipt: async () => "00000000-0000-4000-8000-000000000010",
+    },
+    options.repository,
+  );
   const tools = createAiQueryTestTools({
     currentUser: options.currentUser ?? admin,
     repository,
@@ -145,28 +148,43 @@ describe("ferramenta LangChain test_query", () => {
 
   it("emite a prévia tipada com o recibo e valores apenas transitórios do teste", async () => {
     const events: AiToolProgressEvent[] = [];
-    const createTestReceipt = vi.fn(async (_input: Parameters<AiQueryTestRepository["createTestReceipt"]>[0]) => "00000000-0000-4000-8000-000000000010");
+    const createTestReceipt = vi.fn(
+      async (
+        _input: Parameters<AiQueryTestRepository["createTestReceipt"]>[0],
+      ) => "00000000-0000-4000-8000-000000000010",
+    );
     const { testQuery } = makeTools({
       runQuery: vi.fn(async () => queryResult),
       repository: { createTestReceipt },
-      onToolEvent: (event) => { events.push(event); },
+      onToolEvent: (event) => {
+        events.push(event);
+      },
     });
-    const output = resultObject(await testQuery.invoke({
-      dataSourceId: sourceId,
-      sqlText: "SELECT count(*) FROM public.orders",
-      purpose: "quick_query",
-      parameters: [],
-      values: {},
-    } as never, { toolCallId: "tool-call-1" } as never));
+    const output = resultObject(
+      await testQuery.invoke(
+        {
+          dataSourceId: sourceId,
+          sqlText: "SELECT count(*) FROM public.orders",
+          purpose: "quick_query",
+          parameters: [],
+          values: {},
+        } as never,
+        { toolCallId: "tool-call-1" } as never,
+      ),
+    );
 
-    expect(createTestReceipt).toHaveBeenCalledWith(expect.objectContaining({
-      actorId: admin.id,
-      dataSourceId: sourceId,
-      mode: "create",
-      queryId: undefined,
-      queryUpdatedAt: undefined,
-    }));
-    expect(output).toMatchObject({ testRunId: "00000000-0000-4000-8000-000000000010" });
+    expect(createTestReceipt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorId: admin.id,
+        dataSourceId: sourceId,
+        mode: "create",
+        queryId: undefined,
+        queryUpdatedAt: undefined,
+      }),
+    );
+    expect(output).toMatchObject({
+      testRunId: "00000000-0000-4000-8000-000000000010",
+    });
     expect(events.map((event) => event.type)).toEqual([
       "tool_start",
       "query_preview",
@@ -184,37 +202,57 @@ describe("ferramenta LangChain test_query", () => {
       rowLimit: queryResult.rowLimit,
       truncated: false,
     });
-    expect(JSON.stringify(createTestReceipt.mock.calls[0]?.[0])).not.toContain("2026-09-01");
+    expect(JSON.stringify(createTestReceipt.mock.calls[0]?.[0])).not.toContain(
+      "2026-09-01",
+    );
   });
 
   it("liga recibo de edição à versão atual da query", async () => {
     const targetId = "00000000-0000-4000-8000-000000000020";
     const updatedAt = new Date("2026-09-29T13:00:00.000Z");
-    const createTestReceipt = vi.fn(async (_input: Parameters<AiQueryTestRepository["createTestReceipt"]>[0]) => "00000000-0000-4000-8000-000000000021");
+    const createTestReceipt = vi.fn(
+      async (
+        _input: Parameters<AiQueryTestRepository["createTestReceipt"]>[0],
+      ) => "00000000-0000-4000-8000-000000000021",
+    );
     const { testQuery } = makeTools({
       runQuery: vi.fn(async () => queryResult),
       repository: {
         createTestReceipt,
-        findQueryTarget: async () => ({ id: targetId, dataSourceId: sourceId, name: "Pedidos", updatedAt }),
+        findQueryTarget: async () => ({
+          id: targetId,
+          dataSourceId: sourceId,
+          name: "Pedidos",
+          updatedAt,
+        }),
       },
     });
-    const output = resultObject(await testQuery.invoke({
-      dataSourceId: sourceId,
-      mode: "update",
-      queryId: targetId,
-      sqlText: "SELECT count(*) FROM public.orders",
-      purpose: "quick_query",
-      parameters: [],
-      values: {},
-    } as never));
+    const output = resultObject(
+      await testQuery.invoke({
+        dataSourceId: sourceId,
+        mode: "update",
+        queryId: targetId,
+        sqlText: "SELECT count(*) FROM public.orders",
+        purpose: "quick_query",
+        parameters: [],
+        values: {},
+      } as never),
+    );
 
-    expect(createTestReceipt).toHaveBeenCalledWith(expect.objectContaining({
-      mode: "update",
-      queryId: targetId,
-      queryUpdatedAt: updatedAt,
-    }));
+    expect(createTestReceipt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mode: "update",
+        queryId: targetId,
+        queryUpdatedAt: updatedAt,
+      }),
+    );
     expect(output).toMatchObject({
-      intent: { mode: "update", queryId: targetId, queryName: "Pedidos", queryUpdatedAt: updatedAt.toISOString() },
+      intent: {
+        mode: "update",
+        queryId: targetId,
+        queryName: "Pedidos",
+        queryUpdatedAt: updatedAt.toISOString(),
+      },
     });
   });
 
@@ -468,7 +506,10 @@ describe("ferramenta LangChain test_query", () => {
     });
     const { testQuery } = makeTools({ runQuery });
 
-    for (const sqlText of Array.from({ length: 6 }, (_, index) => `SELECT ${index + 1} AS value`)) {
+    for (const sqlText of Array.from(
+      { length: 6 },
+      (_, index) => `SELECT ${index + 1} AS value`,
+    )) {
       const output = resultObject(
         await testQuery.invoke({
           dataSourceId: sourceId,

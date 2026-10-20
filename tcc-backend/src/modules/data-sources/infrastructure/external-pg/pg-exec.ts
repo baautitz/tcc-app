@@ -1,8 +1,24 @@
 import { Client } from "pg";
-import { AI_QUERY_CONNECTION_TIMEOUT_MS, AI_QUERY_MAX_BYTES, AI_QUERY_MAX_ROWS, AI_QUERY_RETRY_JITTER_MS, AI_QUERY_RETRY_MIN_DELAY_MS, AI_QUERY_STATEMENT_TIMEOUT_MS, ExternalQueryExecutionError, type BoundedReadOnlyClient, type BoundedReadOnlyQueryOptions, type BoundedReadOnlyQueryResult, type CursorQuery, type ExternalPostgresConfig } from "../../domain/external-source.js";
+import {
+  AI_QUERY_CONNECTION_TIMEOUT_MS,
+  AI_QUERY_MAX_BYTES,
+  AI_QUERY_MAX_ROWS,
+  AI_QUERY_RETRY_JITTER_MS,
+  AI_QUERY_RETRY_MIN_DELAY_MS,
+  AI_QUERY_STATEMENT_TIMEOUT_MS,
+  ExternalQueryExecutionError,
+  type BoundedReadOnlyClient,
+  type BoundedReadOnlyQueryOptions,
+  type BoundedReadOnlyQueryResult,
+  type CursorQuery,
+  type ExternalPostgresConfig,
+} from "../../domain/external-source.js";
 export * from "../../domain/external-source.js";
 import Cursor from "pg-cursor";
-import { normalizeGeneralReadOnlySql, normalizeReadOnlySql } from "../../../../shared/security/query-security.js";
+import {
+  normalizeGeneralReadOnlySql,
+  normalizeReadOnlySql,
+} from "../../../../shared/security/query-security.js";
 export function classifyExternalQueryError(
   error: unknown,
 ): ExternalQueryExecutionError {
@@ -187,7 +203,7 @@ function parseJsonPreservingNumbers(jsonText: string): Record<string, unknown> {
   let quoted = "";
   let inString = false;
   let escaped = false;
-  for (let index = 0; index < jsonText.length; ) {
+  for (let index = 0; index < jsonText.length;) {
     const character = jsonText[index]!;
     if (inString) {
       quoted += character;
@@ -221,4 +237,3 @@ function parseJsonPreservingNumbers(jsonText: string): Record<string, unknown> {
     throw new Error("Expected a JSON object");
   return parsed as Record<string, unknown>;
 }
-

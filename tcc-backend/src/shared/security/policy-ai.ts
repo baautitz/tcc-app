@@ -1,4 +1,10 @@
-import { QueryInputValidationError, normalizeIdentifier, significantTokens, tokenizeSql, type Token } from "./sql-lexer.js";
+import {
+  QueryInputValidationError,
+  normalizeIdentifier,
+  significantTokens,
+  tokenizeSql,
+  type Token,
+} from "./sql-lexer.js";
 import { assertReadOnlySql, stripFinalTerminator } from "./policy-general.js";
 import { assertAiCastTypes } from "./policy-ai/casts.js";
 import { SAFE_FUNCTIONS } from "./policy-ai/safe-lists.js";

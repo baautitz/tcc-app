@@ -1,7 +1,5 @@
-
-
 import { z } from "zod";
-import { } from "../../../shared/config/config.js";
+import {} from "../../../shared/config/config.js";
 
 import { createAiChatHandler } from "../application/chat/ai-chat.js";
 import { createAiReadTools } from "../application/tools/ai-read-tools.js";
@@ -17,7 +15,13 @@ import { createAiContextProposalRepository } from "../infrastructure/ai-context-
 
 import { createAiDashboardToolsRepository } from "../infrastructure/ai-dashboard-tools-repository.js";
 
-import { approveContextProposal, createAiContextProposalTools, dismissContextProposal, getContextProposal, listPendingContextProposals } from "../domain/ai-context-proposals.js";
+import {
+  approveContextProposal,
+  createAiContextProposalTools,
+  dismissContextProposal,
+  getContextProposal,
+  listPendingContextProposals,
+} from "../domain/ai-context-proposals.js";
 
 import type { AppContext } from "../../../shared/middleware/auth.js";
 
@@ -44,13 +48,24 @@ export const aiChat = createAiChatHandler({
 });
 
 export async function listContextProposals(context: AppContext) {
-  return context.json(await listPendingContextProposals(createAiContextProposalRepository(), context.get("currentUser").id));
+  return context.json(
+    await listPendingContextProposals(
+      createAiContextProposalRepository(),
+      context.get("currentUser").id,
+    ),
+  );
 }
 
 export async function getContextProposalById(context: AppContext) {
   const proposalId = z.string().uuid().parse(context.req.param("proposalId"));
   try {
-    return context.json(await getContextProposal(createAiContextProposalRepository(), proposalId, context.get("currentUser").id));
+    return context.json(
+      await getContextProposal(
+        createAiContextProposalRepository(),
+        proposalId,
+        context.get("currentUser").id,
+      ),
+    );
   } catch (error) {
     return throwApiError(error);
   }
@@ -59,7 +74,13 @@ export async function getContextProposalById(context: AppContext) {
 export async function approveProposal(context: AppContext) {
   const proposalId = z.string().uuid().parse(context.req.param("proposalId"));
   try {
-    return context.json(await approveContextProposal(createAiContextProposalRepository(), proposalId, context.get("currentUser").id));
+    return context.json(
+      await approveContextProposal(
+        createAiContextProposalRepository(),
+        proposalId,
+        context.get("currentUser").id,
+      ),
+    );
   } catch (error) {
     return throwApiError(error);
   }
@@ -68,7 +89,13 @@ export async function approveProposal(context: AppContext) {
 export async function dismissProposal(context: AppContext) {
   const proposalId = z.string().uuid().parse(context.req.param("proposalId"));
   try {
-    return context.json(await dismissContextProposal(createAiContextProposalRepository(), proposalId, context.get("currentUser").id));
+    return context.json(
+      await dismissContextProposal(
+        createAiContextProposalRepository(),
+        proposalId,
+        context.get("currentUser").id,
+      ),
+    );
   } catch (error) {
     return throwApiError(error);
   }

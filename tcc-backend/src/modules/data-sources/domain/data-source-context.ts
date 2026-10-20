@@ -10,42 +10,72 @@ export interface DataSourceContextTransaction {
 }
 
 export interface DataSourceContextDatabase {
-  transaction<T>(work: (tx: DataSourceContextTransaction) => Promise<T>): Promise<T>;
+  transaction<T>(
+    work: (tx: DataSourceContextTransaction) => Promise<T>,
+  ): Promise<T>;
 }
 
 export class DataSourceContextSourceNotFoundError extends DomainError {
   constructor() {
-    super("Servidor PostgreSQL não encontrado.", "SOURCE_NOT_FOUND", "not_found");
+    super(
+      "Servidor PostgreSQL não encontrado.",
+      "SOURCE_NOT_FOUND",
+      "not_found",
+    );
     this.name = "DataSourceContextSourceNotFoundError";
   }
 }
 
 export class DataSourceContextVersionConflictError extends DomainError {
   constructor() {
-    super("O servidor foi alterado. Recarregue os dados antes de salvar o contexto.", "VERSION_CONFLICT", "conflict");
+    super(
+      "O servidor foi alterado. Recarregue os dados antes de salvar o contexto.",
+      "VERSION_CONFLICT",
+      "conflict",
+    );
     this.name = "DataSourceContextVersionConflictError";
   }
 }
 
 export class DataSourceTableContextVersionConflictError extends DomainError {
   constructor() {
-    super("O contexto da tabela mudou. Recarregue os dados antes de salvar novamente.", "TABLE_VERSION_CONFLICT", "conflict");
+    super(
+      "O contexto da tabela mudou. Recarregue os dados antes de salvar novamente.",
+      "TABLE_VERSION_CONFLICT",
+      "conflict",
+    );
     this.name = "DataSourceTableContextVersionConflictError";
   }
 }
 
 export function sourceContextRevisionChanged(
-  current: { name: string; host: string; port: number; databaseName: string; username: string; context: string },
-  next: { name: string; host: string; port: number; databaseName: string; username: string; context: string },
+  current: {
+    name: string;
+    host: string;
+    port: number;
+    databaseName: string;
+    username: string;
+    context: string;
+  },
+  next: {
+    name: string;
+    host: string;
+    port: number;
+    databaseName: string;
+    username: string;
+    context: string;
+  },
   credentialChanged: boolean,
 ): boolean {
-  return current.name !== next.name ||
+  return (
+    current.name !== next.name ||
     current.host !== next.host ||
     current.port !== next.port ||
     current.databaseName !== next.databaseName ||
     current.username !== next.username ||
     current.context !== next.context ||
-    credentialChanged;
+    credentialChanged
+  );
 }
 
 /**
@@ -71,7 +101,12 @@ export async function updateTableContextIfSourceVersionMatches<T>(
       throw new DataSourceContextVersionConflictError();
     }
 
-    const updated = await tx.updateTableContext(dataSourceId, tableId, context, expectedContextVersion);
+    const updated = await tx.updateTableContext(
+      dataSourceId,
+      tableId,
+      context,
+      expectedContextVersion,
+    );
     if (!updated) throw new DataSourceTableContextVersionConflictError();
     return updated as T;
   });

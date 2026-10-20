@@ -1,4 +1,3 @@
-
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { z } from "zod";
 import { getEnvironment } from "../../../shared/config/config.js";
@@ -9,7 +8,10 @@ import { jsonBody } from "../../../shared/middleware/json-body.js";
 const deps = { environment: getEnvironment() };
 
 export async function login(context: AppContext) {
-  const body = await jsonBody(context, z.object({ email: z.string().email(), password: z.string().min(1) }));
+  const body = await jsonBody(
+    context,
+    z.object({ email: z.string().email(), password: z.string().min(1) }),
+  );
   const user = await authService.authenticate(body.email, body.password);
   const session = await authService.createSession(user.id);
   setCookie(context, SESSION_COOKIE, session.token, {

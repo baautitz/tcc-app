@@ -1,5 +1,9 @@
 import { QueryInputValidationError, type Token } from "../sql-lexer.js";
-import { SAFE_TYPE_MODIFIER_NAMES, SAFE_TYPE_NAMES, TYPE_LITERAL_BOUNDARY_WORDS } from "./safe-lists.js";
+import {
+  SAFE_TYPE_MODIFIER_NAMES,
+  SAFE_TYPE_NAMES,
+  TYPE_LITERAL_BOUNDARY_WORDS,
+} from "./safe-lists.js";
 
 function normalizeTypeToken(token: Token | undefined): string | undefined {
   if (!token || (token.kind !== "word" && token.kind !== "quoted_identifier"))
@@ -263,4 +267,3 @@ export function assertAiCastTypes(tokens: Token[]): void {
     }
   }
 }
-
