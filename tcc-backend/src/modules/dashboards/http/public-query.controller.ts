@@ -7,14 +7,15 @@ import {
   runQueryDefinition,
 } from "../../queries/application/query-admin.js";
 import { canExecuteQuery } from "../domain/dashboard-access.js";
-import { accessibleQueryIds } from "../application/dashboard-visibility.js";
+import { dashboardVisibilityService } from "../application/dashboard-visibility.js";
 
 export async function runPublicQuery(context: AppContext) {
   const query = await getQueryOrThrow(
     z.string().uuid().parse(context.req.param("uuid")),
   );
   const currentUser = context.get("currentUser");
-  const queryIds = await accessibleQueryIds(currentUser);
+  const queryIds =
+    await dashboardVisibilityService.accessibleQueryIds(currentUser);
   if (!canExecuteQuery(currentUser, query.id, queryIds)) {
     throw new ApiError(
       403,

@@ -5,9 +5,10 @@ export interface DashboardSyncRepository {
   listQueryCatalog(): Promise<Array<{ id: string; parameters: unknown }>>;
 }
 
-export const drizzleDashboardSyncRepository: DashboardSyncRepository = {
-  listQueryCatalog: () =>
-    db
+export class DrizzleDashboardSyncRepository implements DashboardSyncRepository {
+  listQueryCatalog() {
+    return db
       .select({ id: savedQueries.id, parameters: savedQueries.parameters })
-      .from(savedQueries),
-};
+      .from(savedQueries);
+  }
+}

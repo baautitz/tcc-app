@@ -135,14 +135,25 @@ vi.mock(
     ...(await orig<
       typeof import("../../src/modules/dashboards/application/dashboard-admin.js")
     >()),
-    saveDashboardDocument: vi.fn(async () => {}),
+    dashboardAdminService: Object.assign(
+      Object.create(
+        (
+          await orig<
+            typeof import("../../src/modules/dashboards/application/dashboard-admin.js")
+          >()
+        ).dashboardAdminService,
+      ),
+      { saveDashboardDocument: vi.fn(async () => {}) },
+    ),
   }),
 );
 vi.mock(
   "../../src/modules/dashboards/application/dashboard-proposal-commit.js",
   () => ({
-    previewDashboardProposal: vi.fn(),
-    commitDashboardProposal: vi.fn(),
+    dashboardProposalService: {
+      previewDashboardProposal: vi.fn(),
+      commitDashboardProposal: vi.fn(),
+    },
   }),
 );
 vi.mock(
@@ -155,6 +166,10 @@ vi.mock(
   }),
 );
 
+const { saveDashboardDocument } = dashboardAdminService;
+const { commitDashboardProposal, previewDashboardProposal } =
+  dashboardProposalService;
+
 const RECEIPT = "33333333-3333-4333-8333-333333333333";
 const NEWQ = "44444444-4444-4444-8444-444444444444";
 
@@ -166,12 +181,9 @@ import {
   runBoundedReadOnlyQueryWithRetry,
   inspectReadOnlyPostgres,
 } from "../../src/modules/data-sources/infrastructure/external-pg/index.js";
-import { saveDashboardDocument } from "../../src/modules/dashboards/application/dashboard-admin.js";
+import { dashboardAdminService } from "../../src/modules/dashboards/application/dashboard-admin.js";
 import { writeDashboardDocumentAtomically } from "../../src/modules/dashboards/domain/dashboards.js";
-import {
-  commitDashboardProposal,
-  previewDashboardProposal,
-} from "../../src/modules/dashboards/application/dashboard-proposal-commit.js";
+import { dashboardProposalService } from "../../src/modules/dashboards/application/dashboard-proposal-commit.js";
 import { reconcileDataSourceCatalog } from "../../src/modules/data-sources/domain/data-source-catalog.js";
 
 const UUID = "11111111-1111-4111-8111-111111111111";

@@ -1,5 +1,5 @@
 import {
-  drizzleDashboardSyncRepository,
+  DrizzleDashboardSyncRepository,
   type DashboardSyncRepository,
 } from "../infrastructure/dashboard-sync-repository.js";
 import {
@@ -9,7 +9,10 @@ import {
   type ParameterDefinition,
 } from "../../../shared/lib/contracts.js";
 import type { DashboardDocument } from "../domain/dashboards.js";
-import { getRegisteredDashboards } from "./dashboard-registry.js";
+import {
+  dashboardRegistry,
+  type DashboardRegistryService,
+} from "./dashboard-registry.js";
 
 type JsonRecord = Record<string, unknown>;
 export type DashboardQueryMetadata = { id: string; parameters: unknown };
@@ -236,22 +239,51 @@ export function buildDashboardDefinitionFromDocument(
   });
 }
 
-export async function validateDashboardCatalog(
-  repo: DashboardSyncRepository = drizzleDashboardSyncRepository,
-): Promise<{
-  dashboards: number;
-  queries: number;
-}> {
-  const dashboards = await getRegisteredDashboards();
-  const referencedIds = new Set<string>();
-  const catalog = await repo.listQueryCatalog();
+export class DashboardSyncService {
+  constructor(
+    private readonly repo: DashboardSyncRepository,
+    private readonly registry: Pick<
+      DashboardRegistryService,
+      "getRegisteredDashboards"
+    >,
+  ) {}
 
-  for (const dashboard of dashboards) {
-    const queryIds = [...dashboardQueryReferences(dashboard)];
-    queryIds.forEach((id) => referencedIds.add(id));
-    const queryRows = catalog.filter((query) => queryIds.includes(query.id));
-    buildDashboardDefinitionFromDocument(dashboard, queryRows);
+  queryReferences(dashboard: DashboardDocument) {
+    return dashboardQueryReferences(dashboard);
   }
 
-  return { dashboards: dashboards.length, queries: referencedIds.size };
+  buildDefinition(
+    dashboard: DashboardDocument,
+    catalogQueries: DashboardQueryMetadata[],
+    options: { validateCatalog?: boolean } = {},
+  ) {
+    return buildDashboardDefinitionFromDocument(
+      dashboard,
+      catalogQueries,
+      options,
+    );
+  }
+
+  async validateDashboardCatalog(): Promise<{
+    dashboards: number;
+    queries: number;
+  }> {
+    const dashboards = await this.registry.getRegisteredDashboards();
+    const referencedIds = new Set<string>();
+    const catalog = await this.repo.listQueryCatalog();
+
+    for (const dashboard of dashboards) {
+      const queryIds = [...dashboardQueryReferences(dashboard)];
+      queryIds.forEach((id) => referencedIds.add(id));
+      const queryRows = catalog.filter((query) => queryIds.includes(query.id));
+      buildDashboardDefinitionFromDocument(dashboard, queryRows);
+    }
+
+    return { dashboards: dashboards.length, queries: referencedIds.size };
+  }
 }
+
+export const dashboardSyncService = new DashboardSyncService(
+  new DrizzleDashboardSyncRepository(),
+  dashboardRegistry,
+);

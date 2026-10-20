@@ -17,43 +17,42 @@ export interface DashboardsRepository {
 }
 
 /** The executor may be a transaction; defaults to the global db. */
-export function createDashboardsRepository(
-  executor: DashboardDbExecutor = db,
-): DashboardsRepository {
-  return {
-    list: () =>
-      executor
-        .select({
-          dashboardId: dashboards.dashboardId,
-          filePath: dashboards.filePath,
-        })
-        .from(dashboards),
-    async deleteByPathExceptId(filePath, dashboardId) {
-      await executor
-        .delete(dashboards)
-        .where(
-          and(
-            eq(dashboards.filePath, filePath),
-            ne(dashboards.dashboardId, dashboardId),
-          ),
-        );
-    },
-    async upsert(row) {
-      await executor
-        .insert(dashboards)
-        .values(row)
-        .onConflictDoUpdate({
-          target: dashboards.dashboardId,
-          set: { filePath: row.filePath },
-        });
-    },
-    async insert(row) {
-      await executor.insert(dashboards).values(row);
-    },
-    async deleteByIds(ids) {
-      await executor
-        .delete(dashboards)
-        .where(inArray(dashboards.dashboardId, ids));
-    },
-  };
+export class DrizzleDashboardsRepository implements DashboardsRepository {
+  constructor(private readonly executor: DashboardDbExecutor = db) {}
+
+  list() {
+    return this.executor
+      .select({
+        dashboardId: dashboards.dashboardId,
+        filePath: dashboards.filePath,
+      })
+      .from(dashboards);
+  }
+  async deleteByPathExceptId(filePath: string, dashboardId: string) {
+    await this.executor
+      .delete(dashboards)
+      .where(
+        and(
+          eq(dashboards.filePath, filePath),
+          ne(dashboards.dashboardId, dashboardId),
+        ),
+      );
+  }
+  async upsert(row: DashboardRow) {
+    await this.executor
+      .insert(dashboards)
+      .values(row)
+      .onConflictDoUpdate({
+        target: dashboards.dashboardId,
+        set: { filePath: row.filePath },
+      });
+  }
+  async insert(row: DashboardRow) {
+    await this.executor.insert(dashboards).values(row);
+  }
+  async deleteByIds(ids: string[]) {
+    await this.executor
+      .delete(dashboards)
+      .where(inArray(dashboards.dashboardId, ids));
+  }
 }

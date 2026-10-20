@@ -1,50 +1,28 @@
 import { z } from "zod";
-import {} from "../../../shared/config/config.js";
-import { dashboardAccessRepository } from "../infrastructure/dashboard-access-repository.js";
-import { savedQueriesPort } from "../../queries/application/saved-queries.js";
 import {
   dashboardCreateSchema,
   dashboardDocumentSchema,
 } from "../../../shared/lib/contracts.js";
-
-import {
-  getDashboardFileById,
-  getRegisteredDashboardFiles,
-  getRegisteredDashboards,
-} from "../application/dashboard-registry.js";
-import {
-  buildDashboardDefinitionFromDocument,
-  dashboardQueryReferences,
-} from "../application/dashboard-sync.js";
-
 import { dashboardDocumentFingerprint } from "../domain/dashboard-proposals.js";
-
 import { ApiError } from "../../../shared/lib/domain-error.js";
-
 import type { AppContext } from "../../../shared/middleware/auth.js";
 import { jsonBody } from "../../../shared/middleware/json-body.js";
-import {
-  assertDashboardAccess,
-  getAccessibleDashboards,
-} from "../application/dashboard-visibility.js";
+import { dashboardAdminService } from "../application/dashboard-admin.js";
+import { dashboardProposalService } from "../application/dashboard-proposal-commit.js";
+import { dashboardVisibilityService } from "../application/dashboard-visibility.js";
 
-import {
-  syncDashboardDirectoryLocked,
-  createDashboard,
-  saveDashboardDocument,
-} from "../application/dashboard-admin.js";
-import {
-  previewDashboardProposal,
-  commitDashboardProposal,
-} from "../application/dashboard-proposal-commit.js";
+const dashboardIdParam = (context: AppContext) =>
+  z.string().uuid().parse(context.req.param("id")).toLowerCase();
 
 export async function syncDashboards(context: AppContext) {
-  return context.json(await syncDashboardDirectoryLocked());
+  return context.json(
+    await dashboardAdminService.syncDashboardDirectoryLocked(),
+  );
 }
 
 export async function createAdminDashboard(context: AppContext) {
   const input = await jsonBody(context, dashboardCreateSchema);
-  const dashboard = await createDashboard(input);
+  const dashboard = await dashboardAdminService.createDashboard(input);
   return context.json({ id: dashboard.id }, 201);
 }
 
@@ -69,7 +47,11 @@ export async function previewProposal(context: AppContext) {
       .strict(),
   );
   return context.json(
-    await previewDashboardProposal(currentUser, receiptId, input),
+    await dashboardProposalService.previewDashboardProposal(
+      currentUser,
+      receiptId,
+      input,
+    ),
   );
 }
 
@@ -84,7 +66,7 @@ export async function commitProposal(context: AppContext) {
       })
       .strict(),
   );
-  const committed = await commitDashboardProposal(
+  const committed = await dashboardProposalService.commitDashboardProposal(
     currentUser,
     receiptId,
     confirmation,
@@ -96,19 +78,9 @@ export async function commitProposal(context: AppContext) {
 }
 
 export async function getAdminDashboard(context: AppContext) {
-  const dashboardId = z
-    .string()
-    .uuid()
-    .parse(context.req.param("id"))
-    .toLowerCase();
-  const entry = (await getRegisteredDashboardFiles()).find(
-    (item) => item.dashboard.id === dashboardId,
+  return context.json(
+    await dashboardAdminService.getAdminDashboard(dashboardIdParam(context)),
   );
-  if (!entry) throw new ApiError(404, "Dashboard não encontrado.");
-  return context.json({
-    document: entry.dashboard,
-    revision: dashboardDocumentFingerprint(entry.dashboard),
-  });
 }
 
 export async function updateAdminDashboard(context: AppContext) {
@@ -128,7 +100,7 @@ export async function updateAdminDashboard(context: AppContext) {
   );
   if (input.document.id !== dashboardId)
     throw new ApiError(400, "O id do dashboard não pode ser alterado.");
-  await saveDashboardDocument(dashboardId, input);
+  await dashboardAdminService.saveDashboardDocument(dashboardId, input);
   return context.json({
     id: dashboardId,
     saved: true,
@@ -137,96 +109,36 @@ export async function updateAdminDashboard(context: AppContext) {
 }
 
 export async function getDashboardUsers(context: AppContext) {
-  const dashboardId = z
-    .string()
-    .uuid()
-    .parse(context.req.param("id"))
-    .toLowerCase();
-  const dashboard = await getDashboardFileById(dashboardId);
-  if (!dashboard) throw new ApiError(404, "Dashboard não encontrado.");
-  const assigned =
-    await dashboardAccessRepository.listAssignedUserIds(dashboardId);
-  const availableUsers = await dashboardAccessRepository.listAssignableUsers();
-  return context.json({
-    users: availableUsers,
-    userIds: assigned.map((assignment) => assignment.userId),
-  });
+  return context.json(
+    await dashboardAdminService.getDashboardUsers(dashboardIdParam(context)),
+  );
 }
 
 export async function setDashboardUsers(context: AppContext) {
-  const dashboardId = z
-    .string()
-    .uuid()
-    .parse(context.req.param("id"))
-    .toLowerCase();
-  const dashboard = await getDashboardFileById(dashboardId);
-  if (!dashboard) throw new ApiError(404, "Dashboard não encontrado.");
-  const input = await jsonBody(
-    context,
-    z.object({ userIds: z.array(z.string().uuid()) }).strict(),
+  return context.json(
+    await dashboardAdminService.setDashboardUsers(
+      dashboardIdParam(context),
+      () =>
+        jsonBody(
+          context,
+          z.object({ userIds: z.array(z.string().uuid()) }).strict(),
+        ),
+    ),
   );
-  const uniqueUserIds = [...new Set(input.userIds)];
-  if (uniqueUserIds.length !== input.userIds.length)
-    throw new ApiError(
-      400,
-      "Não repita usuários na lista de acesso do dashboard.",
-    );
-  const knownUsers =
-    await dashboardAccessRepository.findKnownUserIds(uniqueUserIds);
-  if (knownUsers.length !== uniqueUserIds.length)
-    throw new ApiError(400, "Um ou mais usuários selecionados não existem.");
-  await dashboardAccessRepository.replaceUsers(dashboardId, uniqueUserIds);
-  return context.json({ dashboardId, userIds: uniqueUserIds });
 }
 
 export async function listDashboards(context: AppContext) {
-  await syncDashboardDirectoryLocked();
-  const currentUser = context.get("currentUser");
-  const accessibleDashboards = await getAccessibleDashboards(currentUser);
+  await dashboardAdminService.syncDashboardDirectoryLocked();
   return context.json(
-    accessibleDashboards.map((dashboard) => ({
-      id: dashboard.id,
-      name: dashboard.name,
-      description: dashboard.description ?? null,
-    })),
+    await dashboardVisibilityService.listDashboards(context.get("currentUser")),
   );
 }
 
 export async function getDashboard(context: AppContext) {
-  const dashboardId = z
-    .string()
-    .uuid()
-    .parse(context.req.param("id"))
-    .toLowerCase();
-  const dashboard = (await getRegisteredDashboards()).find(
-    (item) => item.id === dashboardId,
+  return context.json(
+    await dashboardVisibilityService.getDashboardView(
+      context.get("currentUser"),
+      dashboardIdParam(context),
+    ),
   );
-  if (!dashboard) throw new ApiError(404, "Dashboard não encontrado.");
-  const currentUser = context.get("currentUser");
-  await assertDashboardAccess(currentUser, dashboardId);
-  const queryIds = [...dashboardQueryReferences(dashboard)];
-  const catalogQueries = queryIds.length
-    ? await savedQueriesPort().listParametersByIds(queryIds)
-    : [];
-  let definition;
-  try {
-    definition = buildDashboardDefinitionFromDocument(
-      dashboard,
-      catalogQueries,
-      { validateCatalog: false },
-    );
-  } catch (error) {
-    throw new ApiError(
-      400,
-      error instanceof Error
-        ? error.message
-        : "O dashboard possui referências inválidas.",
-    );
-  }
-  return context.json({
-    id: dashboard.id,
-    name: dashboard.name,
-    description: dashboard.description ?? null,
-    definition,
-  });
 }

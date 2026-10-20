@@ -81,8 +81,19 @@ vi.mock(
     ...(await orig<
       typeof import("../../src/modules/dashboards/application/dashboard-registry.js")
     >()),
-    getRegisteredDashboards: vi.fn(async () => h.state.dashboards),
-    syncDashboardDirectory: vi.fn(async () => ({ synced: 0 })),
+    dashboardRegistry: Object.assign(
+      Object.create(
+        (
+          await orig<
+            typeof import("../../src/modules/dashboards/application/dashboard-registry.js")
+          >()
+        ).dashboardRegistry,
+      ),
+      {
+        getRegisteredDashboards: vi.fn(async () => h.state.dashboards),
+        syncDashboardDirectory: vi.fn(async () => ({ synced: 0 })),
+      },
+    ),
   }),
 );
 vi.mock(
