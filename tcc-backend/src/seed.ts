@@ -11,7 +11,7 @@ import { encryptCredential } from "./shared/lib/credentials.js";
 import type { ParameterDefinition } from "./shared/lib/contracts.js";
 import { hashPassword } from "./shared/lib/passwords.js";
 import { permissionService } from "./modules/identity/application/permissions.js";
-import { dashboardRegistry } from "./modules/dashboards/application/dashboard-registry.js";
+import { dashboardRegistry } from "./container.js";
 
 const ADMIN_EMAIL = "admin@tcc.local";
 const ADMIN_PASSWORD = "Admin@123";

@@ -67,4 +67,4 @@ Cinco testes ficam ignorados porque exigem um Postgres descartável. `TCC_POSTGR
 - `queries` e `dashboards` se referem via `DashboardFilesPort` sem ciclo de construção: o adapter de arquivos não depende de `QueryService`, então entra direto no construtor.
 - Backend em classes (services, repositórios Drizzle, adapters, instância única por construtor). Ficaram como funções os módulos puros sem estado (`external-pg/*`, `domain/*`). No frontend, só os `<modulo>.api.ts` viraram classes; hooks e componentes seguem funções.
 - Dois casos `it.skip` fixos em `tests/http/app.routes.test.ts` (motivo documentado no teste: transações reais e arquivos em disco).
-- O frontend não tem script de lint.
+- Seis warnings de `react-hooks/exhaustive-deps` no frontend (lint roda, mas não zera).

@@ -35,6 +35,7 @@ describe("QueryService", () => {
       lifecycle,
       {} as never,
       {} as never,
+      {} as never,
     );
     await expect(service.getQueryOrThrow("q1")).rejects.toMatchObject({
       status: 404,
@@ -45,6 +46,7 @@ describe("QueryService", () => {
     const service = new QueryService(
       fakeRepo(),
       lifecycle,
+      {} as never,
       {} as never,
       {} as never,
     );
@@ -60,6 +62,7 @@ describe("QueryService", () => {
     const service = new QueryService(
       fakeRepo(),
       lifecycle,
+      {} as never,
       {} as never,
       {} as never,
     );

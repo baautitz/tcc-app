@@ -9,17 +9,21 @@ import { dashboardRegistry } from "./modules/dashboards/application/dashboard-re
 import { DrizzleDashboardAccessRepository } from "./modules/dashboards/infrastructure/dashboard-access-repository.js";
 import { DrizzleDashboardFilesRepository } from "./modules/dashboards/infrastructure/dashboard-files-repository.js";
 import { dashboardFilesAdapter } from "./modules/dashboards/infrastructure/dashboard-files-adapter.js";
+import { dataSourceAdminService } from "./modules/data-sources/application/data-source-admin.js";
 import { externalSourceAdapter } from "./modules/data-sources/infrastructure/external-source-adapter.js";
 import { QueryService } from "./modules/queries/application/query-admin.js";
 import { queryLifecycleRepository } from "./modules/queries/infrastructure/query-lifecycle-repository.js";
 import { savedQueriesAdapter } from "./modules/queries/infrastructure/saved-queries-adapter.js";
 import { savedQueriesRepository } from "./modules/queries/infrastructure/saved-queries-repository.js";
 
+export { dashboardRegistry };
+
 export const queryService = new QueryService(
   savedQueriesRepository,
   queryLifecycleRepository,
   externalSourceAdapter,
   dashboardFilesAdapter,
+  dataSourceAdminService,
 );
 
 export const dashboardVisibilityService = new DashboardVisibilityService(

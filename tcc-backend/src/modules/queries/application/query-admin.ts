@@ -15,7 +15,7 @@ import {
   assertSqlParameters,
   bindQueryParameters,
 } from "../../../shared/security/query-security.js";
-import { dataSourceAdminService } from "../../data-sources/application/data-source-admin.js";
+import type { DataSourceAdminService } from "../../data-sources/application/data-source-admin.js";
 import type { ExternalSourcePort } from "../../data-sources/domain/external-source.js";
 import {
   hasPermission,
@@ -55,20 +55,17 @@ export interface QuerySaveInput {
   parameters: ParameterDefinition[];
 }
 
+export interface SourceLookup {
+  getSourceOrThrow: DataSourceAdminService["getSourceOrThrow"];
+}
+
 export class QueryService {
   constructor(
     private readonly repo: SavedQueriesRepository,
     private readonly lifecycle: QueryLifecycleRepository,
     private readonly externalSource: ExternalSourcePort,
     private readonly dashboardFiles: DashboardFilesPort,
-    private readonly sources: {
-      getSourceOrThrow: (
-        id: string,
-      ) => ReturnType<typeof dataSourceAdminService.getSourceOrThrow>;
-    } = {
-      getSourceOrThrow: (id: string) =>
-        dataSourceAdminService.getSourceOrThrow(id),
-    },
+    private readonly sources: SourceLookup,
   ) {}
 
   listQueries() {
