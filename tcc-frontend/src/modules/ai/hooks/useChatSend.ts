@@ -499,7 +499,7 @@ export function useChatSend(session: Session, pathname: string) {
     lastPageContextRef.current = undefined;
     lastSilentUserRef.current = false;
     refreshedToolCallsRef.current.clear();
-  }, []);
+  }, [setActivityProgress, setBusy, setDraft, setItems]);
 
   const continueAfterQuerySaved = useCallback(
     (preview: QueryPreviewItem, queryId: string, queryName: string) => {

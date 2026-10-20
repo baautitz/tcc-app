@@ -62,7 +62,7 @@ export function AiChatDock({
     return () => {
       active = false;
     };
-  }, [open, user?.id, user?.isAdmin]);
+  }, [open, user?.id, user?.isAdmin, setItems]);
 
   const markContextProposalResolved = useCallback(
     (proposalId: string, status: AiContextProposal["status"]) => {
@@ -81,7 +81,7 @@ export function AiChatDock({
         ),
       );
     },
-    [],
+    [setItems],
   );
 
   const handleDashboardSaved = useCallback(
@@ -183,7 +183,7 @@ export function AiChatDock({
         );
       }
     },
-    [handleDashboardSaved],
+    [handleDashboardSaved, setItems],
   );
 
   const pageLabel = location.pathname.startsWith("/dashboards/")

@@ -106,6 +106,8 @@ export function DashboardFilters({
   });
   useEffect(() => {
     form.reset({ ...defaults, ...appliedFilters });
+    // defaults e recriado a cada render; incluir causaria reset a cada render
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [parameters, appliedFilters, form]);
   useEffect(() => {
     const subscription = form.watch((values, metadata) => {

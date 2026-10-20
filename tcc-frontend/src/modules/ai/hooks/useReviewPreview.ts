@@ -38,6 +38,8 @@ export function useReviewPreview(
     setReviewName(reviewPreview?.intent.queryName ?? "");
     setStalePreview(false);
     setReloadedQuery(undefined);
+    // reinicia so quando o preview muda (id); queryName editado nao deve resetar
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reviewPreview?.id]);
 
   useEffect(() => {
