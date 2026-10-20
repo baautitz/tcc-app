@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { validateDashboardDocument } from "../domain/dashboards.js";
-import { buildDashboardDefinitionFromDocument } from "./dashboard-sync.js";
+import { dashboardSyncService } from "./dashboard-sync.js";
 
 const salesId = "00000000-0000-4000-8000-000000000011";
 const totalId = "00000000-0000-4000-8000-000000000012";
@@ -92,7 +92,7 @@ function query(id: string) {
 
 describe("sincronização de dashboards por UUID", () => {
   it("mantém argumentos e mapeia um argumento para várias queries", () => {
-    const definition = buildDashboardDefinitionFromDocument(dashboard(), [
+    const definition = dashboardSyncService.buildDefinition(dashboard(), [
       query(salesId),
       query(totalId),
       { id: lookupId, parameters: [] },
@@ -108,7 +108,7 @@ describe("sincronização de dashboards por UUID", () => {
   });
 
   it("rejeita UUIDs que não existem no catálogo", () => {
-    expect(() => buildDashboardDefinitionFromDocument(dashboard(), [])).toThrow(
+    expect(() => dashboardSyncService.buildDefinition(dashboard(), [])).toThrow(
       "não existe no catálogo",
     );
   });
@@ -122,7 +122,7 @@ describe("sincronização de dashboards por UUID", () => {
       required: true,
     };
     expect(() =>
-      buildDashboardDefinitionFromDocument(dashboard(), [
+      dashboardSyncService.buildDefinition(dashboard(), [
         incompatible,
         query(totalId),
         { id: lookupId, parameters: [] },
@@ -143,7 +143,7 @@ describe("sincronização de dashboards por UUID", () => {
       ],
     });
     expect(() =>
-      buildDashboardDefinitionFromDocument(invalid, [
+      dashboardSyncService.buildDefinition(invalid, [
         query(salesId),
         query(totalId),
         { id: lookupId, parameters: [] },
@@ -220,7 +220,7 @@ describe("sincronização de dashboards por UUID", () => {
       },
     });
     expect(() =>
-      buildDashboardDefinitionFromDocument(noEndDate, [query(salesId)]),
+      dashboardSyncService.buildDefinition(noEndDate, [query(salesId)]),
     ).toThrow("não está mapeado");
   });
 
@@ -248,7 +248,7 @@ describe("sincronização de dashboards por UUID", () => {
         ],
       },
     });
-    const definition = buildDashboardDefinitionFromDocument(manual, [
+    const definition = dashboardSyncService.buildDefinition(manual, [
       {
         id: totalId,
         parameters: [

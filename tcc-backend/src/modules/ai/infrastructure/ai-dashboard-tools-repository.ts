@@ -12,7 +12,7 @@ import {
   AI_QUERY_MAX_ROWS,
   type ExternalPostgresConfig,
 } from "../../data-sources/domain/external-source.js";
-import { getRegisteredDashboardFiles } from "../../dashboards/application/dashboard-registry.js";
+import { dashboardRegistry } from "../../dashboards/application/dashboard-registry.js";
 import { querySourceTargetHash } from "../../queries/domain/query-lifecycle.js";
 import { dashboardDocumentFingerprint } from "../../dashboards/domain/dashboard-proposals.js";
 import {
@@ -95,7 +95,7 @@ export class DrizzleAiDashboardToolsRepository implements AiDashboardToolsReposi
   }
 
   async findDashboard(id: string) {
-    const match = (await getRegisteredDashboardFiles()).find(
+    const match = (await dashboardRegistry.getRegisteredDashboardFiles()).find(
       (item) => item.dashboard.id === id.toLowerCase(),
     );
     return match

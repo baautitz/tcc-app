@@ -23,10 +23,7 @@ import {
   isEditableDashboardFilePath,
   writeDashboardDocumentAtomically,
 } from "../domain/dashboards.js";
-import {
-  buildDashboardDefinitionFromDocument,
-  dashboardQueryReferences,
-} from "./dashboard-sync.js";
+import { dashboardSyncService } from "./dashboard-sync.js";
 
 import {
   assertParameterDefinitions,
@@ -105,7 +102,7 @@ export class DashboardProposalService {
         400,
         "A prévia recebeu filtros que não existem neste dashboard.",
       );
-    const referenceIds = [...dashboardQueryReferences(document)];
+    const referenceIds = [...dashboardSyncService.queryReferences(document)];
     if (referenceIds.length === 0)
       throw new ApiError(409, "A proposta não possui queries salvas.");
 
@@ -132,7 +129,7 @@ export class DashboardProposalService {
       );
     }
     try {
-      buildDashboardDefinitionFromDocument(
+      dashboardSyncService.buildDefinition(
         document,
         queryRows.map(({ query }) => ({
           id: query.id,
@@ -370,7 +367,9 @@ export class DashboardProposalService {
             "O conteúdo da proposta não corresponde ao recibo. Gere uma nova prévia.",
           );
         }
-        const referenceIds = [...dashboardQueryReferences(document)];
+        const referenceIds = [
+          ...dashboardSyncService.queryReferences(document),
+        ];
         if (referenceIds.length === 0)
           throw new ApiError(409, "A proposta não possui queries salvas.");
         const queryRows = await savedQueriesPort().listWithSourcesByIds(
@@ -393,7 +392,7 @@ export class DashboardProposalService {
           })),
         );
         try {
-          buildDashboardDefinitionFromDocument(
+          dashboardSyncService.buildDefinition(
             document,
             queryRows.map(({ query }): { id: string; parameters: unknown } => ({
               id: query.id,

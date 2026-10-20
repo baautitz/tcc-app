@@ -10,8 +10,7 @@ import {
 } from "../../../../../shared/lib/contracts.js";
 import type { AuthenticatedUser } from "../../../../identity/domain/auth-user.js";
 import {
-  buildDashboardDefinitionFromDocument,
-  dashboardQueryReferences,
+  dashboardSyncService,
   type DashboardQueryMetadata,
 } from "../../../../dashboards/application/dashboard-sync.js";
 import {
@@ -197,7 +196,7 @@ export class AiDashboardTools {
         proposedComponentIds,
       );
 
-      const referenceIds = [...dashboardQueryReferences(document)];
+      const referenceIds = [...dashboardSyncService.queryReferences(document)];
       if (
         referenceIds.length === 0 &&
         (mode === "create" || document.ui.components.length > 0)
@@ -212,7 +211,7 @@ export class AiDashboardTools {
         throw new Error(
           "Uma ou mais referências não correspondem a queries salvas que o administrador pode executar.",
         );
-      const definition = buildDashboardDefinitionFromDocument(
+      const definition = dashboardSyncService.buildDefinition(
         document,
         definitions.map((query): DashboardQueryMetadata => ({
           id: query.id,

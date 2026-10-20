@@ -65,7 +65,5 @@ Cinco testes ficam ignorados porque exigem um Postgres descartável. `TCC_POSTGR
 ## Dívidas conhecidas
 
 - Backend em classes (services, repositórios Drizzle, adapters, instância única por construtor). Ficaram como funções os módulos puros sem estado (`external-pg/*`, `domain/*`). No frontend, só os `<modulo>.api.ts` viraram classes; hooks e componentes seguem funções.
-- Wrappers de compatibilidade (`getQueryOrThrow`, `parseParameters`, `runQueryDefinition`, `getRegisteredDashboardFiles`, `dashboardQueryReferences`, `buildDashboardDefinitionFromDocument`) ainda existem; podem sair trocando os chamadores pelas instâncias.
-- O teste `ai-query-execution` importa `runBoundedReadOnlyQuery*` de `data-sources/infrastructure/external-pg` diretamente. O cruiser ignora arquivos `*.test.ts`.
 - Dois casos `it.skip` fixos em `tests/http/app.routes.test.ts` (motivo documentado no teste: transações reais e arquivos em disco).
 - O frontend não tem script de lint.

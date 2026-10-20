@@ -426,12 +426,3 @@ export const queryService = new QueryService(
   savedQueriesRepository,
   queryLifecycleRepository,
 );
-
-// Compatibilidade para chamadores fora do modulo (dashboards/public-query.controller).
-export const parseParameters = (value: unknown) =>
-  queryService.parseParameters(value);
-export const getQueryOrThrow = (queryId: string) =>
-  queryService.getQueryOrThrow(queryId);
-export const runQueryDefinition = (
-  input: Parameters<QueryService["runQueryDefinition"]>[0],
-) => queryService.runQueryDefinition(input);

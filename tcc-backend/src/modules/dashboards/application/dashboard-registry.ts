@@ -141,7 +141,3 @@ export class DashboardRegistryService {
 export const dashboardRegistry = new DashboardRegistryService(
   (executor) => new DrizzleDashboardsRepository(executor),
 );
-
-/** Compat: consumido pelo módulo ai (sem tocar em ai nesta etapa). */
-export const getRegisteredDashboardFiles = () =>
-  dashboardRegistry.getRegisteredDashboardFiles();

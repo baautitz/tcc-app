@@ -27,9 +27,7 @@ function text(value: unknown, fallback: string): string {
   return typeof value === "string" && value.length > 0 ? value : fallback;
 }
 
-export function dashboardQueryReferences(
-  dashboard: DashboardDocument,
-): Set<string> {
+function dashboardQueryReferences(dashboard: DashboardDocument): Set<string> {
   const references = new Set<string>();
   for (const component of dashboard.ui.components) {
     const queryUuid = record(component.props).queryUuid;
@@ -182,7 +180,7 @@ function validateQueryBindings(
   }
 }
 
-export function buildDashboardDefinitionFromDocument(
+function buildDashboardDefinitionFromDocument(
   dashboard: DashboardDocument,
   catalogQueries: DashboardQueryMetadata[],
   options: { validateCatalog?: boolean } = {},

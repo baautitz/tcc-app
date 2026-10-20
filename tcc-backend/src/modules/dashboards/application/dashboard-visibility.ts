@@ -11,10 +11,7 @@ import {
   dashboardRegistry,
   type DashboardRegistryService,
 } from "./dashboard-registry.js";
-import {
-  buildDashboardDefinitionFromDocument,
-  dashboardQueryReferences,
-} from "./dashboard-sync.js";
+import { dashboardSyncService } from "./dashboard-sync.js";
 import { canAccessDashboard } from "../domain/dashboard-access.js";
 
 import { ApiError } from "../../../shared/lib/domain-error.js";
@@ -82,13 +79,13 @@ export class DashboardVisibilityService {
     );
     if (!dashboard) throw new ApiError(404, "Dashboard não encontrado.");
     await this.assertDashboardAccess(currentUser, dashboardId);
-    const queryIds = [...dashboardQueryReferences(dashboard)];
+    const queryIds = [...dashboardSyncService.queryReferences(dashboard)];
     const catalogQueries = queryIds.length
       ? await this.savedQueries().listParametersByIds(queryIds)
       : [];
     let definition;
     try {
-      definition = buildDashboardDefinitionFromDocument(
+      definition = dashboardSyncService.buildDefinition(
         dashboard,
         catalogQueries,
         { validateCatalog: false },
@@ -119,7 +116,7 @@ export class DashboardVisibilityService {
     const dashboardsForUser = await this.getAccessibleDashboards(currentUser);
     return new Set(
       dashboardsForUser.flatMap((dashboard) => [
-        ...dashboardQueryReferences(dashboard),
+        ...dashboardSyncService.queryReferences(dashboard),
       ]),
     );
   }
