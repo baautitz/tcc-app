@@ -1,4 +1,4 @@
-import type { ComponentProps, ReactNode } from "react";
+import type { ComponentProps } from "react";
 import { LoaderCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Checkbox } from "@/shared/ui/checkbox";

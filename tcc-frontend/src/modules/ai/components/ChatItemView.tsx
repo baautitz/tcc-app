@@ -18,11 +18,6 @@ import { Bubble, BubbleContent } from "@/shared/ui/bubble";
 import { Marker, MarkerContent, MarkerIcon } from "@/shared/ui/marker";
 import { cn } from "@/shared/lib/utils";
 import type { AiContextProposal } from "@/modules/ai/model/types";
-import type { QueryPreview } from "@/modules/queries/model/types";
-import type {
-  DashboardDefinition,
-  DashboardDocument,
-} from "@/modules/dashboards/model/types";
 import {
   QuestionnaireCard,
   type QuestionnaireAnswers,
