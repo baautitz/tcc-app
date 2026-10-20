@@ -42,3 +42,10 @@ export function stream(
 ): Promise<Response> {
   return fetch(`${baseUrl}${path}`, { credentials: "include", ...options });
 }
+
+export interface HttpClient {
+  request: typeof request;
+  stream: typeof stream;
+}
+
+export const httpClient: HttpClient = { request, stream };

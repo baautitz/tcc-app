@@ -4,52 +4,59 @@ import type {
   DashboardSummary,
   DashboardUser,
 } from "@/modules/dashboards/model/types";
-import { request } from "@/shared/api/client";
+import { httpClient, type HttpClient } from "@/shared/api/client";
 
-export const dashboardsApi = {
-  dashboards: () => request<DashboardSummary[]>("/api/dashboards"),
-  dashboard: (id: string) => request<Dashboard>(`/api/dashboards/${id}`),
-  syncDashboards: () =>
-    request<{
+export class DashboardsApi {
+  constructor(private readonly http: HttpClient) {}
+
+  dashboards = () => this.http.request<DashboardSummary[]>("/api/dashboards");
+  dashboard = (id: string) =>
+    this.http.request<Dashboard>(`/api/dashboards/${id}`);
+  syncDashboards = () =>
+    this.http.request<{
       dashboardIds: string[];
       synchronized: number;
       removedOrphans: number;
-    }>("/api/dashboards/sync", { method: "POST" }),
-  createDashboard: (body: { name: string; description: string }) =>
-    request<{ id: string }>("/api/admin/dashboards", {
+    }>("/api/dashboards/sync", { method: "POST" });
+  createDashboard = (body: { name: string; description: string }) =>
+    this.http.request<{ id: string }>("/api/admin/dashboards", {
       method: "POST",
       body: JSON.stringify(body),
-    }),
-  dashboardContext: (id: string) =>
-    request<{ document: DashboardDocument; revision: string }>(
+    });
+  dashboardContext = (id: string) =>
+    this.http.request<{ document: DashboardDocument; revision: string }>(
       `/api/admin/dashboards/${encodeURIComponent(id)}`,
-    ),
-  updateDashboardContext: (
+    );
+  updateDashboardContext = (
     id: string,
     body: DashboardDocument,
     expectedRevision: string,
   ) =>
-    request<{ id: string; saved: boolean; revision: string }>(
+    this.http.request<{ id: string; saved: boolean; revision: string }>(
       `/api/admin/dashboards/${encodeURIComponent(id)}`,
       {
         method: "PUT",
         body: JSON.stringify({ document: body, expectedRevision }),
       },
-    ),
-  commitAiDashboardProposal: (
+    );
+  commitAiDashboardProposal = (
     proposalId: string,
     acknowledgeTruncation = false,
   ) =>
-    request<{ id: string; mode: "create" | "update"; alreadyApplied: boolean }>(
+    this.http.request<{
+      id: string;
+      mode: "create" | "update";
+      alreadyApplied: boolean;
+    }>(
       `/api/admin/ai/dashboard-proposals/${encodeURIComponent(proposalId)}/commit`,
       { method: "POST", body: JSON.stringify({ acknowledgeTruncation }) },
-    ),
-  previewAiDashboardProposal: (
+    );
+  previewAiDashboardProposal = (
     proposalId: string,
     contextValues: Record<string, string | string[]>,
     componentIds: string[],
   ) =>
-    request<{
+    this.http.request<{
       queries: Record<
         string,
         {
@@ -70,14 +77,16 @@ export const dashboardsApi = {
         method: "POST",
         body: JSON.stringify({ contextValues, componentIds }),
       },
-    ),
-  dashboardUsers: (id: string) =>
-    request<{ users: DashboardUser[]; userIds: string[] }>(
+    );
+  dashboardUsers = (id: string) =>
+    this.http.request<{ users: DashboardUser[]; userIds: string[] }>(
       `/api/admin/dashboards/${encodeURIComponent(id)}/users`,
-    ),
-  updateDashboardUsers: (id: string, userIds: string[]) =>
-    request<{ dashboardId: string; userIds: string[] }>(
+    );
+  updateDashboardUsers = (id: string, userIds: string[]) =>
+    this.http.request<{ dashboardId: string; userIds: string[] }>(
       `/api/admin/dashboards/${encodeURIComponent(id)}/users`,
       { method: "PUT", body: JSON.stringify({ userIds }) },
-    ),
-};
+    );
+}
+
+export const dashboardsApi = new DashboardsApi(httpClient);

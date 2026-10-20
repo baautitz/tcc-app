@@ -2,34 +2,36 @@ import type {
   DataSource,
   DataSourceTable,
 } from "@/modules/data-sources/model/types";
-import { request } from "@/shared/api/client";
+import { httpClient, type HttpClient } from "@/shared/api/client";
 
-export const dataSourcesApi = {
-  dataSources: () => request<DataSource[]>("/api/data-sources"),
-  dataSource: (id: string) =>
-    request<DataSource & { tables: DataSourceTable[] }>(
+export class DataSourcesApi {
+  constructor(private readonly http: HttpClient) {}
+
+  dataSources = () => this.http.request<DataSource[]>("/api/data-sources");
+  dataSource = (id: string) =>
+    this.http.request<DataSource & { tables: DataSourceTable[] }>(
       `/api/data-sources/${id}`,
-    ),
-  createDataSource: (body: unknown) =>
-    request<DataSource>("/api/data-sources", {
+    );
+  createDataSource = (body: unknown) =>
+    this.http.request<DataSource>("/api/data-sources", {
       method: "POST",
       body: JSON.stringify(body),
-    }),
-  updateDataSource: (id: string, body: unknown) =>
-    request<DataSource>(`/api/data-sources/${id}`, {
+    });
+  updateDataSource = (id: string, body: unknown) =>
+    this.http.request<DataSource>(`/api/data-sources/${id}`, {
       method: "PATCH",
       body: JSON.stringify(body),
-    }),
-  deleteDataSource: (id: string) =>
-    request<void>(`/api/data-sources/${id}`, { method: "DELETE" }),
-  updateTableContext: (
+    });
+  deleteDataSource = (id: string) =>
+    this.http.request<void>(`/api/data-sources/${id}`, { method: "DELETE" });
+  updateTableContext = (
     sourceId: string,
     tableId: string,
     context: string,
     expectedSourceUpdatedAt: string,
     expectedContextVersion: number,
   ) =>
-    request<DataSourceTable>(
+    this.http.request<DataSourceTable>(
       `/api/data-sources/${sourceId}/tables/${tableId}`,
       {
         method: "PATCH",
@@ -39,5 +41,7 @@ export const dataSourcesApi = {
           expectedContextVersion,
         }),
       },
-    ),
-};
+    );
+}
+
+export const dataSourcesApi = new DataSourcesApi(httpClient);

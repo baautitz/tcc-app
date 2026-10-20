@@ -4,27 +4,30 @@ import type {
   QuerySummary,
   SavedQuery,
 } from "@/modules/queries/model/types";
-import { request } from "@/shared/api/client";
+import { httpClient, type HttpClient } from "@/shared/api/client";
 
-export const queriesApi = {
-  query: (id: string, params: URLSearchParams) =>
-    request<{ rows: Record<string, unknown>[] }>(
+export class QueriesApi {
+  constructor(private readonly http: HttpClient) {}
+
+  query = (id: string, params: URLSearchParams) =>
+    this.http.request<{ rows: Record<string, unknown>[] }>(
       `/query/${id}?${params.toString()}`,
-    ),
-  queries: () => request<QuerySummary[]>("/api/queries"),
-  savedQuery: (id: string) => request<SavedQuery>(`/api/queries/${id}`),
-  createQuery: (body: {
+    );
+  queries = () => this.http.request<QuerySummary[]>("/api/queries");
+  savedQuery = (id: string) =>
+    this.http.request<SavedQuery>(`/api/queries/${id}`);
+  createQuery = (body: {
     dataSourceId: string;
     name: string;
     sqlText: string;
     parameters: QueryParameter[];
     testRunId: string;
   }) =>
-    request<SavedQuery>("/api/queries", {
+    this.http.request<SavedQuery>("/api/queries", {
       method: "POST",
       body: JSON.stringify(body),
-    }),
-  updateQuery: (
+    });
+  updateQuery = (
     id: string,
     body: {
       dataSourceId: string;
@@ -35,11 +38,11 @@ export const queriesApi = {
       expectedUpdatedAt: string;
     },
   ) =>
-    request<SavedQuery>(`/api/queries/${id}`, {
+    this.http.request<SavedQuery>(`/api/queries/${id}`, {
       method: "PATCH",
       body: JSON.stringify(body),
-    }),
-  testQueryDraft: (body: {
+    });
+  testQueryDraft = (body: {
     dataSourceId: string;
     sqlText: string;
     parameters: QueryParameter[];
@@ -48,15 +51,20 @@ export const queriesApi = {
     queryId?: string;
     expectedUpdatedAt?: string;
   }) =>
-    request<QueryPreview>("/api/queries/test", {
+    this.http.request<QueryPreview>("/api/queries/test", {
       method: "POST",
       body: JSON.stringify(body),
-    }),
-  deleteQuery: (id: string) =>
-    request<void>(`/api/queries/${id}`, { method: "DELETE" }),
-  testQuery: (id: string, parameters: Record<string, string>) =>
-    request<{ rows: Record<string, unknown>[] }>(`/api/queries/${id}/test`, {
-      method: "POST",
-      body: JSON.stringify({ parameters }),
-    }),
-};
+    });
+  deleteQuery = (id: string) =>
+    this.http.request<void>(`/api/queries/${id}`, { method: "DELETE" });
+  testQuery = (id: string, parameters: Record<string, string>) =>
+    this.http.request<{ rows: Record<string, unknown>[] }>(
+      `/api/queries/${id}/test`,
+      {
+        method: "POST",
+        body: JSON.stringify({ parameters }),
+      },
+    );
+}
+
+export const queriesApi = new QueriesApi(httpClient);
