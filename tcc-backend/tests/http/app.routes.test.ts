@@ -32,14 +32,18 @@ const h = vi.hoisted(() => {
 });
 
 vi.mock("../../src/shared/db/client.js", () => ({ db: h.fakeDb, pool: {} }));
-vi.mock("../../src/modules/identity/application/auth.js", async (orig) => ({
-  ...(await orig<typeof import("../../src/modules/identity/application/auth.js")>()),
+vi.mock("../../src/modules/identity/application/auth.js", async (orig) => {
+  const real = await orig<typeof import("../../src/modules/identity/application/auth.js")>();
+  return {
+  ...real,
   authService: {
+    authenticate: (email: string, password: string) => real.authService.authenticate(email, password),
     findAuthenticatedUser: vi.fn(async (token?: string) => (token ? h.state.user : null)),
     createSession: vi.fn(async () => ({ token: "tok", expiresAt: new Date(Date.now() + 1e6) })),
     revokeSession: vi.fn(async () => {}),
   },
-}));
+  };
+});
 vi.mock("../../src/shared/lib/passwords.js", () => ({
   hashPassword: (p: string) => `hash:${p}`,
   verifyPassword: (p: string, hash: string) => hash === `hash:${p}`,
