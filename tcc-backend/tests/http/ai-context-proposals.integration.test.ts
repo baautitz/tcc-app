@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { eq, inArray } from "drizzle-orm";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { app } from "../../src/app.js";
+import { afterAll, beforeAll, expect, it } from "vitest";
 import { getEnvironment } from "../../src/shared/config/config.js";
 import { db, pool } from "../../src/shared/db/client.js";
 import {
@@ -11,59 +10,19 @@ import {
   users,
 } from "../../src/shared/db/schema.js";
 import { encryptCredential } from "../../src/shared/lib/credentials.js";
-import { authService } from "../../src/modules/identity/application/auth.js";
+import {
+  createUser,
+  databaseName,
+  databasePort,
+  databaseUrl,
+  externalDatabasePort,
+  integrationDescribe,
+  jsonRequest,
+  type SmokeUser,
+} from "./helpers/postgres-integration.js";
 
-const integrationDescribe = describe.runIf(
-  process.env.TCC_POSTGRES_INTEGRATION === "1",
-);
 const smokePassword = randomUUID().replaceAll("-", "");
-const databaseUrl = new URL(
-  process.env.DATABASE_URL ?? "postgres://localhost/undefined",
-);
-const databaseName = decodeURIComponent(databaseUrl.pathname.slice(1));
-const databasePort = Number(databaseUrl.port || "5432");
-const externalDatabasePort = Number(
-  process.env.TCC_SMOKE_EXTERNAL_PORT || databasePort,
-);
 const readerRole = `tcc_context_reader_${randomUUID().replaceAll("-", "").slice(0, 16)}`;
-
-type SmokeUser = { id: string; token: string };
-
-async function createUser(isAdmin: boolean): Promise<SmokeUser> {
-  const user = (
-    await db
-      .insert(users)
-      .values({
-        name: isAdmin ? "Context smoke admin" : "Context smoke user",
-        email: `${randomUUID()}@example.test`,
-        passwordHash: "unused-in-route-smoke",
-        isAdmin,
-      })
-      .returning({ id: users.id })
-  )[0];
-  if (!user) throw new Error("Could not create an integration test user.");
-  return {
-    id: user.id,
-    token: (await authService.createSession(user.id)).token,
-  };
-}
-
-async function jsonRequest(
-  path: string,
-  options: { method?: string; token?: string; body?: unknown } = {},
-): Promise<Response> {
-  const headers = new Headers();
-  if (options.token) headers.set("Cookie", `tcc_session=${options.token}`);
-  if (options.body !== undefined)
-    headers.set("Content-Type", "application/json");
-  return await app.request(`http://localhost${path}`, {
-    method: options.method ?? "GET",
-    headers,
-    ...(options.body === undefined
-      ? {}
-      : { body: JSON.stringify(options.body) }),
-  });
-}
 
 async function createSourceProposal(input: {
   actorId: string;

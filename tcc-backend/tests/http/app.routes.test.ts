@@ -409,9 +409,6 @@ describe("queries", () => {
     const res = await call("DELETE", `/api/queries/${UUID2}`);
     expect(res.status).toBe(404);
   });
-  // Mantido como skip: o fluxo grava recibo/persiste via transações reais do Drizzle;
-  // o fakeDb em Proxy não reproduz isso e mockar mudaria o que o teste prova.
-  it.skip("POST /api/queries/test e persistência com recibo exigem Postgres real", () => {});
 });
 
 describe("dashboards", () => {
@@ -521,7 +518,4 @@ describe("admin ai", () => {
     const res = await call("GET", "/api/admin/ai/context-proposals");
     expect(res.status).toBe(200);
   });
-  // Mantido como skip: preview/commit leem e escrevem arquivos de contexto no disco
-  // e dependem de banco real; sem isso o teste só verificaria mocks.
-  it.skip("fluxos de preview/commit de propostas exigem banco/arquivos reais", () => {});
 });

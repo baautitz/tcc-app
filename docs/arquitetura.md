@@ -63,11 +63,11 @@ Backend, testes sem banco real:
 DATABASE_URL=postgres://u:p@localhost:5432/db CREDENTIAL_ENCRYPTION_KEY=<base64 de 32 bytes> pnpm test
 ```
 
-Cinco testes ficam ignorados porque exigem um Postgres descartável. `TCC_POSTGRES_INTEGRATION=1` habilita três deles. Nunca aponte esses testes para o banco de desenvolvimento.
+Oito testes (`tests/http/*.integration.test.ts`) ficam ignorados porque exigem um Postgres descartável. `TCC_POSTGRES_INTEGRATION=1` habilita todos; o helper recusa bancos cujo nome não contenha `smoke`, `skip` ou `test`. Alguns também precisam de `TCC_SMOKE_EXTERNAL_PORT` (2ª porta loopback). Nunca aponte esses testes para o banco de desenvolvimento.
 
 ## Dívidas conhecidas
 
 - `queries` e `dashboards` se referem via `DashboardFilesPort` sem ciclo de construção: o adapter de arquivos não depende de `QueryService`, então entra direto no construtor.
 - Backend em classes (services, repositórios Drizzle, adapters, instância única por construtor). Ficaram como funções os módulos puros sem estado (`external-pg/*`, `domain/*`). No frontend, só os `<modulo>.api.ts` viraram classes; hooks e componentes seguem funções.
-- Dois casos `it.skip` fixos em `tests/http/app.routes.test.ts` (motivo documentado no teste: transações reais e arquivos em disco).
+- Os dois `it.skip` antigos de `app.routes.test.ts` viraram `queries-receipt.integration.test.ts` e `dashboard-proposals.integration.test.ts`. Atenção: o skip dizia "propostas de contexto de IA", mas o preview/commit com arquivos em disco é o de propostas de dashboard (`/api/admin/ai/dashboard-proposals/:id/preview|commit`); o ciclo de propostas de contexto já era coberto por `ai-context-proposals.integration.test.ts`.
 - Seis warnings de `react-hooks/exhaustive-deps` no frontend (lint roda, mas não zera).
