@@ -5,7 +5,7 @@ import { getEnvironment } from "./shared/config/config.js";
 import { encryptCredential } from "./shared/lib/credentials.js";
 import type { ParameterDefinition } from "./shared/lib/contracts.js";
 import { hashPassword } from "./shared/lib/passwords.js";
-import { assignPermissionKeys, ensureSystemPermissions } from "./modules/identity/application/permissions.js";
+import { permissionService } from "./modules/identity/application/permissions.js";
 import { syncDashboardDirectory } from "./modules/dashboards/application/dashboard-registry.js";
 
 const ADMIN_EMAIL = "admin@tcc.local";
@@ -100,7 +100,7 @@ async function seedDemoDataSource(administratorId: string): Promise<void> {
 }
 
 try {
-  await ensureSystemPermissions();
+  await permissionService.ensureSystemPermissions();
   const existingAdmin = await db.select().from(users).where(eq(users.email, ADMIN_EMAIL)).limit(1);
   const administrator = existingAdmin[0] ?? (await db.insert(users).values({
     name: "Administrador TCC",
@@ -112,7 +112,7 @@ try {
   if (!administrator) throw new Error("Não foi possível criar o administrador inicial.");
   await db.update(users).set({ isAdmin: true }).where(eq(users.id, administrator.id));
   const systemPermissionKeys = (await db.select({ key: permissions.key }).from(permissions).where(eq(permissions.system, true))).map((permission) => permission.key);
-  await assignPermissionKeys(administrator.id, systemPermissionKeys);
+  await permissionService.assignPermissionKeys(administrator.id, systemPermissionKeys);
   await seedDemoDataSource(administrator.id);
   await syncDashboardDirectory();
   console.info(`Administrador de desenvolvimento pronto: ${ADMIN_EMAIL}`);

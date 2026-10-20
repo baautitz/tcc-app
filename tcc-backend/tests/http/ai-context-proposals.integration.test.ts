@@ -6,7 +6,7 @@ import { getEnvironment } from "../../src/shared/config/config.js";
 import { db, pool } from "../../src/shared/db/client.js";
 import { aiContextProposals, dataSourceTables, dataSources, users } from "../../src/shared/db/schema.js";
 import { encryptCredential } from "../../src/shared/lib/credentials.js";
-import { createSession } from "../../src/modules/identity/application/auth.js";
+import { authService } from "../../src/modules/identity/application/auth.js";
 
 const integrationDescribe = describe.runIf(process.env.TCC_POSTGRES_INTEGRATION === "1");
 const smokePassword = randomUUID().replaceAll("-", "");
@@ -26,7 +26,7 @@ async function createUser(isAdmin: boolean): Promise<SmokeUser> {
     isAdmin,
   }).returning({ id: users.id }))[0];
   if (!user) throw new Error("Could not create an integration test user.");
-  return { id: user.id, token: (await createSession(user.id)).token };
+  return { id: user.id, token: (await authService.createSession(user.id)).token };
 }
 
 async function jsonRequest(

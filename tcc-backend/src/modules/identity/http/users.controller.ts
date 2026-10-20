@@ -22,7 +22,7 @@ import {
 
 import { hashPassword } from "../../../shared/lib/passwords.js";
 
-import { assignPermissionKeys } from "../application/permissions.js";
+import { permissionService } from "../application/permissions.js";
 
 import { ApiError } from "../../../shared/lib/domain-error.js";
 
@@ -74,7 +74,7 @@ export async function createUser(context: AppContext) {
     passwordHash: hashPassword(input.password),
   });
   if (!user) throw new ApiError(500, "Não foi possível criar o usuário.");
-  await assignPermissionKeys(user.id, input.permissionKeys);
+  await permissionService.assignPermissionKeys(user.id, input.permissionKeys);
   return context.json({ id: user.id }, 201);
 }
 
@@ -89,7 +89,7 @@ export async function updateUser(context: AppContext) {
   if (input.password !== undefined) update.passwordHash = hashPassword(input.password);
   const user = await usersRepository.update(userId, update);
   if (!user) throw new ApiError(404, "Usuário não encontrado.");
-  if (input.permissionKeys) await assignPermissionKeys(userId, input.permissionKeys);
+  if (input.permissionKeys) await permissionService.assignPermissionKeys(userId, input.permissionKeys);
   return context.json({ id: user.id });
 }
 

@@ -24,24 +24,24 @@ const API_PERMISSIONS = [
 
 type PermissionDefinition = { key: string; name: string; description?: string };
 
-export async function ensureSystemPermissions(
-  repo: PermissionsRepository = new DrizzlePermissionsRepository(),
-): Promise<void> {
-  const definitions: PermissionDefinition[] = API_PERMISSIONS.map(
-    ([key, name]) => ({ key, name }),
-  );
-  for (const definition of definitions) await repo.upsertSystemPermission(definition);
-  await repo.deleteSystemPermissionsNotIn(definitions.map((permission) => permission.key));
+export class PermissionService {
+  constructor(private readonly repo: PermissionsRepository) {}
+
+  async ensureSystemPermissions(): Promise<void> {
+    const definitions: PermissionDefinition[] = API_PERMISSIONS.map(
+      ([key, name]) => ({ key, name }),
+    );
+    for (const definition of definitions) await this.repo.upsertSystemPermission(definition);
+    await this.repo.deleteSystemPermissionsNotIn(definitions.map((permission) => permission.key));
+  }
+
+  async assignPermissionKeys(userId: string, keys: string[]): Promise<void> {
+    const ids = await this.repo.findPermissionIdsByKeys(keys);
+    if (ids.length !== keys.length) {
+      throw new Error("Uma ou mais permissões informadas não existem.");
+    }
+    await this.repo.replaceUserPermissions(userId, ids);
+  }
 }
 
-export async function assignPermissionKeys(
-  userId: string,
-  keys: string[],
-  repo: PermissionsRepository = new DrizzlePermissionsRepository(),
-): Promise<void> {
-  const ids = await repo.findPermissionIdsByKeys(keys);
-  if (ids.length !== keys.length) {
-    throw new Error("Uma ou mais permissões informadas não existem.");
-  }
-  await repo.replaceUserPermissions(userId, ids);
-}
+export const permissionService = new PermissionService(new DrizzlePermissionsRepository());
