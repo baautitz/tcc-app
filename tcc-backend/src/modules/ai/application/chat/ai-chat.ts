@@ -1,14 +1,15 @@
-import type { Handler } from "hono";
+import type { Context } from "hono";
 import type { StructuredToolInterface } from "@langchain/core/tools";
 import {
   getEnvironment,
   type Environment,
 } from "../../../../shared/config/config.js";
 import {
-  createAiAgent,
-  resolveAiConfiguration,
+  aiAgentFactory,
+  aiConfigService,
   type AiAgentContext,
   type AiChatAgent,
+  type ResolvedAiConfiguration,
 } from "../agent/ai-agent.js";
 import type { AuthenticatedUser } from "../../../identity/domain/auth-user.js";
 import type { AiToolProgressEvent } from "../tools/ai-read-tools.js";
@@ -24,12 +25,9 @@ import {
 export type { AiChatRequest, AiChatMessages } from "./chat-schemas.js";
 export type { AiSseEvent } from "./chat-stream.js";
 
-type AiAgentFactory = (options: {
+type AiAgentFactoryFn = (options: {
   systemPrompt: string;
-  configuration: Extract<
-    ReturnType<typeof resolveAiConfiguration>,
-    { enabled: true }
-  >;
+  configuration: Extract<ResolvedAiConfiguration, { enabled: true }>;
   tools: StructuredToolInterface[];
   context: AiAgentContext;
 }) => AiChatAgent;
@@ -44,24 +42,35 @@ function errorFromBody(context: AiChatHandlerContext, message: string) {
   return context.json({ error: message, code: "AI_INVALID_REQUEST" }, 400);
 }
 
-export function createAiChatHandler(
-  dependencies: {
-    createAgent?: AiAgentFactory;
-    createTools?: AiToolsFactory;
-    getConfiguration?: typeof resolveAiConfiguration;
-    env?: Environment;
-    now?: () => number;
-  } = {},
-): Handler<{ Variables: { currentUser: AuthenticatedUser } }> {
-  const createAgent =
-    dependencies.createAgent ?? ((options) => createAiAgent(options));
-  const createTools = dependencies.createTools ?? (() => []);
-  const getConfiguration =
-    dependencies.getConfiguration ??
-    (() => resolveAiConfiguration(dependencies.env ?? getEnvironment()));
-  const now = dependencies.now ?? Date.now;
+export interface AiChatServiceDependencies {
+  createAgent?: AiAgentFactoryFn;
+  createTools?: AiToolsFactory;
+  getConfiguration?: () => ResolvedAiConfiguration;
+  env?: Environment;
+  now?: () => number;
+}
 
-  return async (context) => {
+type ChatContext = Context<{ Variables: { currentUser: AuthenticatedUser } }>;
+
+export class AiChatService {
+  private readonly createAgent: AiAgentFactoryFn;
+  private readonly createTools: AiToolsFactory;
+  private readonly getConfiguration: () => ResolvedAiConfiguration;
+  private readonly now: () => number;
+
+  constructor(dependencies: AiChatServiceDependencies = {}) {
+    this.createAgent =
+      dependencies.createAgent ?? ((options) => aiAgentFactory.create(options));
+    this.createTools = dependencies.createTools ?? (() => []);
+    this.getConfiguration =
+      dependencies.getConfiguration ??
+      (() => aiConfigService.resolve(dependencies.env ?? getEnvironment()));
+    this.now = dependencies.now ?? Date.now;
+  }
+
+  async handle(context: ChatContext) {
+    const { createAgent, createTools, getConfiguration, now } = this;
+
     if (!context.get("currentUser").isAdmin) {
       return context.json({ error: "Acesso restrito ao administrador." }, 403);
     }
@@ -174,5 +183,5 @@ export function createAiChatHandler(
       messageId,
       hooks,
     });
-  };
+  }
 }

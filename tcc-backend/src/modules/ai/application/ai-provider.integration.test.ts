@@ -9,7 +9,7 @@ import { tool } from "@langchain/core/tools";
 import { createAgent as createLangChainAgent } from "langchain";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-import { createAiModel, resolveAiConfiguration } from "./agent/ai-agent.js";
+import { aiConfigService } from "./agent/ai-agent.js";
 
 type ProviderRequest = {
   model: string;
@@ -144,7 +144,7 @@ describe("integração LangChain com provider OpenAI-compatible local", () => {
         ],
       };
     });
-    const configuration = resolveAiConfiguration({
+    const configuration = aiConfigService.resolve({
       AI_BASE_URL: fixture.baseURL,
       AI_API_KEY: "fixture-server-secret",
       AI_MODEL: "fixture-model",
@@ -155,7 +155,7 @@ describe("integração LangChain com provider OpenAI-compatible local", () => {
         "The local provider fixture configuration should be valid.",
       );
 
-    const model = createAiModel(configuration);
+    const model = aiConfigService.createModel(configuration);
     const output: string[] = [];
     const stream = await model.stream([
       { role: "user", content: "Leia pedidos." },
@@ -207,7 +207,7 @@ describe("integração LangChain com provider OpenAI-compatible local", () => {
         ],
       },
     }));
-    const configuration = resolveAiConfiguration({
+    const configuration = aiConfigService.resolve({
       AI_BASE_URL: fixture.baseURL,
       AI_API_KEY: "fixture-server-secret",
       AI_MODEL: "fixture-model",
@@ -226,7 +226,7 @@ describe("integração LangChain com provider OpenAI-compatible local", () => {
     });
 
     const agent = createLangChainAgent({
-      model: createAiModel(configuration),
+      model: aiConfigService.createModel(configuration),
       tools: [lookupTool],
       systemPrompt: "Use a ferramenta quando ela responder à pergunta.",
     });

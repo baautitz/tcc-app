@@ -1,12 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
 import type { AuthenticatedUser } from "../../../identity/domain/auth-user.js";
 import {
-  createAiReadTools,
+  AiReadTools,
   type AiToolProgressEvent,
   type AiReadSource,
   type AiReadTable,
   type AiReadToolsRepository,
 } from "./ai-read-tools.js";
+
+const createAiReadTools = (
+  options: ConstructorParameters<typeof AiReadTools>[0],
+) => new AiReadTools(options).tools();
 
 const sourceId = "00000000-0000-4000-8000-000000000001";
 const tableId = "00000000-0000-4000-8000-000000000003";

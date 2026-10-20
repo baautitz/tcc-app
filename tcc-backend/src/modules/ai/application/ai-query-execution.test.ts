@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ExternalPostgresConfig } from "../../data-sources/infrastructure/external-pg/index.js";
 import {
   AI_QUERY_STATEMENT_TIMEOUT_MS,
+  type ExternalPostgresConfig,
+} from "../../data-sources/domain/external-source.js";
+import {
   runBoundedReadOnlyQuery,
   runBoundedReadOnlyQueryWithRetry,
 } from "../../data-sources/infrastructure/external-pg/index.js";

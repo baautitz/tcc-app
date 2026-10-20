@@ -1,7 +1,10 @@
 import { streamSSE } from "hono/streaming";
 
 import type { AiToolProgressEvent } from "../tools/ai-read-tools.js";
-import type { AiChatAgent, resolveAiConfiguration } from "../agent/ai-agent.js";
+import type {
+  AiChatAgent,
+  ResolvedAiConfiguration,
+} from "../agent/ai-agent.js";
 import { extractText } from "./chat-intents.js";
 import type { AiChatMessages, AiChatRequest } from "./chat-schemas.js";
 import {
@@ -36,10 +39,7 @@ export type {
 export function runChatStream(options: {
   context: AiChatHandlerContext;
   parsedBody: AiChatRequest;
-  configuration: Extract<
-    ReturnType<typeof resolveAiConfiguration>,
-    { enabled: true }
-  >;
+  configuration: Extract<ResolvedAiConfiguration, { enabled: true }>;
   agent: AiChatAgent;
   now: () => number;
   requestId: string;

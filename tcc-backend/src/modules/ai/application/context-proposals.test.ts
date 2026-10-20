@@ -1,18 +1,23 @@
 import { describe, expect, it } from "vitest";
 import type { AuthenticatedUser } from "../../identity/domain/auth-user.js";
 import {
-  approveContextProposal,
   ContextProposalConflictError,
   ContextProposalUnavailableError,
-  createAiContextProposalTools,
-  dismissContextProposal,
-  getContextProposal,
-  listPendingContextProposals,
   type AiContextProposal,
   type AiContextProposalRepository,
   type ContextProposalTarget,
   type ContextProposalTransaction,
-} from "./ai-context-proposals.js";
+} from "../domain/ai-context-proposals.js";
+import {
+  ContextProposalService,
+  ContextProposalTools,
+} from "./context-proposals.js";
+
+const createAiContextProposalTools = (
+  options: ConstructorParameters<typeof ContextProposalTools>[0],
+) => new ContextProposalTools(options).tools();
+const service = (repository: AiContextProposalRepository) =>
+  new ContextProposalService(repository);
 
 const admin = {
   id: "admin-id",
@@ -161,8 +166,7 @@ describe("propostas de contexto da IA", () => {
       reason: "Defines table grain",
     })) as { proposalId: string };
 
-    const result = await approveContextProposal(
-      repository,
+    const result = await service(repository).approve(
       proposalId,
       admin.id,
       new Date("2026-09-29T12:01:00.000Z"),
@@ -193,7 +197,7 @@ describe("propostas de contexto da IA", () => {
     };
 
     await expect(
-      approveContextProposal(repository, proposalId, admin.id),
+      service(repository).approve(proposalId, admin.id),
     ).rejects.toBeInstanceOf(ContextProposalConflictError);
     expect((await repository.findProposal(proposalId))?.status).toBe("stale");
     expect(repository.writes).toEqual([]);
@@ -216,16 +220,14 @@ describe("propostas de contexto da IA", () => {
     const otherAdminId = "other-admin-id";
 
     await expect(
-      getContextProposal(repository, proposalId, otherAdminId),
+      service(repository).get(proposalId, otherAdminId),
     ).rejects.toMatchObject({ name: "ContextProposalNotFoundError" });
-    expect(await listPendingContextProposals(repository, otherAdminId)).toEqual(
-      [],
-    );
+    expect(await service(repository).listPending(otherAdminId)).toEqual([]);
     await expect(
-      approveContextProposal(repository, proposalId, otherAdminId),
+      service(repository).approve(proposalId, otherAdminId),
     ).rejects.toMatchObject({ name: "ContextProposalNotFoundError" });
     await expect(
-      dismissContextProposal(repository, proposalId, otherAdminId),
+      service(repository).dismiss(proposalId, otherAdminId),
     ).rejects.toMatchObject({ name: "ContextProposalNotFoundError" });
     expect(repository.writes).toEqual([]);
     expect((await repository.findProposal(proposalId))?.status).toBe("pending");
@@ -245,8 +247,7 @@ describe("propostas de contexto da IA", () => {
       reason: "Old proposal",
     })) as { proposalId: string };
 
-    const recovered = await getContextProposal(
-      repository,
+    const recovered = await service(repository).get(
       proposalId,
       admin.id,
       new Date("2027-01-01T00:00:00.000Z"),
@@ -254,7 +255,7 @@ describe("propostas de contexto da IA", () => {
     expect(recovered.status).toBe("expired");
     expect((await repository.findProposal(proposalId))?.status).toBe("expired");
     await expect(
-      approveContextProposal(repository, proposalId, admin.id),
+      service(repository).approve(proposalId, admin.id),
     ).rejects.toBeInstanceOf(ContextProposalUnavailableError);
     expect(repository.writes).toEqual([]);
   });
@@ -272,7 +273,7 @@ describe("propostas de contexto da IA", () => {
       context: "Unused proposal",
       reason: "Pending choice",
     })) as { proposalId: string };
-    await dismissContextProposal(repository, first.proposalId, admin.id);
+    await service(repository).dismiss(first.proposalId, admin.id);
     expect((await repository.findProposal(first.proposalId))?.status).toBe(
       "dismissed",
     );
@@ -286,8 +287,7 @@ describe("propostas de contexto da IA", () => {
       reason: "Pending choice",
     })) as { proposalId: string };
     await expect(
-      approveContextProposal(
-        repository,
+      service(repository).approve(
         second.proposalId,
         admin.id,
         new Date("2027-01-01T00:00:00.000Z"),

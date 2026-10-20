@@ -3,7 +3,17 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AIMessageChunk } from "@langchain/core/messages";
 import type { AuthenticatedUser } from "../../../identity/domain/auth-user.js";
 import type { AiToolProgressEvent } from "../tools/ai-read-tools.js";
-import { createAiChatHandler, type AiSseEvent } from "./ai-chat.js";
+import {
+  AiChatService,
+  type AiChatServiceDependencies,
+  type AiSseEvent,
+} from "./ai-chat.js";
+
+function chatHandler(dependencies?: AiChatServiceDependencies) {
+  const service = new AiChatService(dependencies);
+  return (context: Parameters<AiChatService["handle"]>[0]) =>
+    service.handle(context);
+}
 import type { AiAgentToken, AiChatAgent } from "../agent/ai-agent.js";
 
 const enabledConfiguration = {
@@ -26,7 +36,7 @@ const defaultBody = {
 afterEach(() => vi.restoreAllMocks());
 
 function createTestApp(
-  handler: ReturnType<typeof createAiChatHandler>,
+  handler: ReturnType<typeof chatHandler>,
   isAdmin = true,
 ) {
   const app = new Hono<{ Variables: { currentUser: AuthenticatedUser } }>();
@@ -71,7 +81,7 @@ describe("rota de chat IA SSE", () => {
     const getConfiguration = vi.fn(() => enabledConfiguration);
     const createAgent = vi.fn();
     const app = createTestApp(
-      createAiChatHandler({ getConfiguration, createAgent }),
+      chatHandler({ getConfiguration, createAgent }),
       false,
     );
 
@@ -95,7 +105,7 @@ describe("rota de chat IA SSE", () => {
       })(),
     );
     const app = createTestApp(
-      createAiChatHandler({
+      chatHandler({
         getConfiguration: () => enabledConfiguration,
         createAgent: (options) => {
           capturedPrompt = options.systemPrompt;
@@ -143,7 +153,7 @@ describe("rota de chat IA SSE", () => {
   it("retorna 503 claro quando a IA não está configurada e não inicia SSE", async () => {
     const createAgent = vi.fn();
     const app = createTestApp(
-      createAiChatHandler({
+      chatHandler({
         getConfiguration: () => ({
           enabled: false,
           code: "AI_NOT_CONFIGURED",
@@ -169,7 +179,7 @@ describe("rota de chat IA SSE", () => {
   it("rejeita histórico com papéis não confiáveis ou contexto de navegação inválido", async () => {
     const createAgent = vi.fn();
     const app = createTestApp(
-      createAiChatHandler({
+      chatHandler({
         getConfiguration: () => enabledConfiguration,
         createAgent,
       }),
@@ -194,7 +204,7 @@ describe("rota de chat IA SSE", () => {
   it("limita o corpo recebido antes de iniciar o LangChain", async () => {
     const getConfiguration = vi.fn(() => enabledConfiguration);
     const app = createTestApp(
-      createAiChatHandler({
+      chatHandler({
         getConfiguration,
         createAgent: vi.fn(),
       }),
@@ -230,7 +240,7 @@ describe("rota de chat IA SSE", () => {
       })();
     });
     const app = createTestApp(
-      createAiChatHandler({
+      chatHandler({
         getConfiguration: () => enabledConfiguration,
         createAgent: (options) => {
           capturedPrompt = options.systemPrompt;
@@ -314,7 +324,7 @@ describe("rota de chat IA SSE", () => {
       })();
     });
     const app = createTestApp(
-      createAiChatHandler({
+      chatHandler({
         getConfiguration: () => enabledConfiguration,
         createTools: ({ currentUser, onToolEvent }) => {
           expect(currentUser.id).toBe("admin-id");
@@ -375,7 +385,7 @@ describe("rota de chat IA SSE", () => {
       })(),
     );
     const app = createTestApp(
-      createAiChatHandler({
+      chatHandler({
         getConfiguration: () => enabledConfiguration,
         createAgent: () => agent,
       }),
@@ -425,7 +435,7 @@ describe("rota de chat IA SSE", () => {
       })();
     });
     const app = createTestApp(
-      createAiChatHandler({
+      chatHandler({
         getConfiguration: () => timeoutConfiguration,
         createAgent: () => agent,
       }),
@@ -467,7 +477,7 @@ describe("rota de chat IA SSE", () => {
       })();
     });
     const app = createTestApp(
-      createAiChatHandler({
+      chatHandler({
         getConfiguration: () => enabledConfiguration,
         createAgent: () => agent,
       }),

@@ -7,13 +7,17 @@ import {
   ToolMessage,
 } from "@langchain/core/messages";
 import { REMOVE_ALL_MESSAGES } from "@langchain/langgraph";
-import { getAiCheckpointer } from "../../infrastructure/checkpointer.js";
+import {
+  aiCheckpointer,
+  type AiCheckpointer,
+} from "../../infrastructure/checkpointer.js";
 import type { AIMessageChunk } from "@langchain/core/messages";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import type { StructuredToolInterface } from "@langchain/core/tools";
 import { z } from "zod";
 import {
-  createAiModel,
+  aiConfigService,
+  type AiConfigService,
   type ResolvedAiConfiguration,
 } from "./agent-model-config.js";
 import {
@@ -451,43 +455,74 @@ const DEFAULT_SYSTEM_PROMPT = [
   "Não afirme que executou consultas, salvou alterações ou atualizou a interface.",
 ].join(" ");
 
-export function createAiAgent(
-  options: {
-    systemPrompt?: string;
-    configuration?: ResolvedAiConfiguration;
-    tools?: StructuredToolInterface[];
-    context?: AiAgentContext;
-  } = {},
-): AiChatAgent {
-  const model = createAiModel(options.configuration);
-  const { threadId, currentUserId } = options.context ?? {};
-  const buildAgent = async () =>
-    createAgent({
-      model,
-      tools: options.tools ?? [],
-      middleware: [threadMaintenance, finalResponseQa],
-      checkpointer: threadId ? await getAiCheckpointer() : undefined,
-      contextSchema: aiAgentContextSchema,
-      systemPrompt: options.systemPrompt ?? DEFAULT_SYSTEM_PROMPT,
-    });
-
-  return {
-    async stream(input, config) {
-      const agent = await buildAgent();
-      const runConfig = createAiAgentRunConfig(config, options.context ?? {});
-      const result = await agent.stream(input, {
-        ...runConfig,
-        // Scoped by user so a guessed thread id never exposes another admin's history.
-        ...(threadId
-          ? {
-              configurable: {
-                ...runConfig.configurable,
-                thread_id: `${currentUserId ?? "anon"}:${threadId}`,
-              },
-            }
-          : {}),
-      });
-      return result as AsyncIterable<AiAgentToken>;
-    },
-  };
+export interface AiAgentOptions {
+  systemPrompt?: string;
+  configuration?: ResolvedAiConfiguration;
+  tools?: StructuredToolInterface[];
+  context?: AiAgentContext;
 }
+
+class LangChainAiAgent implements AiChatAgent {
+  private readonly model: ReturnType<AiConfigService["createModel"]>;
+
+  constructor(
+    private readonly options: AiAgentOptions,
+    private readonly config: AiConfigService,
+    private readonly checkpointer: AiCheckpointer,
+  ) {
+    this.model = config.createModel(options.configuration);
+  }
+
+  private async buildAgent() {
+    const { threadId } = this.options.context ?? {};
+    return createAgent({
+      model: this.model,
+      tools: this.options.tools ?? [],
+      middleware: [threadMaintenance, finalResponseQa],
+      checkpointer: threadId ? await this.checkpointer.get() : undefined,
+      contextSchema: aiAgentContextSchema,
+      systemPrompt: this.options.systemPrompt ?? DEFAULT_SYSTEM_PROMPT,
+    });
+  }
+
+  async stream(
+    input: Parameters<AiChatAgent["stream"]>[0],
+    config: Parameters<AiChatAgent["stream"]>[1],
+  ) {
+    const { threadId, currentUserId } = this.options.context ?? {};
+    const agent = await this.buildAgent();
+    const runConfig = createAiAgentRunConfig(
+      config,
+      this.options.context ?? {},
+    );
+    const result = await agent.stream(input, {
+      ...runConfig,
+      // Scoped by user so a guessed thread id never exposes another admin's history.
+      ...(threadId
+        ? {
+            configurable: {
+              ...runConfig.configurable,
+              thread_id: `${currentUserId ?? "anon"}:${threadId}`,
+            },
+          }
+        : {}),
+    });
+    return result as AsyncIterable<AiAgentToken>;
+  }
+}
+
+export class AiAgentFactory {
+  constructor(
+    private readonly config: AiConfigService,
+    private readonly checkpointer: AiCheckpointer,
+  ) {}
+
+  create(options: AiAgentOptions = {}): AiChatAgent {
+    return new LangChainAiAgent(options, this.config, this.checkpointer);
+  }
+}
+
+export const aiAgentFactory = new AiAgentFactory(
+  aiConfigService,
+  aiCheckpointer,
+);

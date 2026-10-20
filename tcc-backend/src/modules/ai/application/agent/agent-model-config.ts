@@ -47,106 +47,106 @@ function clean(value: string | undefined): string | undefined {
   return cleaned ? cleaned : undefined;
 }
 
-export function resolveAiConfiguration(
-  values: AiEnvironment = getEnvironment(),
-): ResolvedAiConfiguration {
-  const baseURL = clean(values.AI_BASE_URL);
-  const apiKey = clean(values.AI_API_KEY);
-  const model = clean(values.AI_MODEL);
-  const configuredTimeout = clean(values.AI_REQUEST_TIMEOUT_MS);
-  const missing = [
-    ["AI_BASE_URL", baseURL],
-    ["AI_API_KEY", apiKey],
-    ["AI_MODEL", model],
-  ]
-    .filter((entry): entry is [string, undefined] => entry[1] === undefined)
-    .map(([key]) => key);
+export class AiConfigService {
+  resolve(values: AiEnvironment = getEnvironment()): ResolvedAiConfiguration {
+    const baseURL = clean(values.AI_BASE_URL);
+    const apiKey = clean(values.AI_API_KEY);
+    const model = clean(values.AI_MODEL);
+    const configuredTimeout = clean(values.AI_REQUEST_TIMEOUT_MS);
+    const missing = [
+      ["AI_BASE_URL", baseURL],
+      ["AI_API_KEY", apiKey],
+      ["AI_MODEL", model],
+    ]
+      .filter((entry): entry is [string, undefined] => entry[1] === undefined)
+      .map(([key]) => key);
 
-  if (missing.length > 0) {
-    return { enabled: false, code: "AI_NOT_CONFIGURED", missing };
-  }
-
-  try {
-    const parsedBaseURL = new URL(baseURL!);
-    if (
-      parsedBaseURL.protocol !== "http:" &&
-      parsedBaseURL.protocol !== "https:"
-    ) {
-      throw new Error("unsupported protocol");
+    if (missing.length > 0) {
+      return { enabled: false, code: "AI_NOT_CONFIGURED", missing };
     }
-  } catch {
-    return {
-      enabled: false,
-      code: "AI_CONFIGURATION_INVALID",
-      message: "AI_BASE_URL deve ser uma URL HTTP ou HTTPS válida.",
-    };
-  }
 
-  let requestTimeoutMs = DEFAULT_AI_REQUEST_TIMEOUT_MS;
-  if (configuredTimeout !== undefined) {
-    const parsedTimeout = Number(configuredTimeout);
-    if (
-      !Number.isSafeInteger(parsedTimeout) ||
-      parsedTimeout < MIN_AI_REQUEST_TIMEOUT_MS ||
-      parsedTimeout > MAX_AI_REQUEST_TIMEOUT_MS
-    ) {
+    try {
+      const parsedBaseURL = new URL(baseURL!);
+      if (
+        parsedBaseURL.protocol !== "http:" &&
+        parsedBaseURL.protocol !== "https:"
+      ) {
+        throw new Error("unsupported protocol");
+      }
+    } catch {
       return {
         enabled: false,
         code: "AI_CONFIGURATION_INVALID",
-        message: `AI_REQUEST_TIMEOUT_MS deve ser um inteiro entre ${MIN_AI_REQUEST_TIMEOUT_MS} e ${MAX_AI_REQUEST_TIMEOUT_MS}.`,
+        message: "AI_BASE_URL deve ser uma URL HTTP ou HTTPS válida.",
       };
     }
-    requestTimeoutMs = parsedTimeout;
+
+    let requestTimeoutMs = DEFAULT_AI_REQUEST_TIMEOUT_MS;
+    if (configuredTimeout !== undefined) {
+      const parsedTimeout = Number(configuredTimeout);
+      if (
+        !Number.isSafeInteger(parsedTimeout) ||
+        parsedTimeout < MIN_AI_REQUEST_TIMEOUT_MS ||
+        parsedTimeout > MAX_AI_REQUEST_TIMEOUT_MS
+      ) {
+        return {
+          enabled: false,
+          code: "AI_CONFIGURATION_INVALID",
+          message: `AI_REQUEST_TIMEOUT_MS deve ser um inteiro entre ${MIN_AI_REQUEST_TIMEOUT_MS} e ${MAX_AI_REQUEST_TIMEOUT_MS}.`,
+        };
+      }
+      requestTimeoutMs = parsedTimeout;
+    }
+
+    return {
+      enabled: true,
+      baseURL: baseURL!,
+      apiKey: apiKey!,
+      model: model!,
+      requestTimeoutMs,
+    };
   }
 
-  return {
-    enabled: true,
-    baseURL: baseURL!,
-    apiKey: apiKey!,
-    model: model!,
-    requestTimeoutMs,
-  };
+  availability(
+    values: AiEnvironment = getEnvironment(),
+  ): { enabled: true; model: string } | AiConfigurationIssue {
+    const configuration = this.resolve(values);
+    if (!configuration.enabled) return configuration;
+    return { enabled: true, model: configuration.model };
+  }
+
+  createModel(configuration = this.resolve()): ChatOpenAI {
+    if (!configuration.enabled) throw new AiUnavailableError(configuration);
+
+    const aiHost = new URL(configuration.baseURL).hostname.toLowerCase();
+    const isMiniMax =
+      aiHost === "minimax.io" ||
+      aiHost.endsWith(".minimax.io") ||
+      /minimax/i.test(configuration.model);
+    const isMiniMaxM3 =
+      isMiniMax && /minimax[-_. ]?m3/i.test(configuration.model);
+
+    return new ChatOpenAI({
+      model: configuration.model,
+      apiKey: configuration.apiKey,
+      maxTokens: AI_MAX_OUTPUT_TOKENS,
+      ...(isMiniMax
+        ? {
+            // MiniMax's OpenAI-compatible API prefers max_completion_tokens.
+            // Override ChatOpenAI's legacy max_tokens field while retaining the
+            // public maxTokens setting for callers and diagnostics.
+            modelKwargs: {
+              max_tokens: undefined,
+              max_completion_tokens: AI_MAX_OUTPUT_TOKENS,
+              ...(isMiniMaxM3 ? { reasoning_split: false } : {}),
+            },
+          }
+        : {}),
+      configuration: { baseURL: configuration.baseURL },
+      // Some OpenAI-compatible providers reject stream_options.
+      streamUsage: false,
+    });
+  }
 }
 
-export function getAiAvailability(
-  values: AiEnvironment = getEnvironment(),
-): { enabled: true; model: string } | AiConfigurationIssue {
-  const configuration = resolveAiConfiguration(values);
-  if (!configuration.enabled) return configuration;
-  return { enabled: true, model: configuration.model };
-}
-
-export function createAiModel(
-  configuration = resolveAiConfiguration(),
-): ChatOpenAI {
-  if (!configuration.enabled) throw new AiUnavailableError(configuration);
-
-  const aiHost = new URL(configuration.baseURL).hostname.toLowerCase();
-  const isMiniMax =
-    aiHost === "minimax.io" ||
-    aiHost.endsWith(".minimax.io") ||
-    /minimax/i.test(configuration.model);
-  const isMiniMaxM3 =
-    isMiniMax && /minimax[-_. ]?m3/i.test(configuration.model);
-
-  return new ChatOpenAI({
-    model: configuration.model,
-    apiKey: configuration.apiKey,
-    maxTokens: AI_MAX_OUTPUT_TOKENS,
-    ...(isMiniMax
-      ? {
-          // MiniMax's OpenAI-compatible API prefers max_completion_tokens.
-          // Override ChatOpenAI's legacy max_tokens field while retaining the
-          // public maxTokens setting for callers and diagnostics.
-          modelKwargs: {
-            max_tokens: undefined,
-            max_completion_tokens: AI_MAX_OUTPUT_TOKENS,
-            ...(isMiniMaxM3 ? { reasoning_split: false } : {}),
-          },
-        }
-      : {}),
-    configuration: { baseURL: configuration.baseURL },
-    // Some OpenAI-compatible providers reject stream_options.
-    streamUsage: false,
-  });
-}
+export const aiConfigService = new AiConfigService();

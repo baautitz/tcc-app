@@ -2,12 +2,16 @@ import { describe, expect, it, vi } from "vitest";
 import type { AuthenticatedUser } from "../../../identity/domain/auth-user.js";
 import type { AiReadSource, AiToolProgressEvent } from "./ai-read-tools.js";
 import {
-  createAiQueryTestTools,
+  AiQueryTestTools,
   AI_QUERY_TEST_LIMITS,
   type AiQueryTestResult,
   type AiQueryTestRepository,
 } from "./ai-query-tools.js";
-import { ExternalQueryExecutionError } from "../../../data-sources/infrastructure/external-pg/index.js";
+
+const createAiQueryTestTools = (
+  options: ConstructorParameters<typeof AiQueryTestTools>[0],
+) => new AiQueryTestTools(options).tools();
+import { ExternalQueryExecutionError } from "../../../data-sources/domain/external-source.js";
 
 const sourceId = "00000000-0000-4000-8000-000000000001";
 const admin: AuthenticatedUser = {

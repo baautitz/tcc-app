@@ -60,17 +60,21 @@ vi.mock("../../src/modules/ai/application/agent/ai-agent.js", async (orig) => ({
   ...(await orig<
     typeof import("../../src/modules/ai/application/agent/ai-agent.js")
   >()),
-  resolveAiConfiguration: vi.fn(() => ({
-    enabled: true,
-    baseURL: "https://ai.test/v1",
-    apiKey: "secret-key",
-    model: "m",
-    requestTimeoutMs: 60_000,
-  })),
-  createAiAgent: vi.fn(() => ({
-    stream: async (_i: unknown, opts: { signal: AbortSignal }) =>
-      h.state.stream(opts),
-  })),
+  aiConfigService: {
+    resolve: vi.fn(() => ({
+      enabled: true,
+      baseURL: "https://ai.test/v1",
+      apiKey: "secret-key",
+      model: "m",
+      requestTimeoutMs: 60_000,
+    })),
+  },
+  aiAgentFactory: {
+    create: vi.fn(() => ({
+      stream: async (_i: unknown, opts: { signal: AbortSignal }) =>
+        h.state.stream(opts),
+    })),
+  },
 }));
 
 import { app } from "../../src/app.js";

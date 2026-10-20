@@ -2,10 +2,14 @@ import { describe, expect, it, vi } from "vitest";
 import type { AuthenticatedUser } from "../../../identity/domain/auth-user.js";
 import { dashboardDocumentSchema } from "../../../../shared/lib/contracts.js";
 import {
-  createAiDashboardTools,
+  AiDashboardTools,
   type AiDashboardQueryDefinition,
   type AiDashboardToolsRepository,
 } from "./ai-dashboard-tools.js";
+
+const createAiDashboardTools = (
+  options: ConstructorParameters<typeof AiDashboardTools>[0],
+) => new AiDashboardTools(options).tools();
 import type { AiToolProgressEvent } from "./ai-read-tools.js";
 
 const actorId = "00000000-0000-4000-8000-000000000001";

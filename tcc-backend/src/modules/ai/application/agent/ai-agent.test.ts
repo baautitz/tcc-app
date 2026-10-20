@@ -1,16 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { getEnvironment } from "../../../../shared/config/config.js";
 import {
-  createAiAgent,
+  aiAgentFactory,
+  aiConfigService,
   createAiAgentRunConfig,
-  createAiModel,
   dashboardPreflightIssue,
   queryPreflightIssue,
   AI_MAX_OUTPUT_TOKENS,
   AI_AGENT_RECURSION_LIMIT,
   DEFAULT_AI_REQUEST_TIMEOUT_MS,
-  getAiAvailability,
-  resolveAiConfiguration,
 } from "./ai-agent.js";
 
 const configured = {
@@ -22,7 +20,7 @@ const configured = {
 
 describe("configuração e factory da IA", () => {
   it("mantém a IA desabilitada quando os parâmetros não foram configurados", () => {
-    expect(resolveAiConfiguration({})).toEqual({
+    expect(aiConfigService.resolve({})).toEqual({
       enabled: false,
       code: "AI_NOT_CONFIGURED",
       missing: ["AI_BASE_URL", "AI_API_KEY", "AI_MODEL"],
@@ -42,7 +40,7 @@ describe("configuração e factory da IA", () => {
 
   it("lista parâmetros ausentes sem incluir os valores configurados", () => {
     expect(
-      resolveAiConfiguration({ AI_API_KEY: configured.AI_API_KEY }),
+      aiConfigService.resolve({ AI_API_KEY: configured.AI_API_KEY }),
     ).toEqual({
       enabled: false,
       code: "AI_NOT_CONFIGURED",
@@ -52,7 +50,7 @@ describe("configuração e factory da IA", () => {
 
   it("rejeita uma URL incompatível sem fazer a configuração geral falhar", () => {
     expect(
-      resolveAiConfiguration({ ...configured, AI_BASE_URL: "file:///tmp/ai" }),
+      aiConfigService.resolve({ ...configured, AI_BASE_URL: "file:///tmp/ai" }),
     ).toEqual({
       enabled: false,
       code: "AI_CONFIGURATION_INVALID",
@@ -61,7 +59,7 @@ describe("configuração e factory da IA", () => {
   });
 
   it("expõe status sem chave e cria um agente LangChain sem chamar o provedor", () => {
-    const configuration = resolveAiConfiguration(configured);
+    const configuration = aiConfigService.resolve(configured);
     expect(configuration).toEqual({
       enabled: true,
       baseURL: configured.AI_BASE_URL,
@@ -69,22 +67,26 @@ describe("configuração e factory da IA", () => {
       model: configured.AI_MODEL,
       requestTimeoutMs: DEFAULT_AI_REQUEST_TIMEOUT_MS,
     });
-    expect(getAiAvailability(configured)).toEqual({
+    expect(aiConfigService.availability(configured)).toEqual({
       enabled: true,
       model: configured.AI_MODEL,
     });
-    expect(JSON.stringify(getAiAvailability(configured))).not.toContain(
-      configured.AI_API_KEY,
-    );
+    expect(
+      JSON.stringify(aiConfigService.availability(configured)),
+    ).not.toContain(configured.AI_API_KEY);
 
     if (!configuration.enabled)
       throw new Error("A configuração do teste deveria estar habilitada.");
-    expect(typeof createAiAgent({ configuration }).stream).toBe("function");
-    expect(createAiModel(configuration).maxTokens).toBe(AI_MAX_OUTPUT_TOKENS);
+    expect(typeof aiAgentFactory.create({ configuration }).stream).toBe(
+      "function",
+    );
+    expect(aiConfigService.createModel(configuration).maxTokens).toBe(
+      AI_MAX_OUTPUT_TOKENS,
+    );
   });
 
   it("usa timeout padrão e valida o limite configurável sem derrubar a API", () => {
-    const defaultTimeoutConfiguration = resolveAiConfiguration({
+    const defaultTimeoutConfiguration = aiConfigService.resolve({
       AI_BASE_URL: configured.AI_BASE_URL,
       AI_API_KEY: configured.AI_API_KEY,
       AI_MODEL: configured.AI_MODEL,
@@ -94,13 +96,16 @@ describe("configuração e factory da IA", () => {
       requestTimeoutMs: DEFAULT_AI_REQUEST_TIMEOUT_MS,
     });
     expect(
-      resolveAiConfiguration({ ...configured, AI_REQUEST_TIMEOUT_MS: "45000" }),
+      aiConfigService.resolve({
+        ...configured,
+        AI_REQUEST_TIMEOUT_MS: "45000",
+      }),
     ).toMatchObject({
       enabled: true,
       requestTimeoutMs: 45_000,
     });
     expect(
-      resolveAiConfiguration({
+      aiConfigService.resolve({
         ...configured,
         AI_REQUEST_TIMEOUT_MS: "999999",
       }),

@@ -104,35 +104,43 @@ const questionnaireSchema = z
 
 type RuntimeWithToolCallId = ToolRuntime & { toolCallId?: string };
 
-export function createAiQuestionnaireTools(options: {
+export interface AiQuestionnaireToolsOptions {
   currentUser: AuthenticatedUser;
   onQuestion: (event: AiQuestionnaireProgressEvent) => void | Promise<void>;
-}): StructuredToolInterface[] {
-  if (!options.currentUser.isAdmin) {
-    throw new Error(
-      "Perguntas interativas estão disponíveis apenas para administradores.",
-    );
+}
+
+export class AiQuestionnaireTools {
+  constructor(private readonly options: AiQuestionnaireToolsOptions) {
+    if (!options.currentUser.isAdmin) {
+      throw new Error(
+        "Perguntas interativas estão disponíveis apenas para administradores.",
+      );
+    }
   }
 
-  const askAdminQuestions = tool(
-    async (questionnaire, runtime) => {
-      const toolCallId =
-        (runtime as RuntimeWithToolCallId).toolCallId ?? crypto.randomUUID();
-      await options.onQuestion({
-        type: "questionnaire",
-        toolCallId,
-        questionnaire,
-      });
-      return "As perguntas foram exibidas no chat. Aguarde a resposta do administrador e não continue o trabalho nesta rodada.";
-    },
-    {
-      name: "ask_admin_questions",
-      description:
-        "Mostra perguntas interativas ao administrador e encerra esta rodada. Use somente em tarefas da plataforma de dashboards quando faltar uma decisão de negócio indispensável, como a semântica inclusiva de uma data final ou qual dashboard existente alterar. Em perguntas analíticas diretas, não pergunte quantas linhas/grupos mostrar, formato de resposta, ou se deve salvar; mantenha todos os grupos e deixe o limite técnico da amostra explícito. Nunca use para pedidos fora da plataforma nem para perguntas respondíveis pelos dados disponíveis. Reúna perguntas indispensáveis em uma chamada com até cinco itens e aguarde a resposta antes de usar outras ferramentas.",
-      schema: questionnaireSchema,
-      returnDirect: true,
-    },
-  );
+  tools(): StructuredToolInterface[] {
+    return [this.askAdminQuestions()];
+  }
 
-  return [askAdminQuestions];
+  private askAdminQuestions() {
+    return tool(
+      async (questionnaire, runtime) => {
+        const toolCallId =
+          (runtime as RuntimeWithToolCallId).toolCallId ?? crypto.randomUUID();
+        await this.options.onQuestion({
+          type: "questionnaire",
+          toolCallId,
+          questionnaire,
+        });
+        return "As perguntas foram exibidas no chat. Aguarde a resposta do administrador e não continue o trabalho nesta rodada.";
+      },
+      {
+        name: "ask_admin_questions",
+        description:
+          "Mostra perguntas interativas ao administrador e encerra esta rodada. Use somente em tarefas da plataforma de dashboards quando faltar uma decisão de negócio indispensável, como a semântica inclusiva de uma data final ou qual dashboard existente alterar. Em perguntas analíticas diretas, não pergunte quantas linhas/grupos mostrar, formato de resposta, ou se deve salvar; mantenha todos os grupos e deixe o limite técnico da amostra explícito. Nunca use para pedidos fora da plataforma nem para perguntas respondíveis pelos dados disponíveis. Reúna perguntas indispensáveis em uma chamada com até cinco itens e aguarde a resposta antes de usar outras ferramentas.",
+        schema: questionnaireSchema,
+        returnDirect: true,
+      },
+    );
+  }
 }

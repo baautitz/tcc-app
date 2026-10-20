@@ -1,4 +1,6 @@
 import type { AiDashboardQueryPreview } from "../../../../dashboards/domain/dashboard-preview-validation.js";
+import type { AuthenticatedUser } from "../../../../identity/domain/auth-user.js";
+import type { AiToolProgressEvent } from "../read/read-types.js";
 import type { DashboardDocument } from "../../../../dashboards/domain/dashboards.js";
 
 export interface AiDashboardQuery {
@@ -17,6 +19,15 @@ export interface AiDashboardQueryDefinition extends AiDashboardQuery {
 }
 
 export type { AiDashboardQueryPreview };
+
+export interface AiDashboardToolsOptions {
+  currentUser: AuthenticatedUser;
+  pageDashboardId?: string;
+  repository: AiDashboardToolsRepository;
+  onToolEvent?: (event: AiToolProgressEvent) => void | Promise<void>;
+  /** Relógio injetável (padrão: Date.now). */
+  now?: () => number;
+}
 
 export interface AiDashboardToolsRepository {
   listSavedQueries(): Promise<AiDashboardQuery[]>;

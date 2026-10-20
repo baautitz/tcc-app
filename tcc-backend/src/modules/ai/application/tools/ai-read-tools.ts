@@ -1,4 +1,4 @@
-export { createAiReadTools } from "./read/read-tool.js";
+export { AiReadTools } from "./read/read-tool.js";
 export type {
   AiReadSource,
   AiReadSourceSummary,

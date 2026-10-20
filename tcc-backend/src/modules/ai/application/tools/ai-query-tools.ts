@@ -1,4 +1,4 @@
-export { createAiQueryTestTools } from "./query-test/query-test-tool.js";
+export { AiQueryTestTools } from "./query-test/query-test-tool.js";
 export type {
   AiQueryTestRepository,
   AiQueryTestResult,
