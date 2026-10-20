@@ -80,7 +80,7 @@ vi.mock(
 vi.mock(
   "../../src/modules/queries/infrastructure/query-lifecycle-repository.js",
   () => ({
-    createQueryLifecycleRepository: () => ({
+    queryLifecycleRepository: {
       transaction: async (op: (tx: unknown) => unknown) =>
         op({
           lockSource: async (id: string) =>
@@ -118,7 +118,7 @@ vi.mock(
             return row;
           },
         }),
-    }),
+    },
   }),
 );
 vi.mock("../../src/modules/dashboards/domain/dashboards.js", async (orig) => ({
