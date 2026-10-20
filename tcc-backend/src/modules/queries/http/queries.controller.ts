@@ -21,7 +21,7 @@ import {
 } from "../../../shared/lib/contracts.js";
 
 import { externalSource } from "../../data-sources/application/external-source.js";
-import { hasPermission } from "../../identity/application/auth.js";
+import { hasPermission } from "../../identity/domain/auth-user.js";
 
 import { bindQueryParameters } from "../../../shared/security/query-security.js";
 

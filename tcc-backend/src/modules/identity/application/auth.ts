@@ -47,7 +47,3 @@ export async function findAuthenticatedUser(
     permissions: await repo.listPermissionKeys(user.id),
   };
 }
-
-export function hasPermission(user: AuthenticatedUser, key: string): boolean {
-  return user.isAdmin || user.permissions.includes(key);
-}

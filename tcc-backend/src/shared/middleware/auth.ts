@@ -1,8 +1,8 @@
 import { type Context, type Next } from "hono";
 import { getCookie } from "hono/cookie";
 
-import { findAuthenticatedUser, hasPermission, SESSION_COOKIE } from "../../modules/identity/application/auth.js";
-import type { AuthenticatedUser } from "../../modules/identity/domain/auth-user.js";
+import { findAuthenticatedUser, SESSION_COOKIE } from "../../modules/identity/application/auth.js";
+import { hasPermission, type AuthenticatedUser } from "../../modules/identity/domain/auth-user.js";
 
 export type AppVariables = { currentUser: AuthenticatedUser };
 export type AppContext = Context<{ Variables: AppVariables }>;
