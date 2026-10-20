@@ -54,6 +54,9 @@ src/
 
 Rode `pnpm arch` em cada projeto. Ele falha se houver ciclo ou import na direção errada. A regra está em `.dependency-cruiser.cjs`.
 
+Smoke com Postgres descartável (docker, container próprio removido ao fim): `tcc-backend/scripts/smoke-context-approvals.sh`.
+Contrato de rotas: `tests/contract/routes.snapshot.test.ts` compara método+path com `routes.snapshot.txt`; após mudar rotas de propósito, regenere com `UPDATE_ROUTES=1 pnpm vitest run tests/contract`.
+
 Backend, testes sem banco real:
 
 ```
