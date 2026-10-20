@@ -99,10 +99,14 @@ export function SourceSheet({
   const [sourceUpdatedAt, setSourceUpdatedAt] = useState(
     source?.updatedAt ?? "",
   );
-  useEffect(() => {
-    // ressincroniza estado local com prop/fetch ao mudar
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+  // ressincroniza estado local ao mudar source/open (durante o render)
+  const [prevKey, setPrevKey] = useState({ source, open });
+  if (prevKey.source !== source || prevKey.open !== open) {
+    setPrevKey({ source, open });
     setSourceUpdatedAt(source?.updatedAt ?? "");
+    setTables([]);
+  }
+  useEffect(() => {
     if (source && open)
       dataSourcesApi
         .dataSource(source.id)
@@ -111,7 +115,6 @@ export function SourceSheet({
           setSourceUpdatedAt(detail.updatedAt);
         })
         .catch((reason: Error) => toast.error(reason.message));
-    else setTables([]);
   }, [source, open]);
   const saveContext = async (table: DataSourceTable, context: string) => {
     if (!source || context === table.context) return;
@@ -318,9 +321,11 @@ function TableContextEditor({
   onSave: (table: DataSourceTable, context: string) => Promise<void>;
 }) {
   const [context, setContext] = useState(table.context);
-  // ressincroniza estado local com prop/fetch ao mudar
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => setContext(table.context), [table.context]);
+  const [prevContext, setPrevContext] = useState(table.context);
+  if (prevContext !== table.context) {
+    setPrevContext(table.context);
+    setContext(table.context);
+  }
   return (
     <div className="flex flex-col gap-2 border-b pb-4 last:border-0">
       <p className="font-mono text-xs font-medium">

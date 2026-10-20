@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import {
   useForm,
   type DefaultValues,
@@ -35,9 +35,12 @@ export function useEntityForm<T extends FieldValues, E>({
   onSaved?: () => Promise<void>;
 }) {
   const form = useForm<T>({ resolver, defaultValues: toDefaults(entity) });
+  const toDefaultsRef = useRef(toDefaults);
   useEffect(() => {
-    form.reset(toDefaults(entity));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    toDefaultsRef.current = toDefaults;
+  });
+  useEffect(() => {
+    form.reset(toDefaultsRef.current(entity));
   }, [entity, form, open]);
   const submit = async (values: T) => {
     try {

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useRef, useState, type ChangeEvent } from "react";
 import { CalendarDays } from "lucide-react";
 import { ptBR } from "react-day-picker/locale";
 import { Button } from "@/shared/ui/button";
@@ -75,11 +75,12 @@ function DatePicker({
   const inputRef = useRef<HTMLInputElement>(null);
   const selectedDate = parseDate(value);
 
-  useEffect(() => {
-    // rascunho de texto ressincroniza quando o value externo muda
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+  // rascunho de texto ressincroniza quando o value externo muda
+  const [prevValue, setPrevValue] = useState(value);
+  if (prevValue !== value) {
+    setPrevValue(value);
     setDraft(dateInputValue(value));
-  }, [value]);
+  }
 
   const handleInputChange = (event: ChangeEvent<HTMLInputElement>) => {
     const input = event.currentTarget;
