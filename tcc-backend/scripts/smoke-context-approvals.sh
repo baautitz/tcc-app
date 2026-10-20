@@ -36,6 +36,7 @@ database_port="${published_ports[0]}"
 external_database_port="${published_ports[1]}"
 
 container_id="$(docker run --rm --detach \
+  --name "tcc-smoke-ctx-$$" \
   --env "POSTGRES_USER=$database_user" \
   --env "POSTGRES_PASSWORD=$database_password" \
   --env "POSTGRES_DB=$database_name" \
