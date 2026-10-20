@@ -5,9 +5,23 @@ import { identityApi } from "@/modules/identity/api/identity.api";
 import type { User } from "@/modules/identity/model/types";
 import { useEntityForm } from "@/shared/crud/useEntityForm";
 import { Button } from "@/shared/ui/button";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/shared/ui/form";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/shared/ui/form";
 import { Input } from "@/shared/ui/input";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/shared/ui/dialog";
 
 const changePasswordSchema = z
   .object({

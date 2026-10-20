@@ -18,11 +18,20 @@ describe("api client", () => {
   });
   it("throws ApiError with server message", async () => {
     mock({ ok: false, status: 403, json: async () => ({ error: "nope" }) });
-    await expect(request("/x")).rejects.toMatchObject({ message: "nope", status: 403 });
+    await expect(request("/x")).rejects.toMatchObject({
+      message: "nope",
+      status: 403,
+    });
   });
   it("falls back to default message", async () => {
-    mock({ ok: false, status: 500, json: async () => { throw new Error("x"); } });
-    const e = await request("/x").catch((e: unknown) => e) as ApiError;
+    mock({
+      ok: false,
+      status: 500,
+      json: async () => {
+        throw new Error("x");
+      },
+    });
+    const e = (await request("/x").catch((e: unknown) => e)) as ApiError;
     expect(e).toBeInstanceOf(ApiError);
     expect(e.message).toBe("A requisição falhou.");
   });
@@ -30,6 +39,9 @@ describe("api client", () => {
     const res = { ok: true } as Response;
     mock(res);
     await expect(stream("/s", { method: "POST" })).resolves.toBe(res);
-    expect((fetch as any).mock.calls[0][1]).toMatchObject({ credentials: "include", method: "POST" });
+    expect((fetch as any).mock.calls[0][1]).toMatchObject({
+      credentials: "include",
+      method: "POST",
+    });
   });
 });

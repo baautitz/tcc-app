@@ -27,7 +27,10 @@ export function useEntityForm<T extends FieldValues, E>({
   entity: E | undefined;
   open: boolean;
   toDefaults: (entity: E | undefined) => DefaultValues<T>;
-  save: (values: T, form: UseFormReturn<T>) => Promise<string | undefined | void>;
+  save: (
+    values: T,
+    form: UseFormReturn<T>,
+  ) => Promise<string | undefined | void>;
   onOpenChange: (open: boolean) => void;
   onSaved?: () => Promise<void>;
 }) {

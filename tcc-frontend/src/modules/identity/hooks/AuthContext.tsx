@@ -39,7 +39,8 @@ function AuthProvider({ children }: { children: ReactNode }) {
     (...keys: string[]) =>
       Boolean(
         user &&
-        (user.isAdmin || user.permissions.includes("*") ||
+        (user.isAdmin ||
+          user.permissions.includes("*") ||
           keys.some((key) => user.permissions.includes(key))),
       ),
     [user],

@@ -1,10 +1,22 @@
-import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import {
+  Bar,
+  BarChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { Card, CardContent } from "@/shared/ui/card";
 import { chartEmptyMessage, chartRowsFor } from "./ChartRows";
 import { ComponentError, ComponentPreviewHeader } from "./ComponentFrame";
 import type { Renderer } from "./renderers";
 
-export const BarChartRenderer: Renderer = ({ component, rows, cardClassName, changeStatus }) => {
+export const BarChartRenderer: Renderer = ({
+  component,
+  rows,
+  cardClassName,
+  changeStatus,
+}) => {
   const { nameKey, valueKey, chartRows } = chartRowsFor(component, rows);
   if (chartRows.length === 0)
     return (
@@ -16,7 +28,10 @@ export const BarChartRenderer: Renderer = ({ component, rows, cardClassName, cha
     );
   return (
     <Card className={cardClassName}>
-      <ComponentPreviewHeader component={component} changeStatus={changeStatus} />
+      <ComponentPreviewHeader
+        component={component}
+        changeStatus={changeStatus}
+      />
       <CardContent>
         <ResponsiveContainer width="100%" height={280}>
           <BarChart data={chartRows}>

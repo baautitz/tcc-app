@@ -1,5 +1,11 @@
 import { useEffect, useState } from "react";
-import { Navigate, Route, Routes, useNavigate, useParams } from "react-router-dom";
+import {
+  Navigate,
+  Route,
+  Routes,
+  useNavigate,
+  useParams,
+} from "react-router-dom";
 import { dashboardsApi } from "@/modules/dashboards/api/dashboards.api";
 import { AdminSectionPage } from "@/app/admin/AdminPage";
 import { DashboardListPage } from "@/modules/dashboards/pages/DashboardListPage";
@@ -125,4 +131,3 @@ export function ProtectedApp() {
     </Routes>
   );
 }
-

@@ -3,7 +3,14 @@ import type { DataSource } from "@/modules/data-sources/model/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { MobileCard } from "@/shared/ui/mobile-card";
 import { Skeleton } from "@/shared/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/shared/ui/table";
 import { Actions, LoadingRows } from "@/shared/crud/CrudTable";
 
 export function SourcesTable({

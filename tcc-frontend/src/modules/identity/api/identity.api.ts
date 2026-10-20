@@ -1,4 +1,8 @@
-import type { CurrentUser, Permission, User } from "@/modules/identity/model/types";
+import type {
+  CurrentUser,
+  Permission,
+  User,
+} from "@/modules/identity/model/types";
 import { request } from "@/shared/api/client";
 
 export const identityApi = {

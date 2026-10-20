@@ -101,10 +101,13 @@ function getPageTitle(pathname: string) {
 }
 
 function hasAdministrationAccess(permissions: string[]) {
-  return permissions.includes("*") || permissions.some((permission) =>
-    ["users:", "permissions:", "data-sources:", "queries:"].some((prefix) =>
-      permission.startsWith(prefix),
-    ),
+  return (
+    permissions.includes("*") ||
+    permissions.some((permission) =>
+      ["users:", "permissions:", "data-sources:", "queries:"].some((prefix) =>
+        permission.startsWith(prefix),
+      ),
+    )
   );
 }
 
@@ -124,11 +127,17 @@ export function AppLayout() {
       navigate("/login");
     } catch (reason) {
       setLogoutPending(false);
-      toast.error(reason instanceof Error ? reason.message : "Não foi possível encerrar a sessão.");
+      toast.error(
+        reason instanceof Error
+          ? reason.message
+          : "Não foi possível encerrar a sessão.",
+      );
     }
   };
 
-  const canAdmin = Boolean(user && (user.isAdmin || hasAdministrationAccess(user.permissions)));
+  const canAdmin = Boolean(
+    user && (user.isAdmin || hasAdministrationAccess(user.permissions)),
+  );
 
   return (
     <SidebarProvider className="h-dvh min-h-0 w-full overflow-hidden">
@@ -209,11 +218,17 @@ export function AppLayout() {
                     render={
                       <SidebarMenuButton size="lg">
                         <Avatar className="size-8">
-                          <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
+                          <AvatarFallback>
+                            {getInitials(user.name)}
+                          </AvatarFallback>
                         </Avatar>
                         <div className="grid flex-1 text-left text-sm leading-tight">
-                          <span className="truncate font-semibold">{user.name}</span>
-                          <span className="truncate text-xs text-muted-foreground">{user.email}</span>
+                          <span className="truncate font-semibold">
+                            {user.name}
+                          </span>
+                          <span className="truncate text-xs text-muted-foreground">
+                            {user.email}
+                          </span>
                         </div>
                         <UserRound className="ml-auto size-4" />
                       </SidebarMenuButton>
@@ -229,11 +244,17 @@ export function AppLayout() {
                       <DropdownMenuLabel className="p-0 font-normal">
                         <div className="flex items-center gap-2 px-2 py-2 text-left text-sm">
                           <Avatar className="size-8">
-                            <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
+                            <AvatarFallback>
+                              {getInitials(user.name)}
+                            </AvatarFallback>
                           </Avatar>
                           <div className="grid flex-1 text-left text-sm leading-tight">
-                            <span className="truncate font-semibold">{user.name}</span>
-                            <span className="truncate text-xs text-muted-foreground">{user.email}</span>
+                            <span className="truncate font-semibold">
+                              {user.name}
+                            </span>
+                            <span className="truncate text-xs text-muted-foreground">
+                              {user.email}
+                            </span>
                           </div>
                         </div>
                       </DropdownMenuLabel>
@@ -264,7 +285,10 @@ export function AppLayout() {
         <header className="sticky top-0 z-50 flex h-14 shrink-0 items-center border-b border-border/50 bg-background/95 px-3 backdrop-blur supports-backdrop-filter:bg-background/60 md:px-6">
           <div className="flex min-w-0 shrink-0 items-center gap-2">
             <SidebarTrigger className="-ml-1 size-8 shrink-0" />
-            <Separator orientation="vertical" className="my-auto hidden h-4 sm:block" />
+            <Separator
+              orientation="vertical"
+              className="my-auto hidden h-4 sm:block"
+            />
             <Breadcrumb className="min-w-0">
               <BreadcrumbList className="items-center">
                 <BreadcrumbItem className="hidden md:block">
@@ -296,9 +320,7 @@ export function AppLayout() {
       {user?.isAdmin && !logoutPending && (
         <AiChatDock
           open={isAiChatOpen}
-          onOpenChange={(open) =>
-            open ? openAiChat() : closeAiChat()
-          }
+          onOpenChange={(open) => (open ? openAiChat() : closeAiChat())}
         />
       )}
     </SidebarProvider>

@@ -9,7 +9,9 @@ import { queriesApi } from "@/modules/queries/api/queries.api";
 import { ImperativeUIProvider } from "@/shared/context/ImperativeUIContext";
 import { AdminSectionPage } from "./AdminPage";
 
-vi.mock("@/modules/identity/hooks/AuthContext", () => ({ useAuth: () => ({ user: { isAdmin: true } }) }));
+vi.mock("@/modules/identity/hooks/AuthContext", () => ({
+  useAuth: () => ({ user: { isAdmin: true } }),
+}));
 vi.mock("@/modules/identity/api/identity.api", () => {
   const list = () => vi.fn(() => Promise.resolve([]));
   return { identityApi: { users: list(), permissions: list() } };
@@ -24,7 +26,11 @@ vi.mock("@/modules/queries/api/queries.api", () => {
 });
 
 const calls = () =>
-  Object.entries({ ...identityApi, ...dataSourcesApi, ...queriesApi } as unknown as Record<string, ReturnType<typeof vi.fn>>)
+  Object.entries({
+    ...identityApi,
+    ...dataSourcesApi,
+    ...queriesApi,
+  } as unknown as Record<string, ReturnType<typeof vi.fn>>)
     .filter(([, fn]) => fn.mock.calls.length > 0)
     .map(([name]) => name)
     .sort();
@@ -33,8 +39,14 @@ describe("seções do admin", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     window.matchMedia = ((q: string) => ({
-      matches: false, media: q, addEventListener() {}, removeEventListener() {},
-      addListener() {}, removeListener() {}, onchange: null, dispatchEvent: () => false,
+      matches: false,
+      media: q,
+      addEventListener() {},
+      removeEventListener() {},
+      addListener() {},
+      removeListener() {},
+      onchange: null,
+      dispatchEvent: () => false,
     })) as unknown as typeof window.matchMedia;
   });
 

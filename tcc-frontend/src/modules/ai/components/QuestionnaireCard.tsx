@@ -1,16 +1,6 @@
-import {
-  useMemo,
-  type FormEvent,
-} from "react";
-import {
-  ArrowLeft,
-  ArrowRight,
-  Check,
-  Send,
-} from "lucide-react";
-import {
-  Questionnaire,
-} from "@shadcn/react/questionnaire";
+import { useMemo, type FormEvent } from "react";
+import { ArrowLeft, ArrowRight, Check, Send } from "lucide-react";
+import { Questionnaire } from "@shadcn/react/questionnaire";
 import type { AiQuestionnaire } from "@/modules/ai/model/chat-sse";
 
 export type QuestionnaireAnswers = Record<string, string[]>;
@@ -34,14 +24,18 @@ export function QuestionnaireCard({
   item: QuestionnaireChatItem;
   busy: boolean;
   isLatestInteraction: boolean;
-  onSubmit: (item: QuestionnaireChatItem, answers: QuestionnaireAnswers) => void;
+  onSubmit: (
+    item: QuestionnaireChatItem,
+    answers: QuestionnaireAnswers,
+  ) => void;
 }) {
   const definitions = useMemo(
-    () => item.questionnaire.questions.map((question) => ({
-      name: question.name,
-      required: question.required,
-      choices: question.choices.map((choice) => ({ value: choice.value })),
-    })),
+    () =>
+      item.questionnaire.questions.map((question) => ({
+        name: question.name,
+        required: question.required,
+        choices: question.choices.map((choice) => ({ value: choice.value })),
+      })),
     [item.questionnaire.questions],
   );
 
@@ -51,7 +45,10 @@ export function QuestionnaireCard({
     const answers = Object.fromEntries(
       item.questionnaire.questions.map((question) => [
         question.name,
-        formData.getAll(question.name).map(String).filter((value) => value.trim()),
+        formData
+          .getAll(question.name)
+          .map(String)
+          .filter((value) => value.trim()),
       ]),
     );
     onSubmit(item, answers);
@@ -162,7 +159,9 @@ export function QuestionnaireCard({
                     >
                       <Questionnaire.ChoiceInput className="mt-0.5 size-4 shrink-0 accent-primary" />
                       <span className="min-w-0">
-                        <span className="block font-medium">{choice.label}</span>
+                        <span className="block font-medium">
+                          {choice.label}
+                        </span>
                         {choice.description && (
                           <span className="mt-0.5 block text-xs text-muted-foreground">
                             {choice.description}
@@ -173,7 +172,10 @@ export function QuestionnaireCard({
                   ))}
                   {question.allowOther && (
                     <div className="border bg-background p-2.5">
-                      <label className="mb-1 block text-xs font-medium" htmlFor={`questionnaire-other-${item.id}-${question.name}`}>
+                      <label
+                        className="mb-1 block text-xs font-medium"
+                        htmlFor={`questionnaire-other-${item.id}-${question.name}`}
+                      >
                         {question.otherLabel}
                       </label>
                       <Questionnaire.Input

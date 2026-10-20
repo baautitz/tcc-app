@@ -10,7 +10,10 @@ import {
   CardTitle,
 } from "@/shared/ui/card";
 import { Skeleton } from "@/shared/ui/skeleton";
-import { colClass, componentChangeClasses } from "@/modules/dashboards/model/lib";
+import {
+  colClass,
+  componentChangeClasses,
+} from "@/modules/dashboards/model/lib";
 import type { DashboardComponentChange } from "@/modules/dashboards/model/types";
 
 export function ComponentPreviewHeader({
@@ -41,7 +44,11 @@ export function ComponentPreviewHeader({
   );
 }
 
-export function ComponentLoading({ component }: { component: DashboardComponent }) {
+export function ComponentLoading({
+  component,
+}: {
+  component: DashboardComponent;
+}) {
   return (
     <Card className={colClass(component)}>
       <CardHeader>
@@ -64,8 +71,13 @@ export function ComponentError({
 }) {
   const change = componentChangeClasses(changeStatus);
   return (
-    <Card className={[colClass(component), change?.card].filter(Boolean).join(" ")}>
-      <ComponentPreviewHeader component={component} changeStatus={changeStatus} />
+    <Card
+      className={[colClass(component), change?.card].filter(Boolean).join(" ")}
+    >
+      <ComponentPreviewHeader
+        component={component}
+        changeStatus={changeStatus}
+      />
       <CardContent>
         <Alert variant="destructive">
           <AlertCircle />

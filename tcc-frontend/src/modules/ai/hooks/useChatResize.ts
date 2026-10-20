@@ -1,5 +1,14 @@
-import { useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
-import { DEFAULT_AI_CHAT_WIDTH, MAX_AI_CHAT_WIDTH, MIN_AI_CHAT_WIDTH } from "@/modules/ai/model/chat-items";
+import {
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
+import {
+  DEFAULT_AI_CHAT_WIDTH,
+  MAX_AI_CHAT_WIDTH,
+  MIN_AI_CHAT_WIDTH,
+} from "@/modules/ai/model/chat-items";
 
 export const clampWidth = (w: number) =>
   Math.max(MIN_AI_CHAT_WIDTH, Math.min(MAX_AI_CHAT_WIDTH, w));
@@ -16,12 +25,20 @@ export function widthForKey(key: string, shift: boolean, width: number) {
 
 export function useChatResize() {
   const [panelWidth, setPanelWidth] = useState(DEFAULT_AI_CHAT_WIDTH);
-  const startRef = useRef<{ pointerId: number; startX: number; startWidth: number } | null>(null);
+  const startRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startWidth: number;
+  } | null>(null);
 
   const begin = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return;
     event.preventDefault();
-    startRef.current = { pointerId: event.pointerId, startX: event.clientX, startWidth: panelWidth };
+    startRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startWidth: panelWidth,
+    };
     event.currentTarget.setPointerCapture(event.pointerId);
   };
   const move = (event: ReactPointerEvent<HTMLDivElement>) => {

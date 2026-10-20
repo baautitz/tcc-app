@@ -41,13 +41,15 @@ export function componentChangeClasses(status?: DashboardComponentChange) {
     case "added":
       return {
         card: "border-emerald-600/45 bg-emerald-500/5 dark:border-emerald-400/40 dark:bg-emerald-400/5",
-        badge: "border-emerald-600/40 bg-emerald-500/10 text-emerald-800 dark:border-emerald-400/40 dark:text-emerald-300",
+        badge:
+          "border-emerald-600/40 bg-emerald-500/10 text-emerald-800 dark:border-emerald-400/40 dark:text-emerald-300",
         label: "Novo",
       };
     case "modified":
       return {
         card: "border-amber-600/45 bg-amber-500/5 dark:border-amber-400/40 dark:bg-amber-400/5",
-        badge: "border-amber-600/40 bg-amber-500/10 text-amber-800 dark:border-amber-400/40 dark:text-amber-300",
+        badge:
+          "border-amber-600/40 bg-amber-500/10 text-amber-800 dark:border-amber-400/40 dark:text-amber-300",
         label: "Modificado",
       };
     case "unchanged":

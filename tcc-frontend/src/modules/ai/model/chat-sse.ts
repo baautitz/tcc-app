@@ -63,18 +63,68 @@ type DashboardPreviewItem = {
 
 export type ChatEvent =
   | { version: 1; type: "start"; requestId: string; messageId: string }
-  | { version: 1; type: "progress"; requestId: string; phase: "waiting_for_model" | "running_tool" | "preparing_response"; elapsedMs: number; toolName?: string }
+  | {
+      version: 1;
+      type: "progress";
+      requestId: string;
+      phase: "waiting_for_model" | "running_tool" | "preparing_response";
+      elapsedMs: number;
+      toolName?: string;
+    }
   | { version: 1; type: "token"; messageId: string; delta: string }
   | { version: 1; type: "tool_start"; toolCallId: string; toolName: string }
-  | { version: 1; type: "tool_result"; toolCallId: string; toolName: string; ok: boolean }
+  | {
+      version: 1;
+      type: "tool_result";
+      toolCallId: string;
+      toolName: string;
+      ok: boolean;
+    }
   | ({ version: 1; type: "query_preview"; toolCallId: string } & QueryPreview)
-  | ({ version: 1; type: "dashboard_preview" } & Omit<DashboardPreviewItem, "id" | "kind" | "saved" | "stale">)
-  | { version: 1; type: "dashboard_applied"; dashboardId: string; dashboardName: string; mode: "create" | "update" }
-  | { version: 1; type: "questionnaire"; toolCallId: string; questionnaire: AiQuestionnaire }
-  | { version: 1; type: "context_proposal"; toolCallId: string; proposal: AiContextProposal }
-  | { version: 1; type: "proposal"; proposalId: string; kind: string; title: string; summary: string }
-  | { version: 1; type: "error"; code: string; message: string; retryable: boolean }
-  | { version: 1; type: "done"; messageId: string; finishReason: string | null };
+  | ({ version: 1; type: "dashboard_preview" } & Omit<
+      DashboardPreviewItem,
+      "id" | "kind" | "saved" | "stale"
+    >)
+  | {
+      version: 1;
+      type: "dashboard_applied";
+      dashboardId: string;
+      dashboardName: string;
+      mode: "create" | "update";
+    }
+  | {
+      version: 1;
+      type: "questionnaire";
+      toolCallId: string;
+      questionnaire: AiQuestionnaire;
+    }
+  | {
+      version: 1;
+      type: "context_proposal";
+      toolCallId: string;
+      proposal: AiContextProposal;
+    }
+  | {
+      version: 1;
+      type: "proposal";
+      proposalId: string;
+      kind: string;
+      title: string;
+      summary: string;
+    }
+  | {
+      version: 1;
+      type: "error";
+      code: string;
+      message: string;
+      retryable: boolean;
+    }
+  | {
+      version: 1;
+      type: "done";
+      messageId: string;
+      finishReason: string | null;
+    };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -91,34 +141,62 @@ function decodeEvent(eventName: string, data: string): ChatEvent | undefined {
     throw new Error("A resposta de streaming da IA está malformada.");
   }
   if (payload.version !== 1) {
-    throw new Error("A versão do protocolo de streaming da IA não é compatível.");
+    throw new Error(
+      "A versão do protocolo de streaming da IA não é compatível.",
+    );
   }
   const type = payload.type ?? eventName;
-  if (typeof type !== "string" || (eventName !== "message" && type !== eventName)) {
-    throw new Error("O evento de streaming da IA não corresponde ao protocolo.");
+  if (
+    typeof type !== "string" ||
+    (eventName !== "message" && type !== eventName)
+  ) {
+    throw new Error(
+      "O evento de streaming da IA não corresponde ao protocolo.",
+    );
   }
   const normalizedPayload = { ...payload, type };
 
   switch (type) {
     case "start":
-      if (typeof payload.requestId === "string" && typeof payload.messageId === "string") return normalizedPayload as ChatEvent;
+      if (
+        typeof payload.requestId === "string" &&
+        typeof payload.messageId === "string"
+      )
+        return normalizedPayload as ChatEvent;
       throw new Error("O evento de início da IA está malformado.");
     case "progress":
       if (
         typeof payload.requestId === "string" &&
-        ["waiting_for_model", "running_tool", "preparing_response"].includes(String(payload.phase)) &&
-        Number.isSafeInteger(payload.elapsedMs) && (payload.elapsedMs as number) >= 0 &&
+        ["waiting_for_model", "running_tool", "preparing_response"].includes(
+          String(payload.phase),
+        ) &&
+        Number.isSafeInteger(payload.elapsedMs) &&
+        (payload.elapsedMs as number) >= 0 &&
         (payload.toolName === undefined || typeof payload.toolName === "string")
-      ) return normalizedPayload as ChatEvent;
+      )
+        return normalizedPayload as ChatEvent;
       throw new Error("O evento de progresso da IA está malformado.");
     case "token":
-      if (typeof payload.messageId === "string" && typeof payload.delta === "string") return normalizedPayload as ChatEvent;
+      if (
+        typeof payload.messageId === "string" &&
+        typeof payload.delta === "string"
+      )
+        return normalizedPayload as ChatEvent;
       throw new Error("O evento de texto da IA está malformado.");
     case "tool_start":
-      if (typeof payload.toolCallId === "string" && typeof payload.toolName === "string") return normalizedPayload as ChatEvent;
+      if (
+        typeof payload.toolCallId === "string" &&
+        typeof payload.toolName === "string"
+      )
+        return normalizedPayload as ChatEvent;
       throw new Error("O evento de ferramenta da IA está malformado.");
     case "tool_result":
-      if (typeof payload.toolCallId === "string" && typeof payload.toolName === "string" && typeof payload.ok === "boolean") return normalizedPayload as ChatEvent;
+      if (
+        typeof payload.toolCallId === "string" &&
+        typeof payload.toolName === "string" &&
+        typeof payload.ok === "boolean"
+      )
+        return normalizedPayload as ChatEvent;
       throw new Error("O resultado da ferramenta da IA está malformado.");
     case "query_preview": {
       const dataSource = payload.dataSource;
@@ -126,34 +204,65 @@ function decodeEvent(eventName: string, data: string): ChatEvent | undefined {
       const parameters = payload.parameters;
       const rows = payload.rows;
       const testValues = payload.testValues;
-      const validParameters = Array.isArray(parameters) && parameters.every((parameter) =>
-        isRecord(parameter) &&
-        typeof parameter.name === "string" &&
-        typeof parameter.label === "string" &&
-        ["text", "number", "date", "boolean", "multi_select"].includes(String(parameter.type)) &&
-        typeof parameter.required === "boolean",
-      );
-      const validValues = isRecord(testValues) && Object.values(testValues).every((value) =>
-        typeof value === "string" || (Array.isArray(value) && value.every((entry) => typeof entry === "string")),
-      );
+      const validParameters =
+        Array.isArray(parameters) &&
+        parameters.every(
+          (parameter) =>
+            isRecord(parameter) &&
+            typeof parameter.name === "string" &&
+            typeof parameter.label === "string" &&
+            ["text", "number", "date", "boolean", "multi_select"].includes(
+              String(parameter.type),
+            ) &&
+            typeof parameter.required === "boolean",
+        );
+      const validValues =
+        isRecord(testValues) &&
+        Object.values(testValues).every(
+          (value) =>
+            typeof value === "string" ||
+            (Array.isArray(value) &&
+              value.every((entry) => typeof entry === "string")),
+        );
       if (
         typeof payload.toolCallId === "string" &&
         typeof payload.testRunId === "string" &&
-        isRecord(dataSource) && typeof dataSource.id === "string" && typeof dataSource.name === "string" &&
-        (payload.purpose === undefined || ["dashboard", "quick_query"].includes(String(payload.purpose))) &&
-        isRecord(intent) && ["create", "update"].includes(String(intent.mode)) && typeof intent.queryName === "string" &&
+        isRecord(dataSource) &&
+        typeof dataSource.id === "string" &&
+        typeof dataSource.name === "string" &&
+        (payload.purpose === undefined ||
+          ["dashboard", "quick_query"].includes(String(payload.purpose))) &&
+        isRecord(intent) &&
+        ["create", "update"].includes(String(intent.mode)) &&
+        typeof intent.queryName === "string" &&
         (intent.queryId === undefined || typeof intent.queryId === "string") &&
-        (intent.queryUpdatedAt === undefined || typeof intent.queryUpdatedAt === "string") &&
-        (intent.mode !== "update" || (typeof intent.queryId === "string" && typeof intent.queryUpdatedAt === "string")) &&
-        typeof payload.sqlText === "string" && validParameters && validValues &&
-        Array.isArray(rows) && rows.every(isRecord) &&
-        Number.isSafeInteger(payload.rowCount) && payload.rowCount === rows.length &&
-        Number.isSafeInteger(payload.rowLimit) && (payload.rowLimit as number) > 0 && rows.length <= (payload.rowLimit as number) &&
-        Number.isSafeInteger(payload.byteLimit) && (payload.byteLimit as number) > 0 &&
-        Number.isSafeInteger(payload.bytes) && (payload.bytes as number) >= 0 && (payload.bytes as number) <= (payload.byteLimit as number) &&
+        (intent.queryUpdatedAt === undefined ||
+          typeof intent.queryUpdatedAt === "string") &&
+        (intent.mode !== "update" ||
+          (typeof intent.queryId === "string" &&
+            typeof intent.queryUpdatedAt === "string")) &&
+        typeof payload.sqlText === "string" &&
+        validParameters &&
+        validValues &&
+        Array.isArray(rows) &&
+        rows.every(isRecord) &&
+        Number.isSafeInteger(payload.rowCount) &&
+        payload.rowCount === rows.length &&
+        Number.isSafeInteger(payload.rowLimit) &&
+        (payload.rowLimit as number) > 0 &&
+        rows.length <= (payload.rowLimit as number) &&
+        Number.isSafeInteger(payload.byteLimit) &&
+        (payload.byteLimit as number) > 0 &&
+        Number.isSafeInteger(payload.bytes) &&
+        (payload.bytes as number) >= 0 &&
+        (payload.bytes as number) <= (payload.byteLimit as number) &&
         typeof payload.truncated === "boolean" &&
-        (payload.truncationReason === null || ["row_limit", "byte_limit"].includes(String(payload.truncationReason)))
-      ) return normalizedPayload as ChatEvent;
+        (payload.truncationReason === null ||
+          ["row_limit", "byte_limit"].includes(
+            String(payload.truncationReason),
+          ))
+      )
+        return normalizedPayload as ChatEvent;
       throw new Error("A prévia da query está malformada.");
     }
     case "proposal":
@@ -162,7 +271,8 @@ function decodeEvent(eventName: string, data: string): ChatEvent | undefined {
         typeof payload.kind === "string" &&
         typeof payload.title === "string" &&
         typeof payload.summary === "string"
-      ) return normalizedPayload as ChatEvent;
+      )
+        return normalizedPayload as ChatEvent;
       throw new Error("A proposta da IA está malformada.");
     case "context_proposal": {
       const proposal = payload.proposal;
@@ -174,17 +284,26 @@ function decodeEvent(eventName: string, data: string): ChatEvent | undefined {
         ["source", "table"].includes(String(proposal.targetType)) &&
         typeof proposal.dataSourceId === "string" &&
         typeof proposal.sourceName === "string" &&
-        ((proposal.targetType === "source" && proposal.tableId === null && proposal.schemaName === null && proposal.tableName === null) ||
-          (proposal.targetType === "table" && typeof proposal.tableId === "string" && typeof proposal.schemaName === "string" && typeof proposal.tableName === "string")) &&
-        Number.isSafeInteger(proposal.baseContextVersion) && (proposal.baseContextVersion as number) > 0 &&
+        ((proposal.targetType === "source" &&
+          proposal.tableId === null &&
+          proposal.schemaName === null &&
+          proposal.tableName === null) ||
+          (proposal.targetType === "table" &&
+            typeof proposal.tableId === "string" &&
+            typeof proposal.schemaName === "string" &&
+            typeof proposal.tableName === "string")) &&
+        Number.isSafeInteger(proposal.baseContextVersion) &&
+        (proposal.baseContextVersion as number) > 0 &&
         typeof proposal.currentContext === "string" &&
         typeof proposal.proposedContext === "string" &&
         typeof proposal.reason === "string" &&
         proposal.status === "pending" &&
         typeof proposal.expiresAt === "string" &&
         typeof proposal.createdAt === "string" &&
-        (proposal.resolvedAt === null || typeof proposal.resolvedAt === "string")
-      ) return normalizedPayload as ChatEvent;
+        (proposal.resolvedAt === null ||
+          typeof proposal.resolvedAt === "string")
+      )
+        return normalizedPayload as ChatEvent;
       throw new Error("A proposta de contexto da IA está malformada.");
     }
     case "dashboard_preview": {
@@ -193,41 +312,70 @@ function decodeEvent(eventName: string, data: string): ChatEvent | undefined {
       const queries = payload.queries;
       const componentChanges = payload.componentChanges;
       const previewComponentIds = payload.previewComponentIds;
-      const definitionComponentIds = isRecord(definition) && Array.isArray(definition.components)
-        ? definition.components.flatMap((component) =>
-            isRecord(component) && typeof component.id === "string" ? [component.id] : [],
-          )
-        : [];
-      const validQueries = isRecord(queries) && Object.values(queries).every((query) =>
-        isRecord(query) &&
-        Array.isArray(query.rows) && query.rows.every(isRecord) &&
-        Number.isSafeInteger(query.rowLimit) && (query.rowLimit as number) > 0 && query.rows.length <= (query.rowLimit as number) &&
-        Number.isSafeInteger(query.byteLimit) && (query.byteLimit as number) > 0 &&
-        Number.isSafeInteger(query.bytes) && (query.bytes as number) >= 0 && (query.bytes as number) <= (query.byteLimit as number) &&
-        typeof query.truncated === "boolean" &&
-        (query.truncationReason === null || ["row_limit", "byte_limit"].includes(String(query.truncationReason))) &&
-        (query.error === undefined || typeof query.error === "string") &&
-        (query.previewPending === undefined || typeof query.previewPending === "string"),
-      );
-      const validComponentChanges = isRecord(componentChanges) && Object.entries(componentChanges).every(([id, status]) =>
-        definitionComponentIds.includes(id) && ["added", "modified", "unchanged"].includes(String(status)),
-      );
+      const definitionComponentIds =
+        isRecord(definition) && Array.isArray(definition.components)
+          ? definition.components.flatMap((component) =>
+              isRecord(component) && typeof component.id === "string"
+                ? [component.id]
+                : [],
+            )
+          : [];
+      const validQueries =
+        isRecord(queries) &&
+        Object.values(queries).every(
+          (query) =>
+            isRecord(query) &&
+            Array.isArray(query.rows) &&
+            query.rows.every(isRecord) &&
+            Number.isSafeInteger(query.rowLimit) &&
+            (query.rowLimit as number) > 0 &&
+            query.rows.length <= (query.rowLimit as number) &&
+            Number.isSafeInteger(query.byteLimit) &&
+            (query.byteLimit as number) > 0 &&
+            Number.isSafeInteger(query.bytes) &&
+            (query.bytes as number) >= 0 &&
+            (query.bytes as number) <= (query.byteLimit as number) &&
+            typeof query.truncated === "boolean" &&
+            (query.truncationReason === null ||
+              ["row_limit", "byte_limit"].includes(
+                String(query.truncationReason),
+              )) &&
+            (query.error === undefined || typeof query.error === "string") &&
+            (query.previewPending === undefined ||
+              typeof query.previewPending === "string"),
+        );
+      const validComponentChanges =
+        isRecord(componentChanges) &&
+        Object.entries(componentChanges).every(
+          ([id, status]) =>
+            definitionComponentIds.includes(id) &&
+            ["added", "modified", "unchanged"].includes(String(status)),
+        );
       if (
         typeof payload.toolCallId === "string" &&
         typeof payload.proposalId === "string" &&
         typeof payload.expiresAt === "string" &&
-        typeof payload.canCommit === "boolean" && Array.isArray(payload.issues) && payload.issues.every((issue) => typeof issue === "string") &&
+        typeof payload.canCommit === "boolean" &&
+        Array.isArray(payload.issues) &&
+        payload.issues.every((issue) => typeof issue === "string") &&
         ["create", "update"].includes(String(payload.mode)) &&
         typeof payload.dashboardId === "string" &&
-        (payload.expectedDashboardFingerprint === null || typeof payload.expectedDashboardFingerprint === "string") &&
-        isRecord(document) && typeof document.id === "string" && typeof document.name === "string" &&
-        isRecord(definition) && Array.isArray(definition.components) &&
+        (payload.expectedDashboardFingerprint === null ||
+          typeof payload.expectedDashboardFingerprint === "string") &&
+        isRecord(document) &&
+        typeof document.id === "string" &&
+        typeof document.name === "string" &&
+        isRecord(definition) &&
+        Array.isArray(definition.components) &&
         Array.isArray(previewComponentIds) &&
-        previewComponentIds.every((id) => typeof id === "string" && definitionComponentIds.includes(id)) &&
+        previewComponentIds.every(
+          (id) => typeof id === "string" && definitionComponentIds.includes(id),
+        ) &&
         validComponentChanges &&
         new Set(previewComponentIds).size === previewComponentIds.length &&
         validQueries
-      ) return normalizedPayload as ChatEvent;
+      )
+        return normalizedPayload as ChatEvent;
       throw new Error("A prévia do dashboard está malformada.");
     }
     case "dashboard_applied":
@@ -235,34 +383,41 @@ function decodeEvent(eventName: string, data: string): ChatEvent | undefined {
         typeof payload.dashboardId === "string" &&
         typeof payload.dashboardName === "string" &&
         ["create", "update"].includes(String(payload.mode))
-      ) return normalizedPayload as ChatEvent;
+      )
+        return normalizedPayload as ChatEvent;
       throw new Error("A confirmação do patch no dashboard está malformada.");
     case "questionnaire": {
       const questionnaire = payload.questionnaire;
-      const validQuestions = isRecord(questionnaire) &&
+      const validQuestions =
+        isRecord(questionnaire) &&
         typeof questionnaire.title === "string" &&
         Array.isArray(questionnaire.questions) &&
         questionnaire.questions.length > 0 &&
         questionnaire.questions.length <= 5 &&
-        questionnaire.questions.every((question) =>
-          isRecord(question) &&
-          typeof question.name === "string" && /^[a-z][a-z0-9_-]{0,63}$/.test(question.name) &&
-          typeof question.prompt === "string" &&
-          (question.description === undefined || typeof question.description === "string") &&
-          typeof question.required === "boolean" &&
-          typeof question.multiple === "boolean" &&
-          typeof question.allowOther === "boolean" &&
-          typeof question.otherLabel === "string" &&
-          typeof question.otherPlaceholder === "string" &&
-          Array.isArray(question.choices) &&
-          question.choices.length <= 8 &&
-          question.choices.every((choice) =>
-            isRecord(choice) &&
-            typeof choice.value === "string" &&
-            typeof choice.label === "string" &&
-            (choice.description === undefined || typeof choice.description === "string"),
-          ) &&
-          (question.choices.length > 0 || question.allowOther),
+        questionnaire.questions.every(
+          (question) =>
+            isRecord(question) &&
+            typeof question.name === "string" &&
+            /^[a-z][a-z0-9_-]{0,63}$/.test(question.name) &&
+            typeof question.prompt === "string" &&
+            (question.description === undefined ||
+              typeof question.description === "string") &&
+            typeof question.required === "boolean" &&
+            typeof question.multiple === "boolean" &&
+            typeof question.allowOther === "boolean" &&
+            typeof question.otherLabel === "string" &&
+            typeof question.otherPlaceholder === "string" &&
+            Array.isArray(question.choices) &&
+            question.choices.length <= 8 &&
+            question.choices.every(
+              (choice) =>
+                isRecord(choice) &&
+                typeof choice.value === "string" &&
+                typeof choice.label === "string" &&
+                (choice.description === undefined ||
+                  typeof choice.description === "string"),
+            ) &&
+            (question.choices.length > 0 || question.allowOther),
         );
       if (typeof payload.toolCallId === "string" && validQuestions) {
         return normalizedPayload as ChatEvent;
@@ -270,10 +425,20 @@ function decodeEvent(eventName: string, data: string): ChatEvent | undefined {
       throw new Error("O formulário de esclarecimento da IA está malformado.");
     }
     case "error":
-      if (typeof payload.code === "string" && typeof payload.message === "string" && typeof payload.retryable === "boolean") return normalizedPayload as ChatEvent;
+      if (
+        typeof payload.code === "string" &&
+        typeof payload.message === "string" &&
+        typeof payload.retryable === "boolean"
+      )
+        return normalizedPayload as ChatEvent;
       throw new Error("O evento de erro da IA está malformado.");
     case "done":
-      if (typeof payload.messageId === "string" && (typeof payload.finishReason === "string" || payload.finishReason === null)) return normalizedPayload as ChatEvent;
+      if (
+        typeof payload.messageId === "string" &&
+        (typeof payload.finishReason === "string" ||
+          payload.finishReason === null)
+      )
+        return normalizedPayload as ChatEvent;
       throw new Error("O evento de conclusão da IA está malformado.");
     default:
       throw new Error("A IA enviou um evento de streaming desconhecido.");
@@ -296,7 +461,8 @@ export class SseV1Parser {
     for (let index = 0; index < this.buffer.length; index += 1) {
       const character = this.buffer[index];
       if (character !== "\n" && character !== "\r") continue;
-      if (character === "\r" && index === this.buffer.length - 1 && !final) break;
+      if (character === "\r" && index === this.buffer.length - 1 && !final)
+        break;
 
       this.consumeLine(this.buffer.slice(lineStart, index), events);
       if (character === "\r" && this.buffer[index + 1] === "\n") index += 1;
@@ -308,8 +474,10 @@ export class SseV1Parser {
       if (this.buffer.length) this.consumeLine(this.buffer, events);
       this.buffer = "";
       this.consumeLine("", events);
-      if (this.startedMessageId === undefined) throw new Error("O stream da IA terminou sem evento de início.");
-      if (!this.terminal) throw new Error("O stream da IA terminou sem evento terminal.");
+      if (this.startedMessageId === undefined)
+        throw new Error("O stream da IA terminou sem evento de início.");
+      if (!this.terminal)
+        throw new Error("O stream da IA terminou sem evento terminal.");
     }
     return events;
   }
@@ -338,19 +506,32 @@ export class SseV1Parser {
   }
 
   private validateOrder(event: ChatEvent) {
-    if (this.terminal) throw new Error("A IA enviou eventos após a conclusão do streaming.");
+    if (this.terminal)
+      throw new Error("A IA enviou eventos após a conclusão do streaming.");
     if (event.type === "start") {
-      if (this.startedMessageId !== undefined) throw new Error("O evento de início da IA apareceu mais de uma vez.");
+      if (this.startedMessageId !== undefined)
+        throw new Error("O evento de início da IA apareceu mais de uma vez.");
       this.startedMessageId = event.messageId;
       this.startedRequestId = event.requestId;
       return;
     }
-    if (this.startedMessageId === undefined) throw new Error("O streaming da IA começou antes do evento de início.");
-    if (event.type === "progress" && event.requestId !== this.startedRequestId) {
-      throw new Error("O ID da requisição do evento de progresso da IA não corresponde ao início.");
+    if (this.startedMessageId === undefined)
+      throw new Error("O streaming da IA começou antes do evento de início.");
+    if (
+      event.type === "progress" &&
+      event.requestId !== this.startedRequestId
+    ) {
+      throw new Error(
+        "O ID da requisição do evento de progresso da IA não corresponde ao início.",
+      );
     }
-    if ((event.type === "token" || event.type === "done") && event.messageId !== this.startedMessageId) {
-      throw new Error("O ID da mensagem do evento de streaming da IA não corresponde ao início.");
+    if (
+      (event.type === "token" || event.type === "done") &&
+      event.messageId !== this.startedMessageId
+    ) {
+      throw new Error(
+        "O ID da mensagem do evento de streaming da IA não corresponde ao início.",
+      );
     }
     if (event.type === "done" || event.type === "error") this.terminal = true;
   }
@@ -367,7 +548,8 @@ export async function readChatStream(
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      for (const event of parser.push(decoder.decode(value, { stream: true }))) onEvent(event);
+      for (const event of parser.push(decoder.decode(value, { stream: true })))
+        onEvent(event);
     }
     const finalChunk = decoder.decode();
     for (const event of parser.push(finalChunk, true)) onEvent(event);

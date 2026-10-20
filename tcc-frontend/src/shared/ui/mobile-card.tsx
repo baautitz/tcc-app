@@ -26,7 +26,9 @@ export const MobileCard: React.FC<MobileCardProps> = ({
         <div className="flex flex-col gap-1">
           <span className="text-sm font-semibold leading-none">{primary}</span>
           {secondary && (
-            <span className="font-mono text-xs text-muted-foreground">{secondary}</span>
+            <span className="font-mono text-xs text-muted-foreground">
+              {secondary}
+            </span>
           )}
         </div>
 
@@ -38,7 +40,9 @@ export const MobileCard: React.FC<MobileCardProps> = ({
               <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                 {field.label}
               </span>
-              <span className="text-sm font-medium break-words">{field.value}</span>
+              <span className="text-sm font-medium break-words">
+                {field.value}
+              </span>
             </div>
           ))}
         </div>
@@ -46,9 +50,7 @@ export const MobileCard: React.FC<MobileCardProps> = ({
 
       {actions && (
         <>
-          <CardFooter className="justify-end">
-            {actions}
-          </CardFooter>
+          <CardFooter className="justify-end">{actions}</CardFooter>
         </>
       )}
     </Card>

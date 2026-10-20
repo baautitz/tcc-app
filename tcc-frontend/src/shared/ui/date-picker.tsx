@@ -11,7 +11,9 @@ function parseDate(value: string): Date | undefined {
   if (!match) return undefined;
   const [, year, month, day] = match;
   const date = new Date(Number(year), Number(month) - 1, Number(day));
-  return date.getFullYear() === Number(year) && date.getMonth() === Number(month) - 1 && date.getDate() === Number(day)
+  return date.getFullYear() === Number(year) &&
+    date.getMonth() === Number(month) - 1 &&
+    date.getDate() === Number(day)
     ? date
     : undefined;
 }
@@ -50,12 +52,24 @@ function formDateValue(value: string): string {
   const date = new Date(0);
   date.setHours(0, 0, 0, 0);
   date.setFullYear(Number(year), Number(month) - 1, Number(day));
-  return date.getFullYear() === Number(year) && date.getMonth() === Number(month) - 1 && date.getDate() === Number(day)
+  return date.getFullYear() === Number(year) &&
+    date.getMonth() === Number(month) - 1 &&
+    date.getDate() === Number(day)
     ? `${year}-${month}-${day}`
     : value;
 }
 
-function DatePicker({ value, onChange, onBlur, label }: { value: string; onChange: (value: string) => void; onBlur?: () => void; label: string }) {
+function DatePicker({
+  value,
+  onChange,
+  onBlur,
+  label,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  onBlur?: () => void;
+  label: string;
+}) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(() => dateInputValue(value));
   const inputRef = useRef<HTMLInputElement>(null);
@@ -67,7 +81,9 @@ function DatePicker({ value, onChange, onBlur, label }: { value: string; onChang
 
   const handleInputChange = (event: ChangeEvent<HTMLInputElement>) => {
     const input = event.currentTarget;
-    const digitsBeforeCaret = input.value.slice(0, input.selectionStart ?? input.value.length).replace(/\D/g, "").length;
+    const digitsBeforeCaret = input.value
+      .slice(0, input.selectionStart ?? input.value.length)
+      .replace(/\D/g, "").length;
     const nextDraft = maskDate(input.value);
     setDraft(nextDraft);
     onChange(formDateValue(nextDraft));
@@ -104,7 +120,13 @@ function DatePicker({ value, onChange, onBlur, label }: { value: string; onChang
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger
           render={
-            <Button type="button" variant="ghost" size="icon" aria-label={`Abrir calendário para ${label}`} className="absolute top-0 right-0 h-8 w-8 border-l border-border" />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label={`Abrir calendário para ${label}`}
+              className="absolute top-0 right-0 h-8 w-8 border-l border-border"
+            />
           }
         >
           <CalendarDays />

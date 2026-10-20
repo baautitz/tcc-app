@@ -6,7 +6,12 @@ import { chartEmptyMessage, chartRowsFor } from "./ChartRows";
 import { ComponentError, ComponentPreviewHeader } from "./ComponentFrame";
 import type { Renderer } from "./renderers";
 
-export const PieChartRenderer: Renderer = ({ component, rows, cardClassName, changeStatus }) => {
+export const PieChartRenderer: Renderer = ({
+  component,
+  rows,
+  cardClassName,
+  changeStatus,
+}) => {
   const { nameKey, valueKey, chartRows } = chartRowsFor(component, rows);
   if (chartRows.length === 0)
     return (
@@ -19,13 +24,15 @@ export const PieChartRenderer: Renderer = ({ component, rows, cardClassName, cha
   const rankedRows = chartRows
     .map((row, index) => ({ row, rank: Number(row.ranking ?? index + 1) }))
     .filter(
-      (item) =>
-        Number.isInteger(item.rank) && item.rank > 0 && item.rank <= 5,
+      (item) => Number.isInteger(item.rank) && item.rank > 0 && item.rank <= 5,
     )
     .sort((left, right) => left.rank - right.rank);
   return (
     <Card className={cardClassName}>
-      <ComponentPreviewHeader component={component} changeStatus={changeStatus} />
+      <ComponentPreviewHeader
+        component={component}
+        changeStatus={changeStatus}
+      />
       <CardContent>
         <div className="grid items-center gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(9rem,0.8fr)]">
           <ResponsiveContainer width="100%" height={280}>

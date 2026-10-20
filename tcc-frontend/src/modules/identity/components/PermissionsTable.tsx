@@ -1,10 +1,23 @@
 import { ShieldCheck } from "lucide-react";
 import type { Permission } from "@/modules/identity/model/types";
 import { Badge } from "@/shared/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/shared/ui/card";
 import { MobileCard } from "@/shared/ui/mobile-card";
 import { Skeleton } from "@/shared/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/shared/ui/table";
 import { LoadingRows } from "@/shared/crud/CrudTable";
 
 export function PermissionsTable({

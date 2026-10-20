@@ -1,13 +1,33 @@
 import type { UseFormReturn } from "react-hook-form";
 import type { DataSource } from "@/modules/data-sources/model/types";
 import { FieldGroup } from "@/shared/ui/field";
-import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/shared/ui/form";
+import {
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/shared/ui/form";
 import { Input } from "@/shared/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/shared/ui/select";
 import { Textarea } from "@/shared/ui/textarea";
 import type { QueryForm } from "@/modules/queries/model/queryForm";
 
-export function QueryFormFields({ form, sources, saving }: { form: UseFormReturn<QueryForm>; sources: DataSource[]; saving: boolean }) {
+export function QueryFormFields({
+  form,
+  sources,
+  saving,
+}: {
+  form: UseFormReturn<QueryForm>;
+  sources: DataSource[];
+  saving: boolean;
+}) {
   return (
     <FieldGroup>
       <FormField
@@ -70,8 +90,8 @@ export function QueryFormFields({ form, sources, saving }: { form: UseFormReturn
               />
             </FormControl>
             <p className="text-xs text-muted-foreground">
-              Use placeholders como {"{{start_date}}"}; os valores são
-              enviados como parâmetros bind do PostgreSQL.
+              Use placeholders como {"{{start_date}}"}; os valores são enviados
+              como parâmetros bind do PostgreSQL.
             </p>
             <FormMessage />
           </FormItem>

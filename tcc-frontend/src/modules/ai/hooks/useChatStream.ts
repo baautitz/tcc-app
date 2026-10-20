@@ -9,14 +9,17 @@ export async function runChatStream(
 ) {
   const response = await aiApi.streamAiChat(body, signal);
   if (!response.ok) {
-    const result = (await response.json().catch(() => ({}))) as { error?: unknown };
+    const result = (await response.json().catch(() => ({}))) as {
+      error?: unknown;
+    };
     throw new Error(
       typeof result.error === "string"
         ? result.error
         : "Não foi possível iniciar a conversa com a IA.",
     );
   }
-  if (!response.body) throw new Error("O servidor não iniciou o streaming da IA.");
+  if (!response.body)
+    throw new Error("O servidor não iniciou o streaming da IA.");
 
   let receivedDone = false;
   let receivedError = false;

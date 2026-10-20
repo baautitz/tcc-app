@@ -11,7 +11,10 @@ export class ApiError extends Error {
   }
 }
 
-export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+export async function request<T>(
+  path: string,
+  options: RequestInit = {},
+): Promise<T> {
   const response = await fetch(`${baseUrl}${path}`, {
     credentials: "include",
     headers: { "Content-Type": "application/json", ...options.headers },
@@ -33,6 +36,9 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
 }
 
 /** Raw fetch (SSE etc.): credentials included, response returned untouched. */
-export function stream(path: string, options: RequestInit = {}): Promise<Response> {
+export function stream(
+  path: string,
+  options: RequestInit = {},
+): Promise<Response> {
   return fetch(`${baseUrl}${path}`, { credentials: "include", ...options });
 }

@@ -34,7 +34,10 @@ const make = (type: string): DashboardComponent =>
     layoutProps: { colSpan: 6, rowSpan: 1 },
     props: {},
   }) as DashboardComponent;
-const rows = [{ nome: "A", total: 3 }, { nome: "B", total: 5 }];
+const rows = [
+  { nome: "A", total: 3 },
+  { nome: "B", total: 5 },
+];
 
 describe("registry de renderers", () => {
   it.each(["stat_card", "bar_chart", "line_chart", "pie_chart", "data_table"])(

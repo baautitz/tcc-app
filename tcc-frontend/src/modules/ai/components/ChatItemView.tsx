@@ -1,7 +1,4 @@
-import {
-  lazy,
-  Suspense,
-} from "react";
+import { lazy, Suspense } from "react";
 import {
   Check,
   CircleAlert,
@@ -10,30 +7,22 @@ import {
   Sparkles,
   Wrench,
 } from "lucide-react";
-import {
-  Button,
-} from "@/shared/ui/button";
+import { Button } from "@/shared/ui/button";
 import {
   Message,
   MessageContent,
   MessageFooter,
   MessageHeader,
 } from "@/shared/ui/message";
-import {
-  Bubble,
-  BubbleContent,
-} from "@/shared/ui/bubble";
-import {
-  Marker,
-  MarkerContent,
-  MarkerIcon,
-} from "@/shared/ui/marker";
-import {
-  cn,
-} from "@/shared/lib/utils";
+import { Bubble, BubbleContent } from "@/shared/ui/bubble";
+import { Marker, MarkerContent, MarkerIcon } from "@/shared/ui/marker";
+import { cn } from "@/shared/lib/utils";
 import type { AiContextProposal } from "@/modules/ai/model/types";
 import type { QueryPreview } from "@/modules/queries/model/types";
-import type { DashboardDefinition, DashboardDocument } from "@/modules/dashboards/model/types";
+import type {
+  DashboardDefinition,
+  DashboardDocument,
+} from "@/modules/dashboards/model/types";
 import {
   QuestionnaireCard,
   type QuestionnaireAnswers,
@@ -46,11 +35,11 @@ import {
   type ChatItem,
   toolLabel,
 } from "@/modules/ai/model/chat-items";
-import {
-  DashboardPreviewCard,
-} from "@/modules/ai/components/DashboardPreviewCard";
+import { DashboardPreviewCard } from "@/modules/ai/components/DashboardPreviewCard";
 const ChatMarkdown = lazy(() =>
-  import("@/modules/ai/components/ChatMarkdown").then((module) => ({ default: module.ChatMarkdown })),
+  import("@/modules/ai/components/ChatMarkdown").then((module) => ({
+    default: module.ChatMarkdown,
+  })),
 );
 export function ChatItemView({
   item,
@@ -120,7 +109,8 @@ export function ChatItemView({
             {item.intent.mode === "update" ? "edição" : "nova query"}
           </p>
           <p className="mt-1 break-words text-xs text-muted-foreground">
-            {item.dataSource.name} · {item.savedQueryName ?? item.intent.queryName}
+            {item.dataSource.name} ·{" "}
+            {item.savedQueryName ?? item.intent.queryName}
           </p>
           <p className="mt-1 break-words text-xs text-muted-foreground">
             {item.rowCount}/{item.rowLimit} linhas · {item.bytes}/
@@ -317,4 +307,3 @@ export function ChatItemView({
     </Message>
   );
 }
-

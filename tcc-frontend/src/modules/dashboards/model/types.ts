@@ -52,7 +52,10 @@ export type DashboardDocument = {
   description?: string;
   workspace: { params: DashboardArgument[] };
   queryBindings: QueryBinding[];
-  ui: { layout: Record<string, unknown> & { gap: number }; components: DashboardDocumentComponent[] } & Record<string, unknown>;
+  ui: {
+    layout: Record<string, unknown> & { gap: number };
+    components: DashboardDocumentComponent[];
+  } & Record<string, unknown>;
 };
 
 export type Dashboard = DashboardSummary & {

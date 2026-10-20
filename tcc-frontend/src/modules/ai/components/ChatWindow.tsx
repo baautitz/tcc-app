@@ -1,10 +1,4 @@
-import {
-  Bot,
-  LoaderCircle,
-  Sparkles,
-  Trash2,
-  X,
-} from "lucide-react";
+import { Bot, LoaderCircle, Sparkles, Trash2, X } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import {
   MessageScroller,
@@ -14,11 +8,7 @@ import {
   MessageScrollerProvider,
   MessageScrollerViewport,
 } from "@/shared/ui/message-scroller";
-import {
-  Marker,
-  MarkerContent,
-  MarkerIcon,
-} from "@/shared/ui/marker";
+import { Marker, MarkerContent, MarkerIcon } from "@/shared/ui/marker";
 import type { AiContextProposal } from "@/modules/ai/model/types";
 import {
   type QuestionnaireAnswers,
@@ -96,9 +86,9 @@ export function ChatWindow({
     );
     return Boolean(
       owner &&
-        owner.id === latestMessage?.id &&
-        owner.actionCard?.id === item.id &&
-        owner.actionCard?.kind === item.kind,
+      owner.id === latestMessage?.id &&
+      owner.actionCard?.id === item.id &&
+      owner.actionCard?.kind === item.kind,
     );
   };
 
@@ -113,8 +103,12 @@ export function ChatWindow({
     canSavePreview,
     savePreview,
   } = useReviewPreview(items, latestMessage, onPreviewSaved);
-  const { reviewContext, setReviewContext, resolvingContext, resolveContextProposal } =
-    useContextProposal(onContextProposalResolved);
+  const {
+    reviewContext,
+    setReviewContext,
+    resolvingContext,
+    resolveContextProposal,
+  } = useContextProposal(onContextProposalResolved);
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-background">
@@ -198,17 +192,17 @@ export function ChatWindow({
                     );
                   })}
                   {busy && activityProgress && (
-                      <MessageScrollerItem messageId="assistant-thinking">
-                        <Marker role="status" className="px-4 text-xs">
-                          <MarkerIcon>
-                            <LoaderCircle className="animate-spin" />
-                          </MarkerIcon>
-                          <MarkerContent className="shimmer">
-                            {activityProgress}
-                          </MarkerContent>
-                        </Marker>
-                      </MessageScrollerItem>
-                    )}
+                    <MessageScrollerItem messageId="assistant-thinking">
+                      <Marker role="status" className="px-4 text-xs">
+                        <MarkerIcon>
+                          <LoaderCircle className="animate-spin" />
+                        </MarkerIcon>
+                        <MarkerContent className="shimmer">
+                          {activityProgress}
+                        </MarkerContent>
+                      </Marker>
+                    </MessageScrollerItem>
+                  )}
                 </MessageScrollerContent>
               </MessageScrollerViewport>
               <MessageScrollerButton />

@@ -12,11 +12,19 @@ import { componentColumns } from "@/modules/dashboards/model/lib";
 import { ComponentPreviewHeader } from "./ComponentFrame";
 import type { Renderer } from "./renderers";
 
-export const DataTableRenderer: Renderer = ({ component, rows, cardClassName, changeStatus }) => {
+export const DataTableRenderer: Renderer = ({
+  component,
+  rows,
+  cardClassName,
+  changeStatus,
+}) => {
   const columns = componentColumns(component, rows);
   return (
     <Card className={cardClassName}>
-      <ComponentPreviewHeader component={component} changeStatus={changeStatus} />
+      <ComponentPreviewHeader
+        component={component}
+        changeStatus={changeStatus}
+      />
       <CardContent>
         {rows.length ? (
           <Table>

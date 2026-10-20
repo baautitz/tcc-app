@@ -3,18 +3,33 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { toast } from "@/shared/ui/toast";
 import { useEntityForm } from "./useEntityForm";
 
-vi.mock("@/shared/ui/toast", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock("@/shared/ui/toast", () => ({
+  toast: { success: vi.fn(), error: vi.fn() },
+}));
 
 type V = { name: string };
 const resolver = (async (values: V) => ({ values, errors: {} })) as any;
-const toDefaults = (e: { name: string } | undefined) => ({ name: e?.name ?? "" });
+const toDefaults = (e: { name: string } | undefined) => ({
+  name: e?.name ?? "",
+});
 
 function setup(save: any, extra: Record<string, unknown> = {}) {
   const onOpenChange = vi.fn();
   const onSaved = vi.fn().mockResolvedValue(undefined);
-  const hook = renderHook((props: { entity?: { name: string } }) =>
-    useEntityForm<V, { name: string }>({ resolver, entity: props.entity, open: true, toDefaults, save, onOpenChange, onSaved, ...extra }),
-    { initialProps: { entity: undefined } as { entity?: { name: string } } });
+  const hook = renderHook(
+    (props: { entity?: { name: string } }) =>
+      useEntityForm<V, { name: string }>({
+        resolver,
+        entity: props.entity,
+        open: true,
+        toDefaults,
+        save,
+        onOpenChange,
+        onSaved,
+        ...extra,
+      }),
+    { initialProps: { entity: undefined } as { entity?: { name: string } } },
+  );
   return { ...hook, onOpenChange, onSaved };
 }
 
@@ -39,7 +54,9 @@ describe("useEntityForm", () => {
   });
 
   it("save retornando undefined aborta sem toast nem fechar", async () => {
-    const { result, onOpenChange, onSaved } = setup(vi.fn().mockResolvedValue(undefined));
+    const { result, onOpenChange, onSaved } = setup(
+      vi.fn().mockResolvedValue(undefined),
+    );
     await act(() => result.current.submit());
     expect(toast.success).not.toHaveBeenCalled();
     expect(onOpenChange).not.toHaveBeenCalled();
@@ -47,7 +64,9 @@ describe("useEntityForm", () => {
   });
 
   it("erro: mostra toast.error e não fecha", async () => {
-    const { result, onOpenChange } = setup(vi.fn().mockRejectedValue(new Error("ruim")));
+    const { result, onOpenChange } = setup(
+      vi.fn().mockRejectedValue(new Error("ruim")),
+    );
     await act(() => result.current.submit());
     expect(toast.error).toHaveBeenCalledWith("ruim");
     expect(onOpenChange).not.toHaveBeenCalled();

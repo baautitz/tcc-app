@@ -22,11 +22,22 @@ export function useSaveQuery() {
     }
   };
 
-  const persist = (id: string | undefined, body: Body, expectedUpdatedAt?: string): Promise<SavedQuery> =>
-    id ? queriesApi.updateQuery(id, { ...body, expectedUpdatedAt: expectedUpdatedAt! }) : queriesApi.createQuery(body);
+  const persist = (
+    id: string | undefined,
+    body: Body,
+    expectedUpdatedAt?: string,
+  ): Promise<SavedQuery> =>
+    id
+      ? queriesApi.updateQuery(id, {
+          ...body,
+          expectedUpdatedAt: expectedUpdatedAt!,
+        })
+      : queriesApi.createQuery(body);
 
   /** On a 409 for an existing query, fetches the latest version (undefined if it fails). */
-  const reloadOnConflict = async (id: string): Promise<SavedQuery | undefined> => {
+  const reloadOnConflict = async (
+    id: string,
+  ): Promise<SavedQuery | undefined> => {
     try {
       return await queriesApi.savedQuery(id);
     } catch {
@@ -34,5 +45,12 @@ export function useSaveQuery() {
     }
   };
 
-  return { pendingRef, saving, run, persist, reloadOnConflict, isConflict: (r: unknown) => r instanceof ApiError && r.status === 409 };
+  return {
+    pendingRef,
+    saving,
+    run,
+    persist,
+    reloadOnConflict,
+    isConflict: (r: unknown) => r instanceof ApiError && r.status === 409,
+  };
 }

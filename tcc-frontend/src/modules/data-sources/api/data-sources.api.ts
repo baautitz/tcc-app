@@ -1,4 +1,7 @@
-import type { DataSource, DataSourceTable } from "@/modules/data-sources/model/types";
+import type {
+  DataSource,
+  DataSourceTable,
+} from "@/modules/data-sources/model/types";
 import { request } from "@/shared/api/client";
 
 export const dataSourcesApi = {
@@ -30,7 +33,11 @@ export const dataSourcesApi = {
       `/api/data-sources/${sourceId}/tables/${tableId}`,
       {
         method: "PATCH",
-        body: JSON.stringify({ context, expectedSourceUpdatedAt, expectedContextVersion }),
+        body: JSON.stringify({
+          context,
+          expectedSourceUpdatedAt,
+          expectedContextVersion,
+        }),
       },
     ),
 };

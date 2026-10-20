@@ -1,15 +1,8 @@
-import {
-  useState,
-  type ReactNode,
-} from "react";
+import { useState, type ReactNode } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
-import {
-  Maximize2,
-} from "lucide-react";
-import {
-  Button,
-} from "@/shared/ui/button";
+import { Maximize2 } from "lucide-react";
+import { Button } from "@/shared/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -50,7 +43,10 @@ function ExpandableChatTable({ children }: { children: ReactNode }) {
           tabIndex={0}
           className="w-full overflow-x-auto overscroll-contain rounded border"
         >
-          <Table containerClassName="overflow-visible" className="w-max min-w-full">
+          <Table
+            containerClassName="overflow-visible"
+            className="w-max min-w-full"
+          >
             {children}
           </Table>
         </div>
@@ -71,7 +67,10 @@ function ExpandableChatTable({ children }: { children: ReactNode }) {
             className="min-h-0 flex-1 overflow-auto overscroll-contain p-4"
           >
             {open && (
-              <Table containerClassName="overflow-visible" className="w-max min-w-full">
+              <Table
+                containerClassName="overflow-visible"
+                className="w-max min-w-full"
+              >
                 {children}
               </Table>
             )}
@@ -86,11 +85,13 @@ const markdownComponents: Components = {
   h1: ({ children }) => <h1 className="text-lg font-semibold">{children}</h1>,
   h2: ({ children }) => <h2 className="text-base font-semibold">{children}</h2>,
   h3: ({ children }) => <h3 className="text-sm font-semibold">{children}</h3>,
-  p: ({ children }) => (
-    <p className="m-0 whitespace-pre-wrap">{children}</p>
+  p: ({ children }) => <p className="m-0 whitespace-pre-wrap">{children}</p>,
+  ul: ({ children }) => (
+    <ul className="list-disc space-y-0 pl-5">{children}</ul>
   ),
-  ul: ({ children }) => <ul className="list-disc space-y-0 pl-5">{children}</ul>,
-  ol: ({ children }) => <ol className="list-decimal space-y-0 pl-5">{children}</ol>,
+  ol: ({ children }) => (
+    <ol className="list-decimal space-y-0 pl-5">{children}</ol>
+  ),
   li: ({ children }) => (
     <li className="m-0 leading-normal [&>p]:m-0">{children}</li>
   ),
@@ -115,11 +116,15 @@ const markdownComponents: Components = {
     </pre>
   ),
   code: ({ children, className }) => (
-    <code className={className ?? "rounded bg-background/70 px-1 py-0.5 text-xs"}>
+    <code
+      className={className ?? "rounded bg-background/70 px-1 py-0.5 text-xs"}
+    >
       {children}
     </code>
   ),
-  table: ({ children }) => <ExpandableChatTable>{children}</ExpandableChatTable>,
+  table: ({ children }) => (
+    <ExpandableChatTable>{children}</ExpandableChatTable>
+  ),
   thead: ({ children }) => (
     <TableHeader className="sticky top-0 z-10 bg-muted [&_th]:bg-muted">
       {children}
@@ -134,7 +139,10 @@ const markdownComponents: Components = {
 export function ChatMarkdown({ content }: { content: string }) {
   return (
     <div className="flex min-w-0 flex-col gap-2 [&_strong]:font-semibold">
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={markdownComponents}
+      >
         {content}
       </ReactMarkdown>
     </div>

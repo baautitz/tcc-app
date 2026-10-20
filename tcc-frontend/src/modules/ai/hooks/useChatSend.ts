@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, type Dispatch, type SetStateAction } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/shared/ui/toast";
 import { useCurrentViewRefresh } from "@/shared/context/CurrentViewRefreshContext";
@@ -12,7 +18,10 @@ import {
 } from "@/modules/ai/model/chat-followup";
 import type { ChatEvent } from "@/modules/ai/model/chat-sse";
 import { applyChatEvent } from "@/modules/ai/model/chat-reducer";
-import type { QuestionnaireAnswers, QuestionnaireChatItem } from "@/modules/ai/components/QuestionnaireCard";
+import type {
+  QuestionnaireAnswers,
+  QuestionnaireChatItem,
+} from "@/modules/ai/components/QuestionnaireCard";
 import {
   type ChatItem,
   type ChatMessage,
@@ -40,12 +49,22 @@ type Session = {
   busy: boolean;
   setBusy: (busy: boolean) => void;
   setActivityProgress: (progress: string | undefined) => void;
-  updateAssistant: (id: string, update: (message: ChatMessage) => ChatMessage) => void;
+  updateAssistant: (
+    id: string,
+    update: (message: ChatMessage) => ChatMessage,
+  ) => void;
 };
 
 export function useChatSend(session: Session, pathname: string) {
   const {
-    items, setItems, draft, setDraft, busy, setBusy, setActivityProgress, updateAssistant,
+    items,
+    setItems,
+    draft,
+    setDraft,
+    busy,
+    setBusy,
+    setActivityProgress,
+    updateAssistant,
   } = session;
   const navigate = useNavigate();
   const refreshCurrentView = useCurrentViewRefresh();
@@ -73,39 +92,58 @@ export function useChatSend(session: Session, pathname: string) {
   );
 
   const handleEvent = useCallback(
-    (event: ChatEvent, assistantId: string, requestPath: string, generation: number) => {
+    (
+      event: ChatEvent,
+      assistantId: string,
+      requestPath: string,
+      generation: number,
+    ) => {
       if (generation !== generationRef.current) return;
 
       switch (event.type) {
         case "start":
           activeRequestIdRef.current = event.requestId;
-          setActivityProgress(`Aguardando resposta da IA · ID ${event.requestId.slice(0, 8)}`);
+          setActivityProgress(
+            `Aguardando resposta da IA · ID ${event.requestId.slice(0, 8)}`,
+          );
           return;
         case "progress": {
-          const label = event.phase === "running_tool"
-            ? toolLabel(event.toolName ?? "")
-            : event.phase === "preparing_response"
-              ? "Preparando resposta"
-              : "Aguardando resposta da IA";
-          setActivityProgress(`${label} · ${formatElapsedTime(event.elapsedMs)} · ID ${event.requestId.slice(0, 8)}`);
+          const label =
+            event.phase === "running_tool"
+              ? toolLabel(event.toolName ?? "")
+              : event.phase === "preparing_response"
+                ? "Preparando resposta"
+                : "Aguardando resposta da IA";
+          setActivityProgress(
+            `${label} · ${formatElapsedTime(event.elapsedMs)} · ID ${event.requestId.slice(0, 8)}`,
+          );
           return;
         }
         case "dashboard_applied": {
-          const currentDashboardId = /^\/dashboards\/([^/]+)$/.exec(pathRef.current)?.[1];
+          const currentDashboardId = /^\/dashboards\/([^/]+)$/.exec(
+            pathRef.current,
+          )?.[1];
           if (
             event.mode === "create" ||
-            currentDashboardId?.toLowerCase() !== event.dashboardId.toLowerCase()
+            currentDashboardId?.toLowerCase() !==
+              event.dashboardId.toLowerCase()
           ) {
             navigate(`/dashboards/${event.dashboardId}`);
           } else {
             refreshCurrentView();
           }
-          toast.success(`Patch aplicado ao dashboard “${event.dashboardName}”.`);
+          toast.success(
+            `Patch aplicado ao dashboard “${event.dashboardName}”.`,
+          );
           return;
         }
       }
 
-      if (event.type === "token" || event.type === "error" || event.type === "done") {
+      if (
+        event.type === "token" ||
+        event.type === "error" ||
+        event.type === "done"
+      ) {
         setActivityProgress(undefined);
       }
       setItems((current) => applyChatEvent(current, event, assistantId));
@@ -135,7 +173,10 @@ export function useChatSend(session: Session, pathname: string) {
     activeRequestIdRef.current = null;
     const assistantId = activeAssistantIdRef.current;
     if (assistantId) {
-      updateAssistant(assistantId, (message) => ({ ...message, status: "stopped" }));
+      updateAssistant(assistantId, (message) => ({
+        ...message,
+        status: "stopped",
+      }));
     }
     activeAssistantIdRef.current = null;
   }, [setBusy, setActivityProgress, updateAssistant]);
@@ -197,44 +238,49 @@ export function useChatSend(session: Session, pathname: string) {
         );
       const invalidatesPendingPreview = Boolean(
         latestQueryPreview &&
-          shouldInvalidateForDynamicPeriod(content, latestQueryPreview),
+        shouldInvalidateForDynamicPeriod(content, latestQueryPreview),
       );
       const shouldIncludePendingQueryContext =
         shouldSendPendingPreviewContext(content) ||
         Boolean(
           latestQueryPreview &&
-            shouldResurfaceQueryPreview(
-              content,
-              latestQueryPreview.savedQueryName ?? latestQueryPreview.intent.queryName,
-            ),
+          shouldResurfaceQueryPreview(
+            content,
+            latestQueryPreview.savedQueryName ??
+              latestQueryPreview.intent.queryName,
+          ),
         );
       let pendingQueryPreviews =
-        !retrying &&
-        !options?.silentUser &&
-        shouldIncludePendingQueryContext
-          ? items.flatMap((item) =>
-              item.kind === "query_preview" &&
-              !item.savedQueryId &&
-              (!item.stale || item.testRunId === latestQueryPreview?.testRunId) &&
-              item.sqlText.length <= 60_000
-                ? [{
-                    testRunId: item.testRunId,
-                    queryName: item.intent.queryName,
-                    purpose: item.purpose ?? "quick_query",
-                    dataSource: {
-                      id: item.dataSource.id,
-                      name: item.dataSource.name,
-                    },
-                    sqlText: item.sqlText,
-                    parameters: item.parameters,
-                    testValues: item.testValues,
-                  }]
-                : [],
-            ).slice(-3)
+        !retrying && !options?.silentUser && shouldIncludePendingQueryContext
+          ? items
+              .flatMap((item) =>
+                item.kind === "query_preview" &&
+                !item.savedQueryId &&
+                (!item.stale ||
+                  item.testRunId === latestQueryPreview?.testRunId) &&
+                item.sqlText.length <= 60_000
+                  ? [
+                      {
+                        testRunId: item.testRunId,
+                        queryName: item.intent.queryName,
+                        purpose: item.purpose ?? "quick_query",
+                        dataSource: {
+                          id: item.dataSource.id,
+                          name: item.dataSource.name,
+                        },
+                        sqlText: item.sqlText,
+                        parameters: item.parameters,
+                        testValues: item.testValues,
+                      },
+                    ]
+                  : [],
+              )
+              .slice(-3)
           : undefined;
       while (
         pendingQueryPreviews?.length &&
-        new TextEncoder().encode(JSON.stringify(pendingQueryPreviews)).length > 60_000
+        new TextEncoder().encode(JSON.stringify(pendingQueryPreviews)).length >
+          60_000
       ) {
         pendingQueryPreviews = pendingQueryPreviews.slice(1);
       }
@@ -250,14 +296,19 @@ export function useChatSend(session: Session, pathname: string) {
       lastSilentUserRef.current = options?.silentUser === true;
       refreshedToolCallsRef.current.clear();
       setItems((current) => {
-        const withInvalidatedPreview = invalidatesPendingPreview && latestQueryPreview
-          ? current.map((item) =>
-              item.kind === "query_preview" &&
-              item.testRunId === latestQueryPreview.testRunId
-                ? { ...item, stale: true, staleReason: "dynamic_period_mismatch" as const }
-                : item,
-            )
-          : current;
+        const withInvalidatedPreview =
+          invalidatesPendingPreview && latestQueryPreview
+            ? current.map((item) =>
+                item.kind === "query_preview" &&
+                item.testRunId === latestQueryPreview.testRunId
+                  ? {
+                      ...item,
+                      stale: true,
+                      staleReason: "dynamic_period_mismatch" as const,
+                    }
+                  : item,
+              )
+            : current;
         if (!retrying) {
           return options?.silentUser
             ? [...withInvalidatedPreview, assistantMessage]
@@ -270,7 +321,7 @@ export function useChatSend(session: Session, pathname: string) {
               item.kind === "message" &&
               item.role === "assistant" &&
               item.status === "error",
-        )?.id;
+          )?.id;
         return [
           ...withInvalidatedPreview.filter(
             (item) =>
@@ -308,11 +359,18 @@ export function useChatSend(session: Session, pathname: string) {
               choseDynamicPeriod(content) &&
               !previewUsesDateParameters(event)
             ) {
-              setItems((current) => current.map((item) =>
-                item.kind === "query_preview" && item.testRunId === event.testRunId
-                  ? { ...item, stale: true, staleReason: "dynamic_period_mismatch" as const }
-                  : item,
-              ));
+              setItems((current) =>
+                current.map((item) =>
+                  item.kind === "query_preview" &&
+                  item.testRunId === event.testRunId
+                    ? {
+                        ...item,
+                        stale: true,
+                        staleReason: "dynamic_period_mismatch" as const,
+                      }
+                    : item,
+                ),
+              );
             }
           },
         );
@@ -350,9 +408,11 @@ export function useChatSend(session: Session, pathname: string) {
               kind: "error",
               assistantId: assistantMessage.id,
               retryable: true,
-              message: reason instanceof TypeError && /fetch|network|load failed/i.test(reason.message)
-                ? `A conexão com o servidor foi interrompida.${activeRequestIdRef.current ? ` ID ${activeRequestIdRef.current.slice(0, 8)}.` : ""} Tente novamente.`
-                : `${reason instanceof Error ? reason.message : "A conexão com a IA falhou."}${activeRequestIdRef.current ? ` (ID ${activeRequestIdRef.current.slice(0, 8)})` : ""}`,
+              message:
+                reason instanceof TypeError &&
+                /fetch|network|load failed/i.test(reason.message)
+                  ? `A conexão com o servidor foi interrompida.${activeRequestIdRef.current ? ` ID ${activeRequestIdRef.current.slice(0, 8)}.` : ""} Tente novamente.`
+                  : `${reason instanceof Error ? reason.message : "A conexão com a IA falhou."}${activeRequestIdRef.current ? ` (ID ${activeRequestIdRef.current.slice(0, 8)})` : ""}`,
             },
           ]);
         }
@@ -367,7 +427,18 @@ export function useChatSend(session: Session, pathname: string) {
         }
       }
     },
-    [busy, draft, handleEvent, items, pathname, updateAssistant, setItems, setDraft, setBusy, setActivityProgress],
+    [
+      busy,
+      draft,
+      handleEvent,
+      items,
+      pathname,
+      updateAssistant,
+      setItems,
+      setDraft,
+      setBusy,
+      setActivityProgress,
+    ],
   );
 
   const retry = useCallback(
@@ -432,24 +503,28 @@ export function useChatSend(session: Session, pathname: string) {
 
   const continueAfterQuerySaved = useCallback(
     (preview: QueryPreviewItem, queryId: string, queryName: string) => {
-      const shouldContinue = preview.purpose === "dashboard"
-        || hasPendingDashboardComponentRequest(items, pathname);
-      const savedPreview = shouldContinue && preview.purpose !== "dashboard"
-        ? { ...preview, purpose: "dashboard" as const }
-        : preview;
-      setItems((current) => markQueryPreviewSavedOnce(
-        current,
-        preview.testRunId,
-        queryId,
-        queryName,
-        {
+      const shouldContinue =
+        preview.purpose === "dashboard" ||
+        hasPendingDashboardComponentRequest(items, pathname);
+      const savedPreview =
+        shouldContinue && preview.purpose !== "dashboard"
+          ? { ...preview, purpose: "dashboard" as const }
+          : preview;
+      setItems((current) =>
+        markQueryPreviewSavedOnce(
+          current,
+          preview.testRunId,
+          queryId,
+          queryName,
+          {
             ...savedPreview,
             id: newId(),
             savedQueryId: queryId,
             savedQueryName: queryName,
             stale: false,
-        },
-      ));
+          },
+        ),
+      );
       if (!shouldContinue) return;
       void send({
         content: `A query “${queryName}” foi salva com o UUID ${queryId}. Continue a solicitação original que dependia dela; se não houver outra etapa pendente, confirme que ela foi salva.`,
@@ -473,5 +548,12 @@ export function useChatSend(session: Session, pathname: string) {
     [items, pathname, send, setItems],
   );
 
-  return { send, retry, stop, clear, submitQuestionnaire, continueAfterQuerySaved };
+  return {
+    send,
+    retry,
+    stop,
+    clear,
+    submitQuestionnaire,
+    continueAfterQuerySaved,
+  };
 }

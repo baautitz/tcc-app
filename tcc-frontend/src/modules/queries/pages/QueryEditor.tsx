@@ -8,7 +8,13 @@ import { errorMessage } from "@/shared/lib/errors";
 import { useSaveQuery } from "@/modules/queries/hooks/useSaveQuery";
 import { QueryFormFields } from "@/modules/queries/components/QueryFormFields";
 import { QueryPreviewPanel } from "@/modules/queries/components/QueryPreviewPanel";
-import { parseParameters, parseTestValues, queryFormSchema, type QueryForm, type ReviewedQueryPreview } from "@/modules/queries/model/queryForm";
+import {
+  parseParameters,
+  parseTestValues,
+  queryFormSchema,
+  type QueryForm,
+  type ReviewedQueryPreview,
+} from "@/modules/queries/model/queryForm";
 import type { DataSource } from "@/modules/data-sources/model/types";
 import type { SavedQuery } from "@/modules/queries/model/types";
 import { Button } from "@/shared/ui/button";
@@ -62,7 +68,14 @@ export function QueryEditor({
   const [testValues, setTestValues] = useState("{}");
   const [preview, setPreview] = useState<ReviewedQueryPreview>();
   const [testing, setTesting] = useState(false);
-  const { pendingRef: savePendingRef, saving, run: runSave, persist, reloadOnConflict, isConflict } = useSaveQuery();
+  const {
+    pendingRef: savePendingRef,
+    saving,
+    run: runSave,
+    persist,
+    reloadOnConflict,
+    isConflict,
+  } = useSaveQuery();
   const watchedSourceId = form.watch("dataSourceId");
   const watchedSqlText = form.watch("sqlText");
   const watchedParameters = form.watch("parameters");
@@ -90,7 +103,9 @@ export function QueryEditor({
   }, [query, form, open]);
 
   useEffect(() => {
-    setPreview((current) => current?.draftKey === currentDraftKey ? current : undefined);
+    setPreview((current) =>
+      current?.draftKey === currentDraftKey ? current : undefined,
+    );
   }, [currentDraftKey]);
 
   const submit = async (values: QueryForm) => {
@@ -107,49 +122,51 @@ export function QueryEditor({
       return;
     }
     await runSave(async () => {
-    try {
-      const body = {
-        ...values,
-        parameters: parseParameters(values.parameters),
-        testRunId: preview.testRunId,
-      };
-      const saved = await persist(
-        activeQuery?.id,
-        body,
-        preview.intent.queryUpdatedAt ?? activeQuery?.updatedAt,
-      );
-      setCreatedQuery(saved);
-      setReloadedQuery(undefined);
-      setPreview(undefined);
-      toast.success(
-        activeQuery
-          ? "Query atualizada."
-          : "Query criada. Copie o UUID para usar no dashboard.",
-      );
-      await onSaved();
-      if (query) onOpenChange(false);
-    } catch (reason) {
-      if (isConflict(reason)) {
-        if (activeQuery) {
-          const latest = await reloadOnConflict(activeQuery.id);
-          if (latest) {
-            setReloadedQuery(latest);
-            form.reset({
-              dataSourceId: latest.dataSourceId,
-              name: latest.name,
-              sqlText: latest.sqlText,
-              parameters: JSON.stringify(latest.parameters, null, 2),
-            });
-          }
-        }
+      try {
+        const body = {
+          ...values,
+          parameters: parseParameters(values.parameters),
+          testRunId: preview.testRunId,
+        };
+        const saved = await persist(
+          activeQuery?.id,
+          body,
+          preview.intent.queryUpdatedAt ?? activeQuery?.updatedAt,
+        );
+        setCreatedQuery(saved);
+        setReloadedQuery(undefined);
         setPreview(undefined);
-        toast.error(activeQuery
-          ? "A query mudou desde a prévia. Recarreguei a versão atual; revise e teste novamente."
-          : "A prévia expirou ou o servidor mudou. Teste novamente antes de salvar.");
-      } else {
-        toast.error(errorMessage(reason, "A operação falhou."));
+        toast.success(
+          activeQuery
+            ? "Query atualizada."
+            : "Query criada. Copie o UUID para usar no dashboard.",
+        );
+        await onSaved();
+        if (query) onOpenChange(false);
+      } catch (reason) {
+        if (isConflict(reason)) {
+          if (activeQuery) {
+            const latest = await reloadOnConflict(activeQuery.id);
+            if (latest) {
+              setReloadedQuery(latest);
+              form.reset({
+                dataSourceId: latest.dataSourceId,
+                name: latest.name,
+                sqlText: latest.sqlText,
+                parameters: JSON.stringify(latest.parameters, null, 2),
+              });
+            }
+          }
+          setPreview(undefined);
+          toast.error(
+            activeQuery
+              ? "A query mudou desde a prévia. Recarreguei a versão atual; revise e teste novamente."
+              : "A prévia expirou ou o servidor mudou. Teste novamente antes de salvar.",
+          );
+        } else {
+          toast.error(errorMessage(reason, "A operação falhou."));
+        }
       }
-    }
     });
   };
 
@@ -171,10 +188,12 @@ export function QueryEditor({
         parameters,
         values: testValueRecord,
         mode: activeQuery ? "update" : "create",
-        ...(activeQuery ? {
-          queryId: activeQuery.id,
-          expectedUpdatedAt: activeQuery.updatedAt,
-        } : {}),
+        ...(activeQuery
+          ? {
+              queryId: activeQuery.id,
+              expectedUpdatedAt: activeQuery.updatedAt,
+            }
+          : {}),
       });
       setPreview({ ...result, draftKey: currentDraftKey });
       toast.success("Query executada com sucesso.");
@@ -198,7 +217,12 @@ export function QueryEditor({
   };
 
   return (
-    <Dialog open={open} onOpenChange={(nextOpen) => { if (!saving) onOpenChange(nextOpen); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!saving) onOpenChange(nextOpen);
+      }}
+    >
       <DialogContent className="flex h-[90vh] max-h-[900px] w-[calc(100%-2rem)] max-w-none flex-col gap-0 overflow-hidden p-0 sm:max-w-6xl">
         <DialogHeader className="border-b p-6">
           <DialogTitle>
@@ -250,7 +274,13 @@ export function QueryEditor({
                       )}
                     </Button>
                   </div>
-                  {preview && preview.draftKey === currentDraftKey && <QueryPreviewPanel preview={preview} sources={sources} name={watchedName} />}
+                  {preview && preview.draftKey === currentDraftKey && (
+                    <QueryPreviewPanel
+                      preview={preview}
+                      sources={sources}
+                      name={watchedName}
+                    />
+                  )}
                 </CardContent>
               </Card>
 
@@ -284,7 +314,9 @@ export function QueryEditor({
           <Button
             variant="outline"
             type="button"
-            onClick={() => { if (!saving) onOpenChange(false); }}
+            onClick={() => {
+              if (!saving) onOpenChange(false);
+            }}
             disabled={saving}
           >
             Fechar
@@ -292,9 +324,23 @@ export function QueryEditor({
           <Button
             form="query-form"
             type="submit"
-            disabled={saving || testing || !preview || preview.draftKey !== currentDraftKey || (activeQuery ? !hasPermission("queries:update") : !hasPermission("queries:create"))}
+            disabled={
+              saving ||
+              testing ||
+              !preview ||
+              preview.draftKey !== currentDraftKey ||
+              (activeQuery
+                ? !hasPermission("queries:update")
+                : !hasPermission("queries:create"))
+            }
           >
-            {saving ? "Salvando…" : <><Save /> {activeQuery ? "Aplicar edição" : "Salvar nova query"}</>}
+            {saving ? (
+              "Salvando…"
+            ) : (
+              <>
+                <Save /> {activeQuery ? "Aplicar edição" : "Salvar nova query"}
+              </>
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

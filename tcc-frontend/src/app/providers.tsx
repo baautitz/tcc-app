@@ -15,7 +15,9 @@ export function AppProviders({ children }: { children: ReactNode }) {
           <AuthProvider>
             <ImperativeUIProvider>
               <AiChatProvider>
-                <CurrentViewRefreshProvider>{children}</CurrentViewRefreshProvider>
+                <CurrentViewRefreshProvider>
+                  {children}
+                </CurrentViewRefreshProvider>
               </AiChatProvider>
             </ImperativeUIProvider>
           </AuthProvider>

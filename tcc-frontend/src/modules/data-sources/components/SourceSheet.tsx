@@ -4,17 +4,40 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Database } from "lucide-react";
 import { dataSourcesApi } from "@/modules/data-sources/api/data-sources.api";
 import { ApiError } from "@/shared/api/client";
-import type { DataSource, DataSourceTable } from "@/modules/data-sources/model/types";
+import type {
+  DataSource,
+  DataSourceTable,
+} from "@/modules/data-sources/model/types";
 import { useEntityForm } from "@/shared/crud/useEntityForm";
 import { errorMessage } from "@/shared/lib/errors";
 import { toast } from "@/shared/ui/toast";
 import { Button } from "@/shared/ui/button";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/shared/ui/form";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/shared/ui/form";
 import { Input } from "@/shared/ui/input";
 import { ScrollArea } from "@/shared/ui/scroll-area";
-import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/shared/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/shared/ui/sheet";
 import { FieldGroup } from "@/shared/ui/field";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/shared/ui/card";
 import { Textarea } from "@/shared/ui/textarea";
 
 const sourceSchema = z.object({
@@ -73,7 +96,9 @@ export function SourceSheet({
     },
   });
   const [tables, setTables] = useState<DataSourceTable[]>([]);
-  const [sourceUpdatedAt, setSourceUpdatedAt] = useState(source?.updatedAt ?? "");
+  const [sourceUpdatedAt, setSourceUpdatedAt] = useState(
+    source?.updatedAt ?? "",
+  );
   useEffect(() => {
     setSourceUpdatedAt(source?.updatedAt ?? "");
     if (source && open)
@@ -106,9 +131,11 @@ export function SourceSheet({
           const fresh = await dataSourcesApi.dataSource(source.id);
           setSourceUpdatedAt(fresh.updatedAt);
           setTables(fresh.tables);
-          toast.error(reason.message.includes("contexto da tabela")
-            ? "O contexto desta tabela mudou em outra edição. Os dados foram recarregados; revise antes de salvar novamente."
-            : "O servidor mudou enquanto você editava. Os dados foram recarregados; revise o contexto antes de salvar novamente.");
+          toast.error(
+            reason.message.includes("contexto da tabela")
+              ? "O contexto desta tabela mudou em outra edição. Os dados foram recarregados; revise antes de salvar novamente."
+              : "O servidor mudou enquanto você editava. Os dados foram recarregados; revise o contexto antes de salvar novamente.",
+          );
           return;
         } catch (reloadReason) {
           toast.error(

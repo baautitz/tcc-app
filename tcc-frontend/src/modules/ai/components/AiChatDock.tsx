@@ -39,8 +39,14 @@ export function AiChatDock({
   const { items, setItems, draft, setDraft, busy, activityProgress } = session;
   const resize = useChatResize();
   const { panelWidth } = resize;
-  const { send, retry, stop, clear, submitQuestionnaire, continueAfterQuerySaved } =
-    useChatSend(session, location.pathname);
+  const {
+    send,
+    retry,
+    stop,
+    clear,
+    submitQuestionnaire,
+    continueAfterQuerySaved,
+  } = useChatSend(session, location.pathname);
   const dashboardSavePendingRef = useRef(new Set<string>());
 
   useEffect(() => {
@@ -57,7 +63,6 @@ export function AiChatDock({
       active = false;
     };
   }, [open, user?.id, user?.isAdmin]);
-
 
   const markContextProposalResolved = useCallback(
     (proposalId: string, status: AiContextProposal["status"]) => {

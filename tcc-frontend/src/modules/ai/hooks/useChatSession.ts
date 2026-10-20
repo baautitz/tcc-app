@@ -1,13 +1,23 @@
 import { useMemo, useState, type Dispatch, type SetStateAction } from "react";
-import { insertAfter, insertBefore, type ChatItem, type ChatMessage } from "@/modules/ai/model/chat-items";
+import {
+  insertAfter,
+  insertBefore,
+  type ChatItem,
+  type ChatMessage,
+} from "@/modules/ai/model/chat-items";
 
 /** Stable updaters over a ChatItem[] state setter. */
 export function chatItemOps(setItems: Dispatch<SetStateAction<ChatItem[]>>) {
   return {
-    updateAssistant: (assistantId: string, update: (message: ChatMessage) => ChatMessage) =>
+    updateAssistant: (
+      assistantId: string,
+      update: (message: ChatMessage) => ChatMessage,
+    ) =>
       setItems((current) =>
         current.map((item) =>
-          item.kind === "message" && item.id === assistantId ? update(item) : item,
+          item.kind === "message" && item.id === assistantId
+            ? update(item)
+            : item,
         ),
       ),
     insertBeforeAssistant: (assistantId: string, item: ChatItem) =>
@@ -24,5 +34,15 @@ export function useChatSession() {
   const [activityProgress, setActivityProgress] = useState<string>();
   // setItems is stable, so the ops are stable too.
   const ops = useMemo(() => chatItemOps(setItems), []);
-  return { items, setItems, draft, setDraft, busy, setBusy, activityProgress, setActivityProgress, ...ops };
+  return {
+    items,
+    setItems,
+    draft,
+    setDraft,
+    busy,
+    setBusy,
+    activityProgress,
+    setActivityProgress,
+    ...ops,
+  };
 }

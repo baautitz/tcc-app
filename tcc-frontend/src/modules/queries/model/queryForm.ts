@@ -1,5 +1,8 @@
 import { z } from "zod";
-import type { QueryParameter, QueryPreview } from "@/modules/queries/model/types";
+import type {
+  QueryParameter,
+  QueryPreview,
+} from "@/modules/queries/model/types";
 
 const parameterSchema = z.object({
   name: z.string().trim().min(1),
@@ -31,7 +34,9 @@ export function parseParameters(raw: string): QueryParameter[] {
   return z.array(parameterSchema).parse(parsed);
 }
 
-export function parseTestValues(raw: string): Record<string, string | string[]> {
+export function parseTestValues(
+  raw: string,
+): Record<string, string | string[]> {
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
@@ -43,4 +48,3 @@ export function parseTestValues(raw: string): Record<string, string | string[]> 
   }
   return z.record(z.union([z.string(), z.array(z.string())])).parse(parsed);
 }
-

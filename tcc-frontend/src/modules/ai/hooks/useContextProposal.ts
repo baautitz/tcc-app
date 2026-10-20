@@ -56,5 +56,10 @@ export function useContextProposal(
     }
   };
 
-  return { reviewContext, setReviewContext, resolvingContext, resolveContextProposal };
+  return {
+    reviewContext,
+    setReviewContext,
+    resolvingContext,
+    resolveContextProposal,
+  };
 }

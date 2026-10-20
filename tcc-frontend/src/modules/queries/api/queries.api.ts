@@ -1,4 +1,9 @@
-import type { QueryParameter, QueryPreview, QuerySummary, SavedQuery } from "@/modules/queries/model/types";
+import type {
+  QueryParameter,
+  QueryPreview,
+  QuerySummary,
+  SavedQuery,
+} from "@/modules/queries/model/types";
 import { request } from "@/shared/api/client";
 
 export const queriesApi = {
@@ -19,14 +24,17 @@ export const queriesApi = {
       method: "POST",
       body: JSON.stringify(body),
     }),
-  updateQuery: (id: string, body: {
-    dataSourceId: string;
-    name: string;
-    sqlText: string;
-    parameters: QueryParameter[];
-    testRunId: string;
-    expectedUpdatedAt: string;
-  }) =>
+  updateQuery: (
+    id: string,
+    body: {
+      dataSourceId: string;
+      name: string;
+      sqlText: string;
+      parameters: QueryParameter[];
+      testRunId: string;
+      expectedUpdatedAt: string;
+    },
+  ) =>
     request<SavedQuery>(`/api/queries/${id}`, {
       method: "PATCH",
       body: JSON.stringify(body),

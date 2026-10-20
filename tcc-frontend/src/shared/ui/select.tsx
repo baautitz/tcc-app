@@ -4,7 +4,11 @@ import { cn } from "@/shared/lib/utils";
 
 const Select = SelectPrimitive.Root;
 
-function SelectTrigger({ className, children, ...props }: SelectPrimitive.Trigger.Props) {
+function SelectTrigger({
+  className,
+  children,
+  ...props
+}: SelectPrimitive.Trigger.Props) {
   return (
     <SelectPrimitive.Trigger
       data-slot="select-trigger"
@@ -15,7 +19,10 @@ function SelectTrigger({ className, children, ...props }: SelectPrimitive.Trigge
       {...props}
     >
       {children}
-      <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+      <ChevronDown
+        className="size-3.5 shrink-0 text-muted-foreground"
+        aria-hidden="true"
+      />
     </SelectPrimitive.Trigger>
   );
 }
@@ -24,10 +31,22 @@ function SelectValue(props: SelectPrimitive.Value.Props) {
   return <SelectPrimitive.Value data-slot="select-value" {...props} />;
 }
 
-function SelectContent({ className, children, side = "bottom", align = "start", sideOffset = 4, ...props }: SelectPrimitive.Popup.Props & SelectPrimitive.Positioner.Props) {
+function SelectContent({
+  className,
+  children,
+  side = "bottom",
+  align = "start",
+  sideOffset = 4,
+  ...props
+}: SelectPrimitive.Popup.Props & SelectPrimitive.Positioner.Props) {
   return (
     <SelectPrimitive.Portal>
-      <SelectPrimitive.Positioner side={side} align={align} sideOffset={sideOffset} className="z-50 outline-none">
+      <SelectPrimitive.Positioner
+        side={side}
+        align={align}
+        sideOffset={sideOffset}
+        className="z-50 outline-none"
+      >
         <SelectPrimitive.Popup
           data-slot="select-content"
           className={cn(
@@ -51,7 +70,11 @@ function SelectContent({ className, children, side = "bottom", align = "start", 
   );
 }
 
-function SelectItem({ className, children, ...props }: SelectPrimitive.Item.Props) {
+function SelectItem({
+  className,
+  children,
+  ...props
+}: SelectPrimitive.Item.Props) {
   return (
     <SelectPrimitive.Item
       data-slot="select-item"
@@ -61,7 +84,9 @@ function SelectItem({ className, children, ...props }: SelectPrimitive.Item.Prop
       )}
       {...props}
     >
-      <SelectPrimitive.ItemText className="min-w-0 flex-1 truncate">{children}</SelectPrimitive.ItemText>
+      <SelectPrimitive.ItemText className="min-w-0 flex-1 truncate">
+        {children}
+      </SelectPrimitive.ItemText>
       <SelectPrimitive.ItemIndicator className="absolute right-2 inline-flex size-4 items-center justify-center">
         <Check className="size-3.5" />
       </SelectPrimitive.ItemIndicator>

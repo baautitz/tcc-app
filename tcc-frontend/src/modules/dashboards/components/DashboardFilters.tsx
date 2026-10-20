@@ -31,7 +31,11 @@ import {
   SelectValue,
 } from "@/shared/ui/select";
 import { isIsoDateValue } from "@/modules/dashboards/model/lib";
-import type { DashboardFilterValues, FilterValues, QueryState } from "@/modules/dashboards/model/types";
+import type {
+  DashboardFilterValues,
+  FilterValues,
+  QueryState,
+} from "@/modules/dashboards/model/types";
 
 export function DashboardFilters({
   parameters,
@@ -105,7 +109,8 @@ export function DashboardFilters({
   }, [parameters, appliedFilters, form]);
   useEffect(() => {
     const subscription = form.watch((values, metadata) => {
-      if (metadata.type === "change") onValuesChange?.(values as DashboardFilterValues);
+      if (metadata.type === "change")
+        onValuesChange?.(values as DashboardFilterValues);
     });
     return () => subscription.unsubscribe();
   }, [form, onValuesChange]);

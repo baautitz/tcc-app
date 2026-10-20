@@ -20,7 +20,11 @@ export function PermissionsSection() {
       loading={loading}
       error={error}
     >
-      <PermissionsTable permissions={permissions} loading={loading} isMobile={isMobile} />
+      <PermissionsTable
+        permissions={permissions}
+        loading={loading}
+        isMobile={isMobile}
+      />
     </SectionLayout>
   );
 }

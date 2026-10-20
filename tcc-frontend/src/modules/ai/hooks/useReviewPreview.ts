@@ -2,7 +2,11 @@ import { useEffect, useState } from "react";
 import { useSaveQuery } from "@/modules/queries/hooks/useSaveQuery";
 import { useAuth } from "@/modules/identity/hooks/AuthContext";
 import { toast } from "@/shared/ui/toast";
-import type { ChatItem, ChatMessage, QueryPreviewItem } from "@/modules/ai/model/chat-items";
+import type {
+  ChatItem,
+  ChatMessage,
+  QueryPreviewItem,
+} from "@/modules/ai/model/chat-items";
 
 export function useReviewPreview(
   items: ChatItem[],
@@ -20,7 +24,14 @@ export function useReviewPreview(
     name: string;
     sqlText: string;
   }>();
-  const { pendingRef: savePendingRef, saving: savingPreview, run: runSave, persist, reloadOnConflict, isConflict } = useSaveQuery();
+  const {
+    pendingRef: savePendingRef,
+    saving: savingPreview,
+    run: runSave,
+    persist,
+    reloadOnConflict,
+    isConflict,
+  } = useSaveQuery();
   const { hasPermission } = useAuth();
 
   useEffect(() => {
@@ -47,8 +58,7 @@ export function useReviewPreview(
     if (!reviewPreview) return;
     const owner = items.find(
       (item): item is ChatMessage =>
-        item.kind === "message" &&
-        item.id === reviewPreview.ownerMessageId,
+        item.kind === "message" && item.id === reviewPreview.ownerMessageId,
     );
     if (
       !owner ||
@@ -76,46 +86,47 @@ export function useReviewPreview(
       return;
     }
     await runSave(async () => {
-    try {
-      const body = {
-        dataSourceId: reviewPreview.dataSource.id,
-        name: reviewName.trim(),
-        sqlText: reviewPreview.sqlText,
-        parameters: reviewPreview.parameters,
-        testRunId: reviewPreview.testRunId,
-      };
-      const saved = await persist(
-        reviewPreview.intent.mode === "update" ? reviewPreview.intent.queryId! : undefined,
-        body,
-        reviewPreview.intent.queryUpdatedAt!,
-      );
-      onPreviewSaved(reviewPreview, saved.id, saved.name);
-      window.dispatchEvent(new Event("queries:saved"));
-      toast.success(
-        reviewPreview.intent.mode === "update"
-          ? "Edição da query aplicada."
-          : "Nova query salva.",
-      );
-      setReviewPreview(undefined);
-    } catch (reason) {
-      setStalePreview(true);
-      if (
-        isConflict(reason) &&
-        reviewPreview.intent.queryId
-      ) {
-        const latest = await reloadOnConflict(reviewPreview.intent.queryId);
-        setReloadedQuery(latest && { name: latest.name, sqlText: latest.sqlText });
-        toast.error(
-          "A query mudou depois do teste. Recarreguei a versão atual; peça ao assistente para testar novamente.",
+      try {
+        const body = {
+          dataSourceId: reviewPreview.dataSource.id,
+          name: reviewName.trim(),
+          sqlText: reviewPreview.sqlText,
+          parameters: reviewPreview.parameters,
+          testRunId: reviewPreview.testRunId,
+        };
+        const saved = await persist(
+          reviewPreview.intent.mode === "update"
+            ? reviewPreview.intent.queryId!
+            : undefined,
+          body,
+          reviewPreview.intent.queryUpdatedAt!,
         );
-      } else {
-        toast.error(
-          reason instanceof Error
-            ? reason.message
-            : "Não foi possível salvar a query. Gere uma nova prévia.",
+        onPreviewSaved(reviewPreview, saved.id, saved.name);
+        window.dispatchEvent(new Event("queries:saved"));
+        toast.success(
+          reviewPreview.intent.mode === "update"
+            ? "Edição da query aplicada."
+            : "Nova query salva.",
         );
+        setReviewPreview(undefined);
+      } catch (reason) {
+        setStalePreview(true);
+        if (isConflict(reason) && reviewPreview.intent.queryId) {
+          const latest = await reloadOnConflict(reviewPreview.intent.queryId);
+          setReloadedQuery(
+            latest && { name: latest.name, sqlText: latest.sqlText },
+          );
+          toast.error(
+            "A query mudou depois do teste. Recarreguei a versão atual; peça ao assistente para testar novamente.",
+          );
+        } else {
+          toast.error(
+            reason instanceof Error
+              ? reason.message
+              : "Não foi possível salvar a query. Gere uma nova prévia.",
+          );
+        }
       }
-    }
     });
   };
 

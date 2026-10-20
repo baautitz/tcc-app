@@ -97,7 +97,8 @@ export function DashboardPreviewCard({
         )}
         {item.issues.length > 0 && (
           <p className="text-xs text-destructive">
-            {item.issues.length} problema(s) na prévia. {isLatestInteraction
+            {item.issues.length} problema(s) na prévia.{" "}
+            {isLatestInteraction
               ? "Abra Visualizar para revisar antes de ajustar."
               : "Peça uma nova proposta para revisar e ajustar."}
           </p>

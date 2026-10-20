@@ -2,7 +2,14 @@ import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { useChatSession } from "@/modules/ai/hooks/useChatSession";
 
-const msg = (id: string, content = "") => ({ id, kind: "message", role: "assistant", content, status: "streaming" }) as const;
+const msg = (id: string, content = "") =>
+  ({
+    id,
+    kind: "message",
+    role: "assistant",
+    content,
+    status: "streaming",
+  }) as const;
 
 describe("useChatSession", () => {
   it("começa vazio e atualiza draft/busy/progress", () => {
@@ -15,14 +22,20 @@ describe("useChatSession", () => {
       result.current.setBusy(true);
       result.current.setActivityProgress("x");
     });
-    expect(result.current).toMatchObject({ draft: "oi", busy: true, activityProgress: "x" });
+    expect(result.current).toMatchObject({
+      draft: "oi",
+      busy: true,
+      activityProgress: "x",
+    });
   });
 
   it("ops atualizam apenas a mensagem do assistente e mantêm identidade estável", () => {
     const { result, rerender } = renderHook(() => useChatSession());
     const first = result.current.updateAssistant;
     act(() => result.current.setItems([msg("a"), msg("b")]));
-    act(() => result.current.updateAssistant("a", (m) => ({ ...m, content: "novo" })));
+    act(() =>
+      result.current.updateAssistant("a", (m) => ({ ...m, content: "novo" })),
+    );
     expect((result.current.items[0] as any).content).toBe("novo");
     expect((result.current.items[1] as any).content).toBe("");
     rerender();
@@ -32,8 +45,18 @@ describe("useChatSession", () => {
   it("insertBefore/AfterAssistant posicionam itens", () => {
     const { result } = renderHook(() => useChatSession());
     act(() => result.current.setItems([msg("a")]));
-    act(() => result.current.insertBeforeAssistant("a", { id: "t1", kind: "tool" } as any));
-    act(() => result.current.insertAfterAssistant("a", { id: "t2", kind: "tool" } as any));
+    act(() =>
+      result.current.insertBeforeAssistant("a", {
+        id: "t1",
+        kind: "tool",
+      } as any),
+    );
+    act(() =>
+      result.current.insertAfterAssistant("a", {
+        id: "t2",
+        kind: "tool",
+      } as any),
+    );
     expect(result.current.items.map((i) => i.id)).toEqual(["t1", "a", "t2"]);
   });
 });

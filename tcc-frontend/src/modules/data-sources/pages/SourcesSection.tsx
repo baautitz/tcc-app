@@ -47,7 +47,9 @@ export function SourcesSection() {
         isMobile={isMobile}
         onEdit={(value) => setSheet({ open: true, value })}
         onDelete={(value) =>
-          void remove(value.name, () => dataSourcesApi.deleteDataSource(value.id))
+          void remove(value.name, () =>
+            dataSourcesApi.deleteDataSource(value.id),
+          )
         }
       />
       <SourceSheet

@@ -15,8 +15,8 @@
     "verbatimModuleSyntax": true,
     "moduleDetection": "force",
     "noEmit": true,
-    "jsx": "react-jsx"
-    ,"paths": {
+    "jsx": "react-jsx",
+    "paths": {
       "@/*": ["./src/*"]
     }
   },

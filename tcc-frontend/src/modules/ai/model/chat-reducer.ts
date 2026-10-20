@@ -74,8 +74,10 @@ export function applyChatEvent(
         const draftChanged =
           item.dataSource.id !== event.dataSource.id ||
           item.sqlText !== event.sqlText ||
-          JSON.stringify(item.parameters) !== JSON.stringify(event.parameters) ||
-          JSON.stringify(item.testValues) !== JSON.stringify(event.testValues) ||
+          JSON.stringify(item.parameters) !==
+            JSON.stringify(event.parameters) ||
+          JSON.stringify(item.testValues) !==
+            JSON.stringify(event.testValues) ||
           item.intent.mode !== event.intent.mode ||
           item.intent.queryId !== event.intent.queryId;
         return draftChanged ? { ...item, stale: true } : item;
@@ -146,7 +148,10 @@ export function applyChatEvent(
         },
       );
     case "done":
-      return patchAssistant(items, assistantId, (m) => ({ ...m, status: "complete" }));
+      return patchAssistant(items, assistantId, (m) => ({
+        ...m,
+        status: "complete",
+      }));
     default:
       return items;
   }

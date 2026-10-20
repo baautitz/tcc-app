@@ -44,9 +44,7 @@ export function AiChatProvider({ children }: { children: ReactNode }) {
   );
 
   return (
-    <AiChatContext.Provider value={value}>
-      {children}
-    </AiChatContext.Provider>
+    <AiChatContext.Provider value={value}>{children}</AiChatContext.Provider>
   );
 }
 

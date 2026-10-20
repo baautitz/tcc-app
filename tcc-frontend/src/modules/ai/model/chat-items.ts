@@ -1,5 +1,8 @@
 import type { AiContextProposal } from "@/modules/ai/model/types";
-import type { DashboardDefinition, DashboardDocument } from "@/modules/dashboards/model/types";
+import type {
+  DashboardDefinition,
+  DashboardDocument,
+} from "@/modules/dashboards/model/types";
 import type { QueryPreview } from "@/modules/queries/model/types";
 import type { QuestionnaireChatItem } from "@/modules/ai/components/QuestionnaireCard";
 
@@ -107,7 +110,9 @@ export type ChatActionCardItem =
   | QuestionnaireChatItem;
 export type ChatRoleMessage = { role: "user" | "assistant"; content: string };
 
-export function getActionCardReference(item: ChatItem): ChatActionCardRef | undefined {
+export function getActionCardReference(
+  item: ChatItem,
+): ChatActionCardRef | undefined {
   switch (item.kind) {
     case "proposal":
     case "context_proposal":
@@ -184,67 +189,121 @@ export function pageContextForPath(pathname: string) {
   };
 }
 
-export function hasPendingDashboardComponentRequest(items: ChatItem[], pathname: string) {
+export function hasPendingDashboardComponentRequest(
+  items: ChatItem[],
+  pathname: string,
+) {
   const userMessages = items.filter(
-    (item): item is ChatMessage => item.kind === "message" && item.role === "user",
+    (item): item is ChatMessage =>
+      item.kind === "message" && item.role === "user",
   );
   const latest = userMessages.at(-1)?.content ?? "";
   const normalizedLatest = latest
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
-  const isQuestionnaireAnswer = /\b(respostas? ao formulario|respostas enviadas)\b/.test(normalizedLatest);
+  const isQuestionnaireAnswer =
+    /\b(respostas? ao formulario|respostas enviadas)\b/.test(normalizedLatest);
   const text = [
     ...(isQuestionnaireAnswer ? [userMessages.at(-2)?.content ?? ""] : []),
     latest,
-  ].join(" ")
+  ]
+    .join(" ")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
-  const asksForAction = /\b(adicionar|adicione|adiciona|inclui|inclua|incluir|criar|crie|montar|monte|colocar|coloque|inserir|insira|gerar|gere|faca|fazer)\b/.test(text);
-  const asksForComponent = /\b(graficos?|dashboards?|paineis|componentes?|tabelas?|indicadores?|metricas?|kpis?)\b/.test(text);
-  const requestsComponent = /\b(quero|preciso)\b/.test(text) && asksForComponent;
-  const placementInstruction = /\b(ao lado(?: direito| esquerdo)?|a direita|a esquerda|acima|abaixo|antes|depois|apos)\b/.test(text);
-  const metricDescription = /\b(somatoria|soma|total|quantidade|indicador|metrica|kpi)\b/.test(text);
+  const asksForAction =
+    /\b(adicionar|adicione|adiciona|inclui|inclua|incluir|criar|crie|montar|monte|colocar|coloque|inserir|insira|gerar|gere|faca|fazer)\b/.test(
+      text,
+    );
+  const asksForComponent =
+    /\b(graficos?|dashboards?|paineis|componentes?|tabelas?|indicadores?|metricas?|kpis?)\b/.test(
+      text,
+    );
+  const requestsComponent =
+    /\b(quero|preciso)\b/.test(text) && asksForComponent;
+  const placementInstruction =
+    /\b(ao lado(?: direito| esquerdo)?|a direita|a esquerda|acima|abaixo|antes|depois|apos)\b/.test(
+      text,
+    );
+  const metricDescription =
+    /\b(somatoria|soma|total|quantidade|indicador|metrica|kpi)\b/.test(text);
   const dashboardContext = DASHBOARD_ID_PATTERN.test(pathname);
   const isConcreteVisualizationRequest = (requestText: string) => {
     const normalizedRequest = requestText
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
       .toLowerCase();
-    return /\b(graficos?|tabelas?|indicadores?|metricas?|kpis?)\b/.test(normalizedRequest)
-      && /\b(top\s*\d+|maiores?|menores?|por\s+(?:venda|faturamento|categoria|estado|cidade)|venda|faturamento)\b/.test(normalizedRequest);
+    return (
+      /\b(graficos?|tabelas?|indicadores?|metricas?|kpis?)\b/.test(
+        normalizedRequest,
+      ) &&
+      /\b(top\s*\d+|maiores?|menores?|por\s+(?:venda|faturamento|categoria|estado|cidade)|venda|faturamento)\b/.test(
+        normalizedRequest,
+      )
+    );
   };
-  const recentConcreteVisualization = userMessages.slice(-6, -1).some(
-    (message) => isConcreteVisualizationRequest(message.content),
-  );
-  const confirmsImplementation = /\b(pode|poderia|vamos|sim)\b.{0,32}\b(implementar|implemente|adicionar|incluir|montar|criar)\b/.test(normalizedLatest)
-    && recentConcreteVisualization;
+  const recentConcreteVisualization = userMessages
+    .slice(-6, -1)
+    .some((message) => isConcreteVisualizationRequest(message.content));
+  const confirmsImplementation =
+    /\b(pode|poderia|vamos|sim)\b.{0,32}\b(implementar|implemente|adicionar|incluir|montar|criar)\b/.test(
+      normalizedLatest,
+    ) && recentConcreteVisualization;
   const isDashboardRequest = (requestText: string) => {
     const normalizedRequest = requestText
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
       .toLowerCase();
-    const action = /\b(adicionar|adicione|adiciona|inclui|inclua|incluir|criar|crie|montar|monte|colocar|coloque|inserir|insira|gerar|gere|faca|fazer)\b/.test(normalizedRequest);
-    const component = /\b(graficos?|dashboards?|paineis|componentes?|tabelas?|indicadores?|metricas?|kpis?)\b/.test(normalizedRequest);
-    const wantsComponent = /\b(quero|preciso)\b/.test(normalizedRequest) && component;
-    const positionedMetric = /\b(ao lado(?: direito| esquerdo)?|a direita|a esquerda|acima|abaixo|antes|depois|apos)\b/.test(normalizedRequest)
-      && /\b(somatoria|soma|total|quantidade|indicador|metrica|kpi)\b/.test(normalizedRequest);
-    return (action && component)
-      || wantsComponent
-      || (action && positionedMetric)
-      || isConcreteVisualizationRequest(requestText);
+    const action =
+      /\b(adicionar|adicione|adiciona|inclui|inclua|incluir|criar|crie|montar|monte|colocar|coloque|inserir|insira|gerar|gere|faca|fazer)\b/.test(
+        normalizedRequest,
+      );
+    const component =
+      /\b(graficos?|dashboards?|paineis|componentes?|tabelas?|indicadores?|metricas?|kpis?)\b/.test(
+        normalizedRequest,
+      );
+    const wantsComponent =
+      /\b(quero|preciso)\b/.test(normalizedRequest) && component;
+    const positionedMetric =
+      /\b(ao lado(?: direito| esquerdo)?|a direita|a esquerda|acima|abaixo|antes|depois|apos)\b/.test(
+        normalizedRequest,
+      ) &&
+      /\b(somatoria|soma|total|quantidade|indicador|metrica|kpi)\b/.test(
+        normalizedRequest,
+      );
+    return (
+      (action && component) ||
+      wantsComponent ||
+      (action && positionedMetric) ||
+      isConcreteVisualizationRequest(requestText)
+    );
   };
-  const isDirectDashboardRequest = (asksForAction && asksForComponent)
-    || requestsComponent
-    || (asksForAction && placementInstruction && (metricDescription || dashboardContext));
-  if (isDirectDashboardRequest || isDashboardRequest(text) || confirmsImplementation) return true;
-  const latestIsStatusFollowUp = /^[?!.…\s]+$/.test(normalizedLatest)
-    || (/\b(aplicar|visualizar|proposta|previ\w*|cartao|botao)\b/.test(normalizedLatest)
-      && /\b(nao|tem|cade|onde|aparece|apareceu|sumiu)\b/.test(normalizedLatest));
-  return (latestIsStatusFollowUp && userMessages.slice(-5, -1).some(
-    (message) => isDashboardRequest(message.content),
-  )) || (isQuestionnaireAnswer && recentConcreteVisualization);
+  const isDirectDashboardRequest =
+    (asksForAction && asksForComponent) ||
+    requestsComponent ||
+    (asksForAction &&
+      placementInstruction &&
+      (metricDescription || dashboardContext));
+  if (
+    isDirectDashboardRequest ||
+    isDashboardRequest(text) ||
+    confirmsImplementation
+  )
+    return true;
+  const latestIsStatusFollowUp =
+    /^[?!.…\s]+$/.test(normalizedLatest) ||
+    (/\b(aplicar|visualizar|proposta|previ\w*|cartao|botao)\b/.test(
+      normalizedLatest,
+    ) &&
+      /\b(nao|tem|cade|onde|aparece|apareceu|sumiu)\b/.test(normalizedLatest));
+  return (
+    (latestIsStatusFollowUp &&
+      userMessages
+        .slice(-5, -1)
+        .some((message) => isDashboardRequest(message.content))) ||
+    (isQuestionnaireAnswer && recentConcreteVisualization)
+  );
 }
 
 export function completedConversation(
@@ -300,73 +359,78 @@ export function formatElapsedTime(elapsedMs: number) {
   return `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, "0")}s`;
 }
 
-
-export function insertBefore(current: ChatItem[], assistantId: string, item: ChatItem): ChatItem[] {
-    const assistantIndex = current.findIndex(
-      (candidate) =>
-        candidate.kind === "message" && candidate.id === assistantId,
-    );
-    const index = assistantIndex < 0 ? current.length : assistantIndex;
-    return [...current.slice(0, index), item, ...current.slice(index)];
+export function insertBefore(
+  current: ChatItem[],
+  assistantId: string,
+  item: ChatItem,
+): ChatItem[] {
+  const assistantIndex = current.findIndex(
+    (candidate) => candidate.kind === "message" && candidate.id === assistantId,
+  );
+  const index = assistantIndex < 0 ? current.length : assistantIndex;
+  return [...current.slice(0, index), item, ...current.slice(index)];
 }
 
-export function insertAfter(current: ChatItem[], assistantId: string, item: ChatItem): ChatItem[] {
-    const reference = getActionCardReference(item);
-    const originalAssistant = current.find(
+export function insertAfter(
+  current: ChatItem[],
+  assistantId: string,
+  item: ChatItem,
+): ChatItem[] {
+  const reference = getActionCardReference(item);
+  const originalAssistant =
+    current.find(
       (candidate) =>
         candidate.kind === "message" && candidate.id === assistantId,
-    ) ?? [...current].reverse().find(
-      (candidate): candidate is ChatMessage =>
-        candidate.kind === "message" && candidate.role === "assistant",
-    );
-    if (!originalAssistant || originalAssistant.kind !== "message")
-      return [...current, item];
-    const ownerMessageId = originalAssistant.id;
+    ) ??
+    [...current]
+      .reverse()
+      .find(
+        (candidate): candidate is ChatMessage =>
+          candidate.kind === "message" && candidate.role === "assistant",
+      );
+  if (!originalAssistant || originalAssistant.kind !== "message")
+    return [...current, item];
+  const ownerMessageId = originalAssistant.id;
 
-    let next = current;
-    let attachedItem = item;
-    if (reference && isActionCardItem(item)) {
-      const displacedCardIds = new Set([
-        reference.id,
-        originalAssistant.actionCard?.id,
-      ]);
-      next = current
-        .filter(
-          (candidate) =>
-            !isActionCardItem(candidate) ||
-            !displacedCardIds.has(candidate.id),
-        )
-        .map((candidate) => {
-          if (candidate.kind !== "message") return candidate;
-          if (candidate.id === ownerMessageId)
-            return { ...candidate, actionCard: reference };
-          if (
-            candidate.actionCard &&
-            displacedCardIds.has(candidate.actionCard.id)
-          ) {
-            const message = { ...candidate };
-            delete message.actionCard;
-            return message;
-          }
-          return candidate;
-        });
-      attachedItem = withActionCardOwner(item, ownerMessageId);
-    }
+  let next = current;
+  let attachedItem = item;
+  if (reference && isActionCardItem(item)) {
+    const displacedCardIds = new Set([
+      reference.id,
+      originalAssistant.actionCard?.id,
+    ]);
+    next = current
+      .filter(
+        (candidate) =>
+          !isActionCardItem(candidate) || !displacedCardIds.has(candidate.id),
+      )
+      .map((candidate) => {
+        if (candidate.kind !== "message") return candidate;
+        if (candidate.id === ownerMessageId)
+          return { ...candidate, actionCard: reference };
+        if (
+          candidate.actionCard &&
+          displacedCardIds.has(candidate.actionCard.id)
+        ) {
+          const message = { ...candidate };
+          delete message.actionCard;
+          return message;
+        }
+        return candidate;
+      });
+    attachedItem = withActionCardOwner(item, ownerMessageId);
+  }
 
-    const assistantIndex = next.findIndex(
-      (candidate) =>
-        candidate.kind === "message" && candidate.id === ownerMessageId,
-    );
+  const assistantIndex = next.findIndex(
+    (candidate) =>
+      candidate.kind === "message" && candidate.id === ownerMessageId,
+  );
 
-    let index = assistantIndex + 1;
-    while (index < next.length && next[index]?.kind !== "message") {
-      index += 1;
-    }
-    return [
-      ...next.slice(0, index),
-      attachedItem,
-      ...next.slice(index),
-    ];
+  let index = assistantIndex + 1;
+  while (index < next.length && next[index]?.kind !== "message") {
+    index += 1;
+  }
+  return [...next.slice(0, index), attachedItem, ...next.slice(index)];
 }
 
 export function mergePendingContextProposals(
