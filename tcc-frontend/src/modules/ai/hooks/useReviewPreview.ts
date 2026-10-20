@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useSaveQuery } from "@/modules/queries/hooks/useSaveQuery";
 import { useAuth } from "@/modules/identity/hooks/AuthContext";
 import { toast } from "@/shared/ui/toast";
@@ -19,7 +19,7 @@ export function useReviewPreview(
 ) {
   const [reviewPreview, setReviewPreview] = useState<QueryPreviewItem>();
   const [reviewName, setReviewName] = useState("");
-  const [stalePreview, setStalePreview] = useState(false);
+  const [staleFlag, setStaleFlag] = useState(false);
   const [reloadedQuery, setReloadedQuery] = useState<{
     name: string;
     sqlText: string;
@@ -34,34 +34,29 @@ export function useReviewPreview(
   } = useSaveQuery();
   const { hasPermission } = useAuth();
 
-  useEffect(() => {
-    // reseta/sincroniza estado local ao mudar a chave do efeito (refatorar mudaria timing)
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+  // reseta ao mudar o preview (id); queryName editado nao deve resetar
+  const previewId = reviewPreview?.id;
+  const [prevPreviewId, setPrevPreviewId] = useState(previewId);
+  if (prevPreviewId !== previewId) {
+    setPrevPreviewId(previewId);
     setReviewName(reviewPreview?.intent.queryName ?? "");
-    setStalePreview(false);
+    setStaleFlag(false);
     setReloadedQuery(undefined);
-    // reinicia so quando o preview muda (id); queryName editado nao deve resetar
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reviewPreview?.id]);
+  }
 
-  useEffect(() => {
-    if (
+  const stalePreview =
+    staleFlag ||
+    Boolean(
       reviewPreview &&
       items.some(
         (item) =>
           item.kind === "query_preview" &&
           item.testRunId === reviewPreview.testRunId &&
           item.stale,
-      )
-    ) {
-      // reseta/sincroniza estado local ao mudar a chave do efeito (refatorar mudaria timing)
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setStalePreview(true);
-    }
-  }, [items, reviewPreview]);
+      ),
+    );
 
-  useEffect(() => {
-    if (!reviewPreview) return;
+  if (reviewPreview) {
     const owner = items.find(
       (item): item is ChatMessage =>
         item.kind === "message" && item.id === reviewPreview.ownerMessageId,
@@ -71,11 +66,9 @@ export function useReviewPreview(
       owner.id !== latestMessage?.id ||
       owner.actionCard?.id !== reviewPreview.id
     ) {
-      // reseta/sincroniza estado local ao mudar a chave do efeito (refatorar mudaria timing)
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setReviewPreview(undefined);
     }
-  }, [items, latestMessage?.id, reviewPreview]);
+  }
 
   const canSavePreview = reviewPreview
     ? reviewPreview.intent.mode === "create"
@@ -118,7 +111,7 @@ export function useReviewPreview(
         );
         setReviewPreview(undefined);
       } catch (reason) {
-        setStalePreview(true);
+        setStaleFlag(true);
         if (isConflict(reason) && reviewPreview.intent.queryId) {
           const latest = await reloadOnConflict(reviewPreview.intent.queryId);
           setReloadedQuery(

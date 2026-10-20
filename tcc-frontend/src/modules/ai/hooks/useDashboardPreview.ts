@@ -60,40 +60,54 @@ export function useDashboardPreview(
     (query) => query.truncated,
   );
 
-  useEffect(() => {
-    // reseta/sincroniza estado local ao mudar a chave do efeito (refatorar mudaria timing)
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+  // reseta ao trocar de proposta/expiracao
+  const resetKey = `${item.id}|${item.expiresAt}`;
+  const [prevResetKey, setPrevResetKey] = useState(resetKey);
+  if (prevResetKey !== resetKey) {
+    setPrevResetKey(resetKey);
     setAcknowledgedLimit(false);
     setTestedQueries(undefined);
     setTestedIssues(undefined);
     setPreviewTestError(undefined);
-    const remaining = new Date(item.expiresAt).getTime() - Date.now();
-    if (remaining <= 0) {
-      setExpired(true);
-      return;
-    }
     setExpired(false);
-    const timer = window.setTimeout(() => setExpired(true), remaining);
+  }
+
+  useEffect(() => {
+    const remaining = new Date(item.expiresAt).getTime() - Date.now();
+    const timer = window.setTimeout(
+      () => setExpired(true),
+      Math.max(remaining, 0),
+    );
     return () => window.clearTimeout(timer);
   }, [item.id, item.expiresAt]);
 
-  useEffect(() => {
-    // reseta/sincroniza estado local ao mudar a chave do efeito (refatorar mudaria timing)
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setPreviewOpen(previewComponents.length > 0);
-  }, [item.id, previewComponents]);
-
-  useEffect(() => {
-    // reseta/sincroniza estado local ao mudar a chave do efeito (refatorar mudaria timing)
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (!isLatestInteraction) setPreviewOpen(false);
-  }, [isLatestInteraction]);
-
-  useEffect(() => {
-    // reseta/sincroniza estado local ao mudar a chave do efeito (refatorar mudaria timing)
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (item.saved) setPreviewOpen(false);
-  }, [item.saved]);
+  // previewOpen: abre ao mudar proposta/componentes; fecha se nao e a ultima interacao ou se salvou
+  const [prevOpenDeps, setPrevOpenDeps] = useState<{
+    id: string;
+    previewComponents: typeof previewComponents;
+    isLatestInteraction: boolean;
+    saved?: boolean;
+  }>();
+  if (
+    !prevOpenDeps ||
+    prevOpenDeps.id !== item.id ||
+    prevOpenDeps.previewComponents !== previewComponents ||
+    prevOpenDeps.isLatestInteraction !== isLatestInteraction ||
+    prevOpenDeps.saved !== item.saved
+  ) {
+    const reopen =
+      !prevOpenDeps ||
+      prevOpenDeps.id !== item.id ||
+      prevOpenDeps.previewComponents !== previewComponents;
+    setPrevOpenDeps({
+      id: item.id,
+      previewComponents,
+      isLatestInteraction,
+      saved: item.saved,
+    });
+    if (reopen) setPreviewOpen(previewComponents.length > 0);
+    if (!isLatestInteraction || item.saved) setPreviewOpen(false);
+  }
 
   const componentTitles = previewComponents.map((component) => component.title);
   const componentChangeSummary = item.changeSummary.find((summary) =>

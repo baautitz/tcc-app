@@ -2,7 +2,6 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -34,11 +33,8 @@ export function AiChatProvider({ children }: { children: ReactNode }) {
     setIsAiChatOpen((open) => (user?.isAdmin ? !open : false));
   }, [user?.isAdmin]);
 
-  useEffect(() => {
-    // fecha o chat ao perder permissao admin
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (!user?.isAdmin) setIsAiChatOpen(false);
-  }, [user?.isAdmin]);
+  // fecha o chat ao perder permissao admin
+  if (!user?.isAdmin && isAiChatOpen) setIsAiChatOpen(false);
 
   const value = useMemo(
     () => ({ isAiChatOpen, openAiChat, closeAiChat, toggleAiChat }),
