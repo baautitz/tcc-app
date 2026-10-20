@@ -1,16 +1,11 @@
 
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
-
 import { z } from "zod";
 import { getEnvironment } from "../../../shared/config/config.js";
 import { DrizzleUsersRepository } from "../infrastructure/users-repository.js";
-
 import { verifyPassword } from "../../../shared/lib/passwords.js";
-
 import { authService, SESSION_COOKIE } from "../application/auth.js";
-
 import { ApiError } from "../../../shared/lib/domain-error.js";
-
 import type { AppContext } from "../../../shared/middleware/auth.js";
 import { jsonBody } from "../../../shared/middleware/json-body.js";
 
