@@ -1,5 +1,7 @@
 # Arquitetura
 
+Vocabulário do domínio: veja o [GLOSSARY.md](../GLOSSARY.md).
+
 Backend (`tcc-backend`) e frontend (`tcc-frontend`) são organizados por módulo de domínio. Os dois usam os mesmos cinco módulos e os mesmos nomes.
 
 ## Módulos e direção de dependência
