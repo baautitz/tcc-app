@@ -52,11 +52,18 @@ export class UserService {
     const email = input.email.toLowerCase();
     if (await this.repo.findByEmail(email))
       throw new ApiError(409, "Já existe um usuário com este e-mail.");
-    const user = await this.repo.insert({
-      name: input.name,
-      email,
-      passwordHash: hashPassword(input.password),
-    });
+    let user;
+    try {
+      user = await this.repo.insert({
+        name: input.name,
+        email,
+        passwordHash: hashPassword(input.password),
+      });
+    } catch (error) {
+      if (isUniqueViolation(error))
+        throw new ApiError(409, "Já existe um usuário com este e-mail.");
+      throw error;
+    }
     if (!user) throw new ApiError(500, "Não foi possível criar o usuário.");
     await this.permissions.assignPermissionKeys(user.id, input.permissionKeys);
     return { id: user.id };
@@ -110,3 +117,12 @@ export const userService = new UserService(
   new DrizzleUsersRepository(),
   permissionService,
 );
+
+function isUniqueViolation(error: unknown): boolean {
+  let current: unknown = error;
+  for (let depth = 0; depth < 4 && current; depth++) {
+    if ((current as { code?: unknown }).code === "23505") return true;
+    current = (current as { cause?: unknown }).cause;
+  }
+  return false;
+}

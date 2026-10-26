@@ -65,4 +65,21 @@ describe("DataSourceAdminService", () => {
       } as never),
     ).rejects.toMatchObject({ status: 400 });
   });
+
+  it("testSource repropaga erros que nao sao de conexao", async () => {
+    const inspect = vi.fn(async () => {
+      throw new TypeError("bug interno");
+    });
+    const svc = new DataSourceAdminService(fakeRepo(), inspect as never, key);
+    await expect(
+      svc.testSource({
+        name: "x",
+        host: "h",
+        port: 5432,
+        databaseName: "d",
+        username: "u",
+        password: "p",
+      } as never),
+    ).rejects.toThrow("bug interno");
+  });
 });

@@ -18,10 +18,8 @@ jobs:
           POSTGRES_USER: tcc_test
           POSTGRES_PASSWORD: tcc_test
           POSTGRES_DB: tcc_integration_test
-        # Duas portas loopback para o mesmo container (TCC_SMOKE_EXTERNAL_PORT).
         ports:
           - 127.0.0.1:5432:5432
-          - 127.0.0.1:5433:5432
         options: >-
           --health-cmd "pg_isready -U tcc_test -d tcc_integration_test"
           --health-interval 5s
@@ -34,6 +32,20 @@ jobs:
       TCC_SMOKE_EXTERNAL_PORT: "5433"
     steps:
       - uses: actions/checkout@v4
+      # Segunda porta loopback (TCC_SMOKE_EXTERNAL_PORT) via proxy TCP, em vez de
+      # depender de mapeamento duplicado no service container (não verificado).
+      - name: Publicar segunda porta do Postgres
+        working-directory: .
+        run: |
+          docker run -d --name pg-proxy --network host alpine/socat \
+            TCP-LISTEN:5433,bind=127.0.0.1,fork,reuseaddr TCP:127.0.0.1:5432
+          for i in $(seq 1 20); do
+            (echo > /dev/tcp/127.0.0.1/5433) 2>/dev/null && exit 0
+            sleep 1
+          done
+          echo "Porta 5433 não ficou disponível" >&2
+          docker logs pg-proxy >&2
+          exit 1
       - uses: pnpm/action-setup@v4
         with:
           version: 10

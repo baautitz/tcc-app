@@ -118,11 +118,12 @@ integrationDescribe(
     });
 
     afterAll(async () => {
-      await rm(dashboardFile, { force: true });
+      if (dashboardFile) await rm(dashboardFile, { force: true });
       if (createdDir) await rmdir(dashboardsDir).catch(() => undefined);
-      await db
-        .delete(dashboards)
-        .where(eq(dashboards.dashboardId, dashboardId));
+      if (dashboardId)
+        await db
+          .delete(dashboards)
+          .where(eq(dashboards.dashboardId, dashboardId));
       await db
         .delete(savedQueries)
         .where(eq(savedQueries.dataSourceId, sourceId));

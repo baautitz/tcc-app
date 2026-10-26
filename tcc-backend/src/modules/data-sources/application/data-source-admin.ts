@@ -163,7 +163,7 @@ export class DataSourceAdminService {
   async refreshSource(sourceId: string) {
     const source = await this.getSourceOrThrow(sourceId);
     const expectedSourceSnapshot = catalogSourceSnapshot(source);
-    const tables = await this.inspect(sourceConnection(source));
+    const tables = await this.inspectConnection(sourceConnection(source));
     await this.catalogSourceTables(source.id, tables, {
       expectedSourceSnapshot,
     });
@@ -177,17 +177,24 @@ export class DataSourceAdminService {
       throw new ApiError(404, "Servidor PostgreSQL não encontrado.");
   }
 
-  private async inspectInput(input: SourceInput) {
+  private inspectInput(input: SourceInput) {
+    return this.inspectConnection({
+      host: input.host,
+      port: input.port,
+      database: input.databaseName,
+      user: input.username,
+      password: input.password,
+    });
+  }
+
+  private async inspectConnection(
+    connection: Parameters<typeof inspectReadOnlyPostgres>[0],
+  ) {
     try {
-      return await this.inspect({
-        host: input.host,
-        port: input.port,
-        database: input.databaseName,
-        user: input.username,
-        password: input.password,
-      });
+      return await this.inspect(connection);
     } catch (error) {
       if (error instanceof ApiError) throw error;
+      if (!isConnectionError(error)) throw error;
       throw new ApiError(
         400,
         "Não foi possível conectar ao servidor PostgreSQL. Verifique host, porta, banco, usuário e senha.",
@@ -272,3 +279,29 @@ export const dataSourceAdminService = new DataSourceAdminService(
   inspectReadOnlyPostgres,
   getEnvironment().CREDENTIAL_ENCRYPTION_KEY,
 );
+
+const CONNECTION_ERROR_CODES = new Set([
+  "ECONNREFUSED",
+  "ENOTFOUND",
+  "ETIMEDOUT",
+  "ECONNRESET",
+  "EHOSTUNREACH",
+  "ENETUNREACH",
+  "EAI_AGAIN",
+  "28P01",
+  "28000",
+  "3D000",
+]);
+
+export function isConnectionError(error: unknown): boolean {
+  let current: unknown = error;
+  for (let depth = 0; depth < 4 && current; depth++) {
+    const code = (current as { code?: unknown }).code;
+    if (typeof code === "string") {
+      if (CONNECTION_ERROR_CODES.has(code) || code.startsWith("08"))
+        return true;
+    }
+    current = (current as { cause?: unknown }).cause;
+  }
+  return false;
+}
