@@ -49,9 +49,12 @@ export class UserService {
 
   async createUser(input: CreateUserInput): Promise<{ id: string }> {
     await this.assertKnownPermissionKeys(input.permissionKeys);
+    const email = input.email.toLowerCase();
+    if (await this.repo.findByEmail(email))
+      throw new ApiError(409, "Já existe um usuário com este e-mail.");
     const user = await this.repo.insert({
       name: input.name,
-      email: input.email.toLowerCase(),
+      email,
       passwordHash: hashPassword(input.password),
     });
     if (!user) throw new ApiError(500, "Não foi possível criar o usuário.");
