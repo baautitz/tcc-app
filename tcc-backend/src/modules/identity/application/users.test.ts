@@ -36,7 +36,7 @@ describe("UserService", () => {
   it("devolve 409 quando o e-mail ja esta cadastrado", async () => {
     const repo = fakeRepo({
       findByEmail: vi.fn(async () => ({ id: "u9" })),
-    } as Partial<UsersRepository>);
+    } as unknown as Partial<UsersRepository>);
     const service = new UserService(repo, permissions);
     await expect(
       service.createUser({
