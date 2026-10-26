@@ -1,0 +1,47 @@
+name: Backend - integração com Postgres
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tcc-backend
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: tcc_test
+          POSTGRES_PASSWORD: tcc_test
+          POSTGRES_DB: tcc_integration_test
+        # Duas portas loopback para o mesmo container (TCC_SMOKE_EXTERNAL_PORT).
+        ports:
+          - 127.0.0.1:5432:5432
+          - 127.0.0.1:5433:5432
+        options: >-
+          --health-cmd "pg_isready -U tcc_test -d tcc_integration_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgres://tcc_test:tcc_test@127.0.0.1:5432/tcc_integration_test
+      CREDENTIAL_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      TCC_POSTGRES_INTEGRATION: "1"
+      TCC_SMOKE_EXTERNAL_PORT: "5433"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: tcc-backend/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:migrate
+      - run: pnpm test
