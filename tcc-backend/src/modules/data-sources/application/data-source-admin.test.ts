@@ -46,4 +46,40 @@ describe("DataSourceAdminService", () => {
     });
     expect(await make(repo).listSources()).toEqual([{ id: "x" }]);
   });
+
+  it("testSource responde 400 quando a conexao e recusada (senha errada)", async () => {
+    const inspect = vi.fn(async () => {
+      throw Object.assign(new Error("password authentication failed"), {
+        code: "28P01",
+      });
+    });
+    const svc = new DataSourceAdminService(fakeRepo(), inspect as never, key);
+    await expect(
+      svc.testSource({
+        name: "x",
+        host: "h",
+        port: 5432,
+        databaseName: "d",
+        username: "u",
+        password: "errada",
+      } as never),
+    ).rejects.toMatchObject({ status: 400 });
+  });
+
+  it("testSource repropaga erros que nao sao de conexao", async () => {
+    const inspect = vi.fn(async () => {
+      throw new TypeError("bug interno");
+    });
+    const svc = new DataSourceAdminService(fakeRepo(), inspect as never, key);
+    await expect(
+      svc.testSource({
+        name: "x",
+        host: "h",
+        port: 5432,
+        databaseName: "d",
+        username: "u",
+        password: "p",
+      } as never),
+    ).rejects.toThrow("bug interno");
+  });
 });

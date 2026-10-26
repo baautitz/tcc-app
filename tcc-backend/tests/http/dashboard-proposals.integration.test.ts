@@ -12,13 +12,11 @@ import {
   savedQueries,
   users,
 } from "../../src/shared/db/schema.js";
+import { AiDashboardTools } from "../../src/modules/ai/application/tools/ai-dashboard-tools.js";
+import { DrizzleAiDashboardToolsRepository } from "../../src/modules/ai/infrastructure/ai-dashboard-tools-repository.js";
+import { externalSourceAdapter } from "../../src/modules/data-sources/infrastructure/external-source-adapter.js";
+import type { AuthenticatedUser } from "../../src/modules/identity/domain/auth-user.js";
 import { encryptCredential } from "../../src/shared/lib/credentials.js";
-import { dashboardDocumentSchema } from "../../src/shared/lib/contracts.js";
-import { querySourceTargetHash } from "../../src/modules/queries/domain/query-lifecycle.js";
-import {
-  dashboardDocumentFingerprint,
-  dashboardReferenceFingerprint,
-} from "../../src/modules/dashboards/domain/dashboard-proposals.js";
 import {
   createUser,
   databaseName,
@@ -33,15 +31,14 @@ integrationDescribe(
   "preview/commit de propostas de dashboard (PostgreSQL descartável e disco)",
   () => {
     const dashboardsDir = resolve(process.cwd(), "dashboards");
-    const dashboardId = randomUUID();
-    const dashboardFile = resolve(dashboardsDir, `${dashboardId}.json`);
+    let dashboardId = "";
+    let dashboardFile = "";
     let createdDir = false;
     let admin: SmokeUser;
     let other: SmokeUser;
     let sourceId: string;
     let queryId: string;
     let receiptId: string;
-    let document: Record<string, unknown>;
 
     beforeAll(async () => {
       admin = await createUser(true, "Dashboard proposal");
@@ -87,48 +84,32 @@ integrationDescribe(
       });
       expect(created.status).toBe(201);
       queryId = ((await created.json()) as { id: string }).id;
-      const query = (
-        await db.select().from(savedQueries).where(eq(savedQueries.id, queryId))
-      )[0]!;
 
-      document = {
-        id: dashboardId,
-        name: "Dashboard de integração",
-        workspace: { params: [] },
-        queryBindings: [{ queryUuid: queryId, parameters: {} }],
-        ui: {
-          layout: { gap: 16 },
-          components: [
-            {
-              id: "total",
-              component: "stat_card",
-              props: { queryUuid: queryId, title: "Total", field: "value" },
-            },
-          ],
-        },
-      };
-      receiptId = randomUUID();
-      await db.insert(dashboardProposalReceipts).values({
-        id: receiptId,
-        actorId: admin.id,
-        mode: "create",
-        dashboardId,
-        expectedDashboardFingerprint: null,
-        document,
-        documentFingerprint: dashboardDocumentFingerprint(
-          dashboardDocumentSchema.parse(document),
+      const tools = new AiDashboardTools({
+        currentUser: { id: admin.id, isAdmin: true } as AuthenticatedUser,
+        repository: new DrizzleAiDashboardToolsRepository(
+          externalSourceAdapter,
         ),
-        referenceFingerprint: dashboardReferenceFingerprint([
+      }).tools();
+      const propose = tools.find((t) => t.name === "create_or_update_dashboard")!;
+      const proposal = (await propose.invoke({
+        mode: "create",
+        name: "Dashboard de integração",
+        queryBindings: [{ queryUuid: queryId, parameters: {} }],
+        components: [
           {
-            queryId,
-            queryUpdatedAt: query.updatedAt,
-            dataSourceId: sourceId,
-            sourceUpdatedAt: source.updatedAt,
-            sourceTargetHash: querySourceTargetHash(source),
+            id: "total",
+            component: "stat_card",
+            title: "Total",
+            queryUuid: queryId,
+            field: "value",
           },
-        ]),
-        expiresAt: new Date(Date.now() + 5 * 60_000),
-      });
+        ],
+      })) as { proposalId: string; dashboardId: string; canCommit: boolean };
+      expect(proposal.canCommit).toBe(true);
+      receiptId = proposal.proposalId;
+      dashboardId = proposal.dashboardId;
+      dashboardFile = resolve(dashboardsDir, `${dashboardId}.json`);
       createdDir =
         (await access(dashboardsDir).then(
           () => false,
@@ -137,11 +118,12 @@ integrationDescribe(
     });
 
     afterAll(async () => {
-      await rm(dashboardFile, { force: true });
+      if (dashboardFile) await rm(dashboardFile, { force: true });
       if (createdDir) await rmdir(dashboardsDir).catch(() => undefined);
-      await db
-        .delete(dashboards)
-        .where(eq(dashboards.dashboardId, dashboardId));
+      if (dashboardId)
+        await db
+          .delete(dashboards)
+          .where(eq(dashboards.dashboardId, dashboardId));
       await db
         .delete(savedQueries)
         .where(eq(savedQueries.dataSourceId, sourceId));
