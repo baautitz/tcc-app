@@ -177,14 +177,22 @@ export class DataSourceAdminService {
       throw new ApiError(404, "Servidor PostgreSQL não encontrado.");
   }
 
-  private inspectInput(input: SourceInput) {
-    return this.inspect({
-      host: input.host,
-      port: input.port,
-      database: input.databaseName,
-      user: input.username,
-      password: input.password,
-    });
+  private async inspectInput(input: SourceInput) {
+    try {
+      return await this.inspect({
+        host: input.host,
+        port: input.port,
+        database: input.databaseName,
+        user: input.username,
+        password: input.password,
+      });
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(
+        400,
+        "Não foi possível conectar ao servidor PostgreSQL. Verifique host, porta, banco, usuário e senha.",
+      );
+    }
   }
 
   private async catalogSourceTables(

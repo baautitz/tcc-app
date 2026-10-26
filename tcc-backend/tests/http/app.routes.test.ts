@@ -263,7 +263,7 @@ describe("users/permissions", () => {
     });
   });
   it("POST /api/users -> 201", async () => {
-    h.state.queue = [[{ id: UUID2 }]];
+    h.state.queue = [[], [{ id: UUID2 }]];
     const res = await call("POST", "/api/users", {
       name: "Bob",
       email: "B@x.com",
