@@ -63,7 +63,7 @@ Backend, testes sem banco real:
 DATABASE_URL=postgres://u:p@localhost:5432/db CREDENTIAL_ENCRYPTION_KEY=<base64 de 32 bytes> pnpm test
 ```
 
-Oito testes (`tests/http/*.integration.test.ts`) ficam ignorados porque exigem um Postgres descartável. `TCC_POSTGRES_INTEGRATION=1` habilita todos; o helper recusa bancos cujo nome não contenha `smoke`, `skip` ou `test`. Alguns também precisam de `TCC_SMOKE_EXTERNAL_PORT` (2ª porta loopback). Nunca aponte esses testes para o banco de desenvolvimento.
+Oito testes (`tests/http/*.integration.test.ts`) ficam ignorados porque exigem um Postgres descartável. `TCC_POSTGRES_INTEGRATION=1` habilita todos; o helper recusa bancos cujo nome não contenha `smoke`, `skip` ou `test`. Alguns também precisam de `TCC_SMOKE_EXTERNAL_PORT` (2ª porta loopback). Nunca aponte esses testes para o banco de desenvolvimento. Em CI, `.github/workflows/backend-integration.yml` sobe um serviço Postgres (portas 5432 e 5433) e roda a suíte com a flag ligada.
 
 ## Dívidas conhecidas
 
