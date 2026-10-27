@@ -130,6 +130,23 @@ function isolatedDocument(component: z.infer<typeof aiComponentSchema>) {
   );
 }
 
+/** Prévia vazia que carrega a mensagem do erro de uma consulta que falhou. */
+export function failedPreview(
+  error: unknown,
+  fallbackMessage: string,
+): AiDashboardQueryPreview {
+  return {
+    rows: [],
+    rowLimit: AI_QUERY_MAX_ROWS,
+    byteLimit: AI_QUERY_MAX_BYTES,
+    bytes: 0,
+    truncated: false,
+    truncationReason: null,
+    error:
+      error instanceof Error ? error.message.slice(0, 400) : fallbackMessage,
+  };
+}
+
 /** Executa a query do componente com os valores e valida os campos do componente. */
 export async function runComponentPreview(
   repository: Pick<AiDashboardToolsRepository, "runPreview">,
@@ -141,18 +158,7 @@ export async function runComponentPreview(
   try {
     preview = await repository.runPreview(query, values);
   } catch (error) {
-    preview = {
-      rows: [],
-      rowLimit: AI_QUERY_MAX_ROWS,
-      byteLimit: AI_QUERY_MAX_BYTES,
-      bytes: 0,
-      truncated: false,
-      truncationReason: null,
-      error:
-        error instanceof Error
-          ? error.message.slice(0, 400)
-          : "A consulta falhou durante a prévia.",
-    };
+    preview = failedPreview(error, "A consulta falhou durante a prévia.");
   }
   const issues = preview.error
     ? [preview.error]

@@ -40,6 +40,7 @@ import type {
 import { validateDashboardPreviewFields } from "../../../../dashboards/domain/dashboard-preview-validation.js";
 import {
   describePreviewParameters,
+  failedPreview,
   runComponentPreview,
   filterValuesSchema,
   isBlank,
@@ -232,11 +233,18 @@ export class AiDashboardTools {
     });
     let ok = false;
     try {
-      if (!this.options.pageDashboardId) {
+      const activeDashboard = this.options.pageDashboardId
+        ? await this.options.repository.findDashboard(
+            this.options.pageDashboardId,
+          )
+        : undefined;
+      if (!this.options.pageDashboardId || !activeDashboard) {
         await this.emit({ type: "dashboard_required", toolCallId });
         return refusal(
           "DASHBOARD_REQUIRED",
-          "Não há Dashboard ativo: a conversa não está em um dashboard nem o administrador escolheu um.",
+          this.options.pageDashboardId
+            ? "O Dashboard ativo não existe mais no catálogo."
+            : "Não há Dashboard ativo: a conversa não está em um dashboard nem o administrador escolheu um.",
           "A interface abriu um seletor de dashboard. Encerre a rodada sem repetir o pedido nem perguntar o dashboard; quando o administrador escolher, a conversa continua com o Dashboard ativo no contexto e você chama preview_component de novo.",
         );
       }
@@ -250,10 +258,7 @@ export class AiDashboardTools {
           "Use um UUID de list_saved_queries; a query precisa estar salva (fase 2).",
         );
       const parameterNames = parameterNamesOf(query.parameters);
-      const activeDashboard = await this.options.repository.findDashboard(
-        this.options.pageDashboardId,
-      );
-      const filters = (activeDashboard?.document.workspace.params ?? []).map(
+      const filters = activeDashboard.document.workspace.params.map(
         (parameter) => ({
           name: parameter.name,
           label: parameter.label,
@@ -315,29 +320,20 @@ export class AiDashboardTools {
           ),
         ),
       ];
-      for (const lookup of await this.options.repository.findSavedQueries(
-        lookupIds,
-      )) {
-        try {
-          lookups[lookup.id] = await this.options.repository.runPreview(
-            lookup,
-            {},
-          );
-        } catch (error) {
-          lookups[lookup.id] = {
-            rows: [],
-            rowLimit: AI_QUERY_MAX_ROWS,
-            byteLimit: AI_QUERY_MAX_BYTES,
-            bytes: 0,
-            truncated: false,
-            truncationReason: null,
-            error:
-              error instanceof Error
-                ? error.message.slice(0, 400)
-                : "A consulta do filtro falhou.",
-          };
-        }
-      }
+      const lookupQueries =
+        await this.options.repository.findSavedQueries(lookupIds);
+      const lookupPreviews = await Promise.all(
+        lookupQueries.map(async (lookup) => {
+          try {
+            return await this.options.repository.runPreview(lookup, {});
+          } catch (error) {
+            return failedPreview(error, "A consulta do filtro falhou.");
+          }
+        }),
+      );
+      lookupQueries.forEach((lookup, index) => {
+        lookups[lookup.id] = lookupPreviews[index]!;
+      });
       await this.emit({
         type: "component_preview",
         toolCallId,
@@ -473,6 +469,16 @@ export class AiDashboardTools {
         "COMPONENT_RECEIPT_INVALID",
         "O componente da proposta difere do componente que o administrador aprovou.",
         "Envie o componente exatamente como aprovado; para mudar tipo, título ou largura, gere outro cartão com preview_component.",
+      );
+    const targetId =
+      parsed.mode === "update"
+        ? (parsed.dashboardId ?? this.options.pageDashboardId)
+        : undefined;
+    if (receipt.dashboardId && receipt.dashboardId !== targetId)
+      return refuse(
+        "DASHBOARD_RECEIPT_MISMATCH",
+        "O cartão aprovado foi montado com os filtros de outro dashboard que não é o alvo desta proposta.",
+        "Gere um novo cartão com preview_component no dashboard alvo e aguarde a aprovação; não reaproveite o Recibo em outro dashboard.",
       );
     const unapproved = changedIds.filter((id) => id !== approved.data.id);
     if (unapproved.length > 0)

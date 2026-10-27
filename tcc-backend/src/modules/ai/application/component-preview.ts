@@ -29,6 +29,12 @@ export type ComponentPreviewValues = {
   parameterValues: FilterValues;
 };
 
+const unusableReceipt = () =>
+  new ApiError(
+    409,
+    "O componente expirou, já foi usado ou não pertence a você. Peça um novo cartão ao assistente.",
+  );
+
 /**
  * Prévia do componente isolado por valores (sem IA) e aprovação com os valores
  * aplicados. Ligada ao Recibo de componente, ao Ator e ao prazo.
@@ -47,11 +53,15 @@ export class AiComponentPreviewService {
       receipt.consumedAt !== null ||
       receipt.expiresAt.getTime() <= this.now()
     )
-      throw new ApiError(
-        409,
-        "O componente expirou, já foi usado ou não pertence a você. Peça um novo cartão ao assistente.",
-      );
+      throw unusableReceipt();
     return receipt;
+  }
+
+  /** Componente do Recibo; formato inutilizável pede um novo cartão (409). */
+  private componentOf(receipt: AiComponentReceipt) {
+    const parsed = aiComponentSchema.safeParse(receipt.component);
+    if (!parsed.success) throw unusableReceipt();
+    return parsed.data;
   }
 
   /** Filtros do Dashboard ativo daquele cartão (vazio se o Recibo é antigo). */
@@ -93,7 +103,7 @@ export class AiComponentPreviewService {
     values: ComponentPreviewValues,
   ) {
     const receipt = await this.usableReceipt(actorId, receiptId);
-    const component = aiComponentSchema.parse(receipt.component);
+    const component = this.componentOf(receipt);
     const [query] = await this.port.findSavedQueries([component.queryUuid]);
     if (!query)
       throw new ApiError(409, "A query do componente não existe mais.");
@@ -132,7 +142,7 @@ export class AiComponentPreviewService {
   ) {
     if (values) {
       const receipt = await this.usableReceipt(actorId, receiptId);
-      const component = aiComponentSchema.parse(receipt.component);
+      const component = this.componentOf(receipt);
       const [query] = await this.port.findSavedQueries([component.queryUuid]);
       const parameterNames = parameterNamesOf(query?.parameters);
       this.assertKnownNames(
@@ -148,10 +158,6 @@ export class AiComponentPreviewService {
       values,
       new Date(this.now()),
     );
-    if (!approved)
-      throw new ApiError(
-        409,
-        "O componente expirou, já foi usado ou não pertence a você. Peça um novo cartão ao assistente.",
-      );
+    if (!approved) throw unusableReceipt();
   }
 }

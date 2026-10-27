@@ -175,4 +175,19 @@ describe("prévia do componente por valores", () => {
       service(p).approve(actorId, receiptId, undefined),
     ).rejects.toMatchObject({ status: 409 });
   });
+
+  it("Recibo com componente inutilizável vira 409, não erro de validação", async () => {
+    const p = port({
+      findComponentReceipt: vi.fn(async () => ({
+        ...receipt,
+        component: { id: "x" },
+      })),
+    });
+    await expect(
+      service(p).preview(actorId, receiptId, input),
+    ).rejects.toMatchObject({ status: 409 });
+    await expect(
+      service(p).approve(actorId, receiptId, input),
+    ).rejects.toMatchObject({ status: 409 });
+  });
 });

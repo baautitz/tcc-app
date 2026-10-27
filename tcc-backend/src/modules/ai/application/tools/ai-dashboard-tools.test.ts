@@ -324,6 +324,15 @@ describe("propostas de dashboard da IA", () => {
   });
 });
 
+const emptyDashboard = (id: string) =>
+  dashboardDocumentSchema.parse({
+    id,
+    name: "Atual",
+    workspace: { params: [] },
+    queryBindings: [],
+    ui: { layout: { gap: 16 }, components: [] },
+  });
+
 describe("fases da IA: Recibo de componente, destino e posição", () => {
   const proposeTool = (
     repository: AiDashboardToolsRepository,
@@ -495,7 +504,12 @@ describe("fases da IA: Recibo de componente, destino e posição", () => {
 
   it("preview_component emite o cartão e cria Recibo ainda não aprovado, ligado ao Ator", async () => {
     const events: AiToolProgressEvent[] = [];
-    const repository = makeRepository();
+    const repository = makeRepository({
+      findDashboard: vi.fn(async () => ({
+        document: emptyDashboard("00000000-0000-4000-8000-000000000010"),
+        fingerprint: "f",
+      })),
+    });
     const tool = createAiDashboardTools({
       currentUser: admin,
       pageDashboardId: "00000000-0000-4000-8000-000000000010",
@@ -516,6 +530,10 @@ describe("fases da IA: Recibo de componente, destino e posição", () => {
   it("preview_component informa no cartão os parâmetros usados na prévia", async () => {
     const events: AiToolProgressEvent[] = [];
     const repository = makeRepository({
+      findDashboard: vi.fn(async () => ({
+        document: emptyDashboard("00000000-0000-4000-8000-000000000010"),
+        fingerprint: "f",
+      })),
       findSavedQueries: vi.fn(async () => [
         {
           ...savedQuery,
@@ -691,6 +709,10 @@ describe("fases da IA: Recibo de componente, destino e posição", () => {
 
   it("preview_component recusa valor não numérico em gráfico (mesma validação da proposta)", async () => {
     const repository = makeRepository({
+      findDashboard: vi.fn(async () => ({
+        document: emptyDashboard("00000000-0000-4000-8000-000000000010"),
+        fingerprint: "f",
+      })),
       runPreview: vi.fn(async () => ({
         rows: [
           { month_label: "Setembro", amount: "abc" },
@@ -736,7 +758,12 @@ describe("fases da IA: Recibo de componente, destino e posição", () => {
     const events: AiToolProgressEvent[] = [];
     const tool = createAiDashboardTools({
       currentUser: admin,
-      repository: makeRepository(),
+      repository: makeRepository({
+        findDashboard: vi.fn(async () => ({
+          document: emptyDashboard("00000000-0000-4000-8000-000000000010"),
+          fingerprint: "f",
+        })),
+      }),
       pageDashboardId: "00000000-0000-4000-8000-000000000010",
       onToolEvent: (event) => {
         events.push(event);
@@ -762,5 +789,52 @@ describe("fases da IA: Recibo de componente, destino e posição", () => {
       position: { placement: "end" },
     });
     expect(output).toMatchObject({ ok: false, code: "DESTINATION_MISMATCH" });
+  });
+
+  it("preview_component com Dashboard ativo desconhecido recusa e reabre o seletor", async () => {
+    const events: AiToolProgressEvent[] = [];
+    const repository = makeRepository();
+    const tool = createAiDashboardTools({
+      currentUser: admin,
+      repository,
+      pageDashboardId: "00000000-0000-4000-8000-0000000000dd",
+      onToolEvent: (event) => {
+        events.push(event);
+      },
+    }).find((candidate) => candidate.name === "preview_component")!;
+    const output = await invoke(tool, { component: approvedComponent });
+    expect(output).toMatchObject({ ok: false, code: "DASHBOARD_REQUIRED" });
+    expect(events.some((e) => e.type === "dashboard_required")).toBe(true);
+    expect(repository.issueComponentReceipt).not.toHaveBeenCalled();
+  });
+
+  it("recusa proposta cujo alvo difere do dashboard do Recibo", async () => {
+    const dashboardA = "00000000-0000-4000-8000-0000000000aa";
+    const dashboardB = "00000000-0000-4000-8000-0000000000bb";
+    const repository = makeRepository({
+      findDashboard: vi.fn(async (id: string) => ({
+        document: emptyDashboard(id),
+        fingerprint: "r1",
+      })),
+      findComponentReceipt: vi.fn(async () => ({
+        ...validReceipt,
+        dashboardId: dashboardA,
+      })),
+    });
+    const { destination: _d, ...base } = validProposal();
+    const output = await invoke(
+      proposeTool(repository, { pageDashboardId: dashboardB }),
+      {
+        ...base,
+        mode: "update",
+        dashboardId: dashboardB,
+        position: { placement: "start" },
+      },
+    );
+    expect(output).toMatchObject({
+      ok: false,
+      code: "DASHBOARD_RECEIPT_MISMATCH",
+    });
+    expect(repository.issueReceipt).not.toHaveBeenCalled();
   });
 });
