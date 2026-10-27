@@ -1,9 +1,13 @@
+import { useState } from "react";
 import { Eye } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Checkbox } from "@/shared/ui/checkbox";
 import { Label } from "@/shared/ui/label";
 import { type DashboardPreviewItem } from "@/modules/ai/model/chat-items";
 import { PreviewDialog } from "@/modules/ai/components/PreviewDialog";
+import { toLayoutOverride } from "@/modules/dashboards/model/grid-edit";
+import type { LayoutOverrideEntry } from "@/modules/dashboards/model/grid-edit";
+import type { DashboardComponent } from "@/modules/dashboards/model/types";
 import { useDashboardPreview } from "@/modules/ai/hooks/useDashboardPreview";
 
 export function DashboardPreviewCard({
@@ -15,8 +19,12 @@ export function DashboardPreviewCard({
   item: DashboardPreviewItem;
   busy: boolean;
   isLatestInteraction: boolean;
-  onApply: (acknowledgeTruncation: boolean) => void;
+  onApply: (
+    acknowledgeTruncation: boolean,
+    layout?: LayoutOverrideEntry[],
+  ) => void;
 }) {
+  const [layoutDraft, setLayoutDraft] = useState<DashboardComponent[]>();
   const {
     acknowledgedLimit,
     setAcknowledgedLimit,
@@ -44,6 +52,14 @@ export function DashboardPreviewCard({
     truncationDetails,
     interactiveTestFailed,
   } = useDashboardPreview(item, busy, isLatestInteraction);
+  // O layout ajustado à mão segue junto da confirmação (ADR 0004).
+  const apply = (acknowledgeTruncation: boolean) =>
+    onApply(
+      acknowledgeTruncation,
+      layoutDraft
+        ? toLayoutOverride(item.document.ui.components, layoutDraft)
+        : undefined,
+    );
   return (
     <>
       <section className="@container mx-3 flex min-w-0 flex-col gap-3 border border-primary/30 bg-primary/5 p-3 text-sm sm:mx-4">
@@ -151,7 +167,7 @@ export function DashboardPreviewCard({
               size="sm"
               className="w-full @md:w-auto @md:shrink-0"
               disabled={unavailable}
-              onClick={() => onApply(acknowledgedLimit)}
+              onClick={() => apply(acknowledgedLimit)}
             >
               {item.saving
                 ? "Salvando…"
@@ -167,7 +183,7 @@ export function DashboardPreviewCard({
         item={item}
         busy={busy}
         isLatestInteraction={isLatestInteraction}
-        onApply={onApply}
+        onApply={apply}
         previewOpen={previewOpen}
         setPreviewOpen={setPreviewOpen}
         acknowledgedLimit={acknowledgedLimit}
@@ -188,6 +204,8 @@ export function DashboardPreviewCard({
         truncationDetails={truncationDetails}
         interactiveTestFailed={interactiveTestFailed}
         unavailable={unavailable}
+        layoutDraft={layoutDraft}
+        onLayoutChange={setLayoutDraft}
       />
     </>
   );

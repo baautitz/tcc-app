@@ -1,3 +1,4 @@
+import type { LayoutOverrideEntry } from "@/modules/dashboards/model/grid-edit";
 import type {
   Dashboard,
   DashboardDocument,
@@ -42,6 +43,7 @@ export class DashboardsApi {
   commitAiDashboardProposal = (
     proposalId: string,
     acknowledgeTruncation = false,
+    layout?: LayoutOverrideEntry[],
   ) =>
     this.http.request<{
       id: string;
@@ -49,7 +51,7 @@ export class DashboardsApi {
       alreadyApplied: boolean;
     }>(
       `/api/admin/ai/dashboard-proposals/${encodeURIComponent(proposalId)}/commit`,
-      { method: "POST", body: JSON.stringify({ acknowledgeTruncation }) },
+      { method: "POST", body: JSON.stringify({ acknowledgeTruncation, layout }) },
     );
   previewAiDashboardProposal = (
     proposalId: string,

@@ -4,6 +4,7 @@ import {
   dropIndex,
   moveItem,
   resizeSpans,
+  toLayoutOverride,
 } from "./grid-edit";
 import type { DashboardDocument } from "./types";
 
@@ -85,5 +86,41 @@ describe("applyLayoutToDocument", () => {
       { id: "removido", layoutProps: { colSpan: 1, rowSpan: 1 } },
     ]);
     expect(result.ui.components.map((c) => c.id)).toEqual(["b", "a", "c"]);
+  });
+});
+
+describe("toLayoutOverride", () => {
+  const item = (id: string, colSpan: number, rowSpan: number) => ({
+    id,
+    layoutProps: size(colSpan, rowSpan),
+  });
+
+  it("lista ordem e tamanhos do rascunho por ID", () => {
+    expect(
+      toLayoutOverride([item("a", 6, 5), item("b", 6, 5)], [
+        item("b", 12, 4),
+        item("a", 6, 5),
+      ]),
+    ).toEqual([
+      { id: "b", colSpan: 12, rowSpan: 4 },
+      { id: "a", colSpan: 6, rowSpan: 5 },
+    ]);
+  });
+
+  it("deixa no lugar os componentes que a prévia não mostra", () => {
+    const all = [item("a", 6, 5), item("x", 3, 2), item("b", 6, 5)];
+    expect(
+      toLayoutOverride(all, [item("b", 6, 5), item("a", 6, 5)]).map(
+        (entry) => entry.id,
+      ),
+    ).toEqual(["b", "x", "a"]);
+  });
+
+  it("mantém o layout atual dos componentes fora do rascunho", () => {
+    const all = [item("a", 6, 5), item("x", 3, 2)];
+    expect(toLayoutOverride(all, [item("a", 4, 4)])).toEqual([
+      { id: "a", colSpan: 4, rowSpan: 4 },
+      { id: "x", colSpan: 3, rowSpan: 2 },
+    ]);
   });
 });

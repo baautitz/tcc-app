@@ -1,3 +1,4 @@
+import type { LayoutOverrideEntry } from "@/modules/dashboards/model/grid-edit";
 import { useCallback, useEffect, useRef } from "react";
 import { ApiError } from "@/shared/api/client";
 import { aiApi } from "@/modules/ai/api/ai.api";
@@ -106,7 +107,11 @@ export function AiChatDock({
   );
 
   const applyDashboard = useCallback(
-    async (item: DashboardPreviewItem, acknowledgeTruncation: boolean) => {
+    async (
+      item: DashboardPreviewItem,
+      acknowledgeTruncation: boolean,
+      layout?: LayoutOverrideEntry[],
+    ) => {
       if (
         item.saved ||
         item.stale ||
@@ -136,6 +141,7 @@ export function AiChatDock({
         const result = await dashboardsApi.commitAiDashboardProposal(
           item.proposalId,
           acknowledgeTruncation,
+          layout,
         );
         setItems((current) =>
           current.map((candidate) =>

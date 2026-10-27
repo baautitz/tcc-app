@@ -1,3 +1,4 @@
+import type { LayoutOverrideEntry } from "@/modules/dashboards/model/grid-edit";
 import { Bot, LoaderCircle, Sparkles, Trash2, X } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import {
@@ -70,6 +71,7 @@ export function ChatWindow({
   onApplyDashboard: (
     item: DashboardPreviewItem,
     acknowledgeTruncation: boolean,
+    layout?: LayoutOverrideEntry[],
   ) => void;
   onContextProposalResolved: (
     proposalId: string,

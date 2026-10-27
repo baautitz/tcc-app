@@ -73,3 +73,32 @@ export function applyLayoutToDocument(
     ui: { ...document.ui, components: [...ordered, ...rest] },
   };
 }
+
+export interface LayoutOverrideEntry {
+  id: string;
+  colSpan: number;
+  rowSpan: number;
+}
+
+/**
+ * Layout a enviar no commit: a ordem de `all` com o rascunho (um subconjunto,
+ * já reordenado) ocupando as vagas dos seus componentes. Quem o rascunho não
+ * mostra fica no lugar e com o tamanho atual.
+ */
+export function toLayoutOverride(
+  all: Pick<DashboardComponent, "id" | "layoutProps">[],
+  draft: Pick<DashboardComponent, "id" | "layoutProps">[],
+): LayoutOverrideEntry[] {
+  const draftIds = new Set(draft.map((item) => item.id));
+  const queue = draft.filter((item) =>
+    all.some((candidate) => candidate.id === item.id),
+  );
+  return all.map((item) => {
+    const chosen = draftIds.has(item.id) ? queue.shift()! : item;
+    return {
+      id: chosen.id,
+      colSpan: chosen.layoutProps.colSpan,
+      rowSpan: chosen.layoutProps.rowSpan,
+    };
+  });
+}

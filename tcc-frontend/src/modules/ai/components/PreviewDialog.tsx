@@ -13,7 +13,10 @@ import {
 } from "@/shared/ui/dialog";
 import { DashboardFilters } from "@/modules/dashboards/components/DashboardFilters";
 import { DashboardProposalCanvas } from "@/modules/dashboards/components/DashboardProposalCanvas";
-import type { DashboardFilterValues } from "@/modules/dashboards/model/types";
+import type {
+  DashboardComponent,
+  DashboardFilterValues,
+} from "@/modules/dashboards/model/types";
 import type {
   DashboardPreviewItem,
   DashboardPreviewQuery,
@@ -44,6 +47,8 @@ export function PreviewDialog({
   truncationDetails,
   interactiveTestFailed,
   unavailable,
+  layoutDraft,
+  onLayoutChange,
 }: {
   item: DashboardPreviewItem;
   busy: boolean;
@@ -73,20 +78,23 @@ export function PreviewDialog({
   }[];
   interactiveTestFailed: boolean;
   unavailable: boolean;
+  layoutDraft: DashboardComponent[] | undefined;
+  onLayoutChange: (components: DashboardComponent[]) => void;
 }) {
   return (
     <Dialog
       open={previewOpen && !item.saved && isLatestInteraction}
       onOpenChange={setPreviewOpen}
     >
-      <DialogContent className="flex h-[86dvh] max-h-[90dvh] w-[calc(100%-1rem)] max-w-5xl flex-col overflow-hidden p-4 sm:w-[88vw] sm:max-w-5xl sm:p-6">
+      <DialogContent className="flex h-[80vh] w-[calc(100%-1rem)] max-w-none flex-col overflow-hidden p-4 sm:h-[80vh] sm:w-[80vw] sm:max-w-[80vw] sm:p-6">
         <DialogHeader className="shrink-0 border-b pb-4 pr-8 text-left">
           <DialogTitle className="text-xl">
             Prévia visual dos componentes propostos
           </DialogTitle>
           <DialogDescription>
             Teste os filtros necessários e veja como os componentes serão
-            exibidos no dashboard antes de aplicar as alterações.
+            exibidos no dashboard antes de aplicar as alterações. Arraste e
+            redimensione os componentes para ajustar o layout.
           </DialogDescription>
         </DialogHeader>
 
@@ -195,6 +203,10 @@ export function PreviewDialog({
               rowsByQuery={previewQueries}
               componentIds={item.previewComponentIds}
               componentChanges={item.componentChanges}
+              layoutDraft={layoutDraft}
+              onLayoutChange={
+                item.saved || item.stale || expired ? undefined : onLayoutChange
+              }
             />
           )}
 

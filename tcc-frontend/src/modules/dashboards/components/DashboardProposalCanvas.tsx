@@ -1,5 +1,5 @@
 import type { DashboardDefinition } from "@/modules/dashboards/model/types";
-import type { DashboardComponentChange } from "@/modules/dashboards/model/types";
+import type { DashboardComponent, DashboardComponentChange } from "@/modules/dashboards/model/types";
 import { DashboardComponentView } from "./DashboardComponentView";
 import { DashboardGrid } from "./DashboardGrid";
 
@@ -8,6 +8,8 @@ export function DashboardProposalCanvas({
   rowsByQuery,
   componentIds,
   componentChanges,
+  layoutDraft,
+  onLayoutChange,
 }: {
   definition: DashboardDefinition;
   rowsByQuery: Record<
@@ -16,6 +18,10 @@ export function DashboardProposalCanvas({
   >;
   componentIds?: string[];
   componentChanges?: Record<string, DashboardComponentChange>;
+  /** Layout ajustado à mão; vale no lugar do proposto. */
+  layoutDraft?: DashboardComponent[];
+  /** Liga mover e redimensionar na prévia. */
+  onLayoutChange?: (components: DashboardComponent[]) => void;
 }) {
   const visibleComponentIds = componentIds ? new Set(componentIds) : undefined;
   const components = definition.components.filter(
@@ -24,7 +30,8 @@ export function DashboardProposalCanvas({
   );
   return (
     <DashboardGrid
-      components={components}
+      components={layoutDraft ?? components}
+      onEdit={onLayoutChange}
       renderComponent={(component) => {
         const preview = rowsByQuery[component.queryUuid];
         return (

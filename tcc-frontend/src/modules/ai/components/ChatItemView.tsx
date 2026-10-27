@@ -1,3 +1,4 @@
+import type { LayoutOverrideEntry } from "@/modules/dashboards/model/grid-edit";
 import { lazy, Suspense } from "react";
 import {
   Check,
@@ -62,6 +63,7 @@ export function ChatItemView({
   onApplyDashboard: (
     item: DashboardPreviewItem,
     acknowledgeTruncation: boolean,
+    layout?: LayoutOverrideEntry[],
   ) => void;
   onReviewContext: (proposal: AiContextProposal) => void;
   onSubmitQuestionnaire: (
@@ -214,8 +216,8 @@ export function ChatItemView({
         item={item}
         busy={busy}
         isLatestInteraction={isLatestInteraction}
-        onApply={(acknowledgeTruncation) =>
-          onApplyDashboard(item, acknowledgeTruncation)
+        onApply={(acknowledgeTruncation, layout) =>
+          onApplyDashboard(item, acknowledgeTruncation, layout)
         }
       />
     );
