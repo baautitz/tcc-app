@@ -123,13 +123,21 @@ export function DashboardGrid({
       const rect = gridRef.current?.getBoundingClientRect();
       if (!drag || !rect || !onEdit) return;
       if (drag.mode === "move") {
+        // Ancora no canto do cartão arrastado (não no ponteiro), na Célula
+        // mais próxima: onde se agarra o cartão não muda onde ele cai.
         const col = Math.min(
           columns,
-          Math.max(1, Math.floor((event.clientX - rect.left) / step) + 1),
+          Math.max(
+            1,
+            Math.round(
+              (drag.origin.left + event.clientX - drag.startX) / step,
+            ) + 1,
+          ),
         );
         const row = Math.max(
           1,
-          Math.floor((event.clientY - rect.top) / step) + 1,
+          Math.round((drag.origin.top + event.clientY - drag.startY) / step) +
+            1,
         );
         const others = components.filter((item) => item.id !== drag.id);
         const { clientX, clientY } = event;

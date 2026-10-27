@@ -9,7 +9,10 @@ import {
 } from "lucide-react";
 import { dashboardsApi } from "@/modules/dashboards/api/dashboards.api";
 import { queriesApi } from "@/modules/queries/api/queries.api";
-import { applyLayoutToDocument } from "@/modules/dashboards/model/grid-edit";
+import {
+  applyLayoutToDocument,
+  organizeLayout,
+} from "@/modules/dashboards/model/grid-edit";
 import type {
   Dashboard,
   DashboardComponent,
@@ -251,6 +254,19 @@ export function DashboardPage({
           <div className="flex shrink-0 items-center gap-2">
             {user?.isAdmin && editing && (
               <>
+                <Button
+                  variant="outline"
+                  disabled={saving}
+                  title="Ordena por Gestalt: indicadores, gráficos e tabela, com fileiras fechadas"
+                  onClick={() =>
+                    setEditing({
+                      ...editing,
+                      draft: organizeLayout(editing.draft),
+                    })
+                  }
+                >
+                  Organizar
+                </Button>
                 <Button
                   variant="outline"
                   disabled={saving}

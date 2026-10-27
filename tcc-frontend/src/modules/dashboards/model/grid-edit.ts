@@ -102,3 +102,56 @@ export function toLayoutOverride(
     };
   });
 }
+
+const hierarchyRank = (type: string) =>
+  type === "stat_card" ? 0 : type === "data_table" ? 2 : 1;
+
+/**
+ * Reorganiza pela Gestalt, numa Grade de 12 colunas: indicadores no topo,
+ * gráficos no meio, tabela por último (a ordem relativa se mantém dentro de
+ * cada grupo); cada fileira fecha 12 de largura e tem a altura do maior.
+ */
+export function organizeLayout<
+  T extends { type: string; layoutProps: GridItemSize },
+>(components: T[]): T[] {
+  const sorted = components
+    .map((component, index) => ({ component, index }))
+    .sort(
+      (a, b) =>
+        hierarchyRank(a.component.type) - hierarchyRank(b.component.type) ||
+        a.index - b.index,
+    )
+    .map(({ component }) => component);
+  const wide = (component: T) =>
+    component.type === "data_table" ? MAX_COLUMNS : component.layoutProps.colSpan;
+
+  const rows: T[][] = [];
+  let used = 0;
+  for (const component of sorted) {
+    const width = Math.min(MAX_COLUMNS, wide(component));
+    if (!rows.length || used + width > MAX_COLUMNS) {
+      rows.push([]);
+      used = 0;
+    }
+    rows[rows.length - 1]!.push(component);
+    used += width;
+  }
+
+  return rows.flatMap((row) => {
+    const widths = row.map((component) => Math.min(MAX_COLUMNS, wide(component)));
+    const extra = MAX_COLUMNS - widths.reduce((sum, width) => sum + width, 0);
+    const share = Math.floor(extra / row.length);
+    const remainder = extra - share * row.length;
+    const height = Math.max(...row.map((c) => c.layoutProps.rowSpan));
+    return row.map((component, position) => ({
+      ...component,
+      layoutProps: {
+        colSpan:
+          widths[position]! +
+          share +
+          (position >= row.length - remainder ? 1 : 0),
+        rowSpan: height,
+      },
+    }));
+  });
+}

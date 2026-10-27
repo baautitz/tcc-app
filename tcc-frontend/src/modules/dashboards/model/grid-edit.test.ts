@@ -3,6 +3,7 @@ import {
   applyLayoutToDocument,
   dropIndex,
   moveItem,
+  organizeLayout,
   resizeSpans,
   toLayoutOverride,
 } from "./grid-edit";
@@ -122,5 +123,54 @@ describe("toLayoutOverride", () => {
       { id: "a", colSpan: 4, rowSpan: 4 },
       { id: "x", colSpan: 3, rowSpan: 2 },
     ]);
+  });
+});
+
+describe("organizeLayout", () => {
+  const item = (id: string, type: string, colSpan: number, rowSpan: number) => ({
+    id,
+    type,
+    layoutProps: size(colSpan, rowSpan),
+  });
+  const spans = (list: { layoutProps: { colSpan: number } }[]) =>
+    list.map((entry) => entry.layoutProps.colSpan);
+
+  it("põe indicadores no topo, gráficos no meio e a tabela por último", () => {
+    const result = organizeLayout([
+      item("t", "data_table", 12, 6),
+      item("b", "bar_chart", 6, 5),
+      item("s", "stat_card", 3, 2),
+    ]);
+    expect(result.map((entry) => entry.id)).toEqual(["s", "b", "t"]);
+  });
+
+  it("fecha cada fileira em 12 sem mudar a ordem relativa", () => {
+    const result = organizeLayout([
+      item("a", "stat_card", 3, 2),
+      item("b", "stat_card", 3, 2),
+      item("c", "stat_card", 3, 2),
+    ]);
+    expect(spans(result)).toEqual([4, 4, 4]);
+  });
+
+  it("uniformiza a altura da fileira pela maior", () => {
+    const result = organizeLayout([
+      item("a", "bar_chart", 6, 5),
+      item("b", "pie_chart", 6, 3),
+    ]);
+    expect(result.map((entry) => entry.layoutProps.rowSpan)).toEqual([5, 5]);
+  });
+
+  it("deixa a tabela ocupar a fileira inteira", () => {
+    const [table] = organizeLayout([item("t", "data_table", 7, 3)]);
+    expect(table?.layoutProps.colSpan).toBe(12);
+  });
+
+  it("quebra a fileira quando o próximo não cabe", () => {
+    const result = organizeLayout([
+      item("a", "bar_chart", 8, 5),
+      item("b", "bar_chart", 8, 5),
+    ]);
+    expect(spans(result)).toEqual([12, 12]);
   });
 });
