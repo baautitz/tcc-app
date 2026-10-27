@@ -1,7 +1,5 @@
-/** Lado mínimo de uma Célula, em px. */
-export const CELL_MIN = 80;
-/** Lado máximo de uma Célula, em px; acima disso a Grade centraliza. */
-export const CELL_MAX = 120;
+/** Lado de uma Célula, em px; fixo em qualquer largura de tela. */
+export const CELL_SIZE = 80;
 /** Espaçamento fixo entre Células, em px, nos dois eixos. */
 export const GRID_GAP = 16;
 /** Máximo de colunas da Grade e de Células de um Componente (colSpan/rowSpan). */
@@ -10,19 +8,18 @@ export const MAX_COLUMNS = 12;
 export type GridMetrics = { columns: number; cellSize: number; gap: number };
 
 /**
- * Colunas = quantas Células mínimas cabem (1 a 12). A sobra de largura é
- * dividida entre as Células, que continuam quadradas, até CELL_MAX.
+ * Colunas = quantas Células cabem na largura (1 a 12). A Célula nunca muda de
+ * tamanho: a sobra de largura vira margem e a Grade é centralizada.
  */
 export function gridMetrics(containerWidth: number): GridMetrics {
-  const width = Math.max(0, containerWidth);
   const columns = Math.min(
     MAX_COLUMNS,
-    Math.max(1, Math.floor((width + GRID_GAP) / (CELL_MIN + GRID_GAP))),
+    Math.max(
+      1,
+      Math.floor(
+        (Math.max(0, containerWidth) + GRID_GAP) / (CELL_SIZE + GRID_GAP),
+      ),
+    ),
   );
-  const fitted = (width - GRID_GAP * (columns - 1)) / columns;
-  return {
-    columns,
-    cellSize: Math.min(CELL_MAX, Math.max(0, fitted)),
-    gap: GRID_GAP,
-  };
+  return { columns, cellSize: CELL_SIZE, gap: GRID_GAP };
 }

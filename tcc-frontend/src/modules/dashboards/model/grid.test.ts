@@ -6,20 +6,14 @@ describe("gridMetrics", () => {
     expect(gridMetrics(1136)).toEqual({ columns: 12, cellSize: 80, gap: 16 });
   });
 
-  it("estica as Células mantendo o quadrado quando sobra largura", () => {
-    const { columns, cellSize } = gridMetrics(500);
-    expect(columns).toBe(5);
-    expect(cellSize).toBeCloseTo(87.2, 5);
+  it("mantém a Célula em 80px e só muda o número de colunas", () => {
+    expect(gridMetrics(500)).toEqual({ columns: 5, cellSize: 80, gap: 16 });
+    expect(gridMetrics(358)).toEqual({ columns: 3, cellSize: 80, gap: 16 });
+    expect(gridMetrics(1135)).toEqual({ columns: 11, cellSize: 80, gap: 16 });
   });
 
-  it("em tela estreita usa poucas colunas", () => {
-    const { columns, cellSize } = gridMetrics(358);
-    expect(columns).toBe(3);
-    expect(cellSize).toBeCloseTo(108.6667, 3);
-  });
-
-  it("limita a 12 colunas e a Célula a 120px em telas largas", () => {
-    expect(gridMetrics(2400)).toEqual({ columns: 12, cellSize: 120, gap: 16 });
+  it("limita a 12 colunas em telas largas, sem esticar a Célula", () => {
+    expect(gridMetrics(2400)).toEqual({ columns: 12, cellSize: 80, gap: 16 });
   });
 
   it("nunca tem menos de 1 coluna", () => {
