@@ -45,7 +45,10 @@ export function DashboardGrid({
     axes: { x: boolean; y: boolean };
     startX: number;
     startY: number;
+    /** Tamanho mostrado ao começar (limitado às colunas visíveis). */
     start: { colSpan: number; rowSpan: number };
+    /** Tamanho gravado ao começar; volta a ele se o arrasto terminar no ponto de partida. */
+    authored: { colSpan: number; rowSpan: number };
     /** Posição, em px dentro da Grade, do canto do componente ao começar a mover. */
     origin: { left: number; top: number };
   } | null>(null);
@@ -94,7 +97,11 @@ export function DashboardGrid({
         axes,
         startX: event.clientX,
         startY: event.clientY,
-        start: { ...component.layoutProps },
+        start: {
+          colSpan: place?.colSpan ?? component.layoutProps.colSpan,
+          rowSpan: place?.rowSpan ?? component.layoutProps.rowSpan,
+        },
+        authored: { ...component.layoutProps },
         origin: {
           left: ((place?.col ?? 1) - 1) * step,
           top: ((place?.row ?? 1) - 1) * step,
@@ -130,20 +137,28 @@ export function DashboardGrid({
         });
         return;
       }
-      const size = resizeSpans(
+      const moved = resizeSpans(
         drag.start,
         drag.axes.x ? Math.round((event.clientX - drag.startX) / step) : 0,
         drag.axes.y ? Math.round((event.clientY - drag.startY) / step) : 0,
       );
+      const size = {
+        colSpan: Math.min(moved.colSpan, columns),
+        rowSpan: moved.rowSpan,
+      };
+      const unchanged =
+        size.colSpan === drag.start.colSpan &&
+        size.rowSpan === drag.start.rowSpan;
+      const target = unchanged ? drag.authored : size;
       const current = components.find((item) => item.id === drag.id);
       if (
         current &&
-        (current.layoutProps.colSpan !== size.colSpan ||
-          current.layoutProps.rowSpan !== size.rowSpan)
+        (current.layoutProps.colSpan !== target.colSpan ||
+          current.layoutProps.rowSpan !== target.rowSpan)
       )
         onEdit(
           components.map((item) =>
-            item.id === drag.id ? { ...item, layoutProps: size } : item,
+            item.id === drag.id ? { ...item, layoutProps: target } : item,
           ),
         );
     },

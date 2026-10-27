@@ -38,11 +38,7 @@ import { DashboardComponentView } from "../components/DashboardComponentView";
 import { DashboardFilters } from "../components/DashboardFilters";
 import { DashboardGrid } from "../components/DashboardGrid";
 import { useElementWidth } from "../components/useElementWidth";
-import {
-  gridMetrics,
-  gridWidth,
-  MAX_COLUMNS,
-} from "@/modules/dashboards/model/grid";
+import { gridMetrics, gridWidth } from "@/modules/dashboards/model/grid";
 import { DashboardUsersDialog } from "../components/DashboardUsersDialog";
 
 export function DashboardPage({
@@ -201,7 +197,6 @@ export function DashboardPage({
       </div>
     );
   const parameters = collectArguments(dashboard);
-  const canEditLayout = gridMetrics(frameWidth).columns >= MAX_COLUMNS;
   const startEditing = () => {
     setEditError(undefined);
     dashboardsApi
@@ -277,13 +272,8 @@ export function DashboardPage({
                   variant="outline"
                   size="icon"
                   onClick={startEditing}
-                  disabled={!canEditLayout}
                   aria-label="Editar layout do dashboard"
-                  title={
-                    canEditLayout
-                      ? "Editar o layout (arrastar e redimensionar)"
-                      : "Aumente a largura da janela para editar o layout"
-                  }
+                  title="Editar o layout (arrastar e redimensionar)"
                 >
                   <LayoutGrid />
                   <span className="sr-only">Editar layout</span>
