@@ -84,4 +84,31 @@ describe("ask_admin_questions", () => {
     expect(parse(4)).toBe(true);
     expect(parse(5)).toBe(false);
   });
+
+  it("sempre permite resposta livre, mesmo com opções e allowOther=false", async () => {
+    const events: unknown[] = [];
+    const [questionTool] = new AiQuestionnaireTools({
+      currentUser: { isAdmin: true } as never,
+      onQuestion: (event) => void events.push(event),
+    }).tools();
+    await questionTool!.invoke({
+      title: "T",
+      questions: [
+        {
+          name: "posicao",
+          prompt: "Onde?",
+          allowOther: false,
+          choices: [{ value: "fim", label: "No final" }],
+        },
+        { name: "livre", prompt: "Como?" },
+      ],
+    });
+    const [event] = events as {
+      questionnaire: { questions: { allowOther: boolean }[] };
+    }[];
+    expect(event!.questionnaire.questions.map((q) => q.allowOther)).toEqual([
+      true,
+      true,
+    ]);
+  });
 });

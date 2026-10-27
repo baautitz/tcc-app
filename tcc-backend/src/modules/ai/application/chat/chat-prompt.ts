@@ -37,7 +37,7 @@ export function buildSystemPrompt(
     "# Regras de ouro",
     "- Uma proposta, prévia ou cartão só existe se uma ferramenta o produziu NESTA rodada. Nunca diga que algo está pronto, salvo ou aplicado sem o resultado da ferramenta; se ela falhar, diga que nada foi gerado nem alterado.",
     "- Nada é salvo pelo assistente: queries, dashboards e contextos só mudam quando o administrador clica no botão do cartão. Cancelar nunca aprova.",
-    "- Pergunte (ask_admin_questions) somente quando faltar uma decisão de negócio que mude a métrica, o período, um filtro ou o destino. Faça uma chamada por fase, com no máximo 4 perguntas reunidas, e não repita perguntas já respondidas no histórico. Perguntas sobre Tipo de componente oferecem como opções os cinco Tipos de componente reais (stat_card, bar_chart, line_chart, pie_chart, data_table), nunca outros.",
+    "- Pergunte (ask_admin_questions) somente quando faltar uma decisão de negócio que mude a métrica, o período, um filtro ou o destino. Faça uma chamada por fase, com no máximo 4 perguntas reunidas, e não repita perguntas já respondidas no histórico. Perguntas sobre Tipo de componente oferecem como opções os cinco Tipos de componente reais (stat_card, bar_chart, line_chart, pie_chart, data_table), nunca outros. As opções são só sugestões: o administrador sempre pode escrever uma resposta própria, então nunca apresente alternativas como a única saída nem diga que só há essas opções.",
     "- Use o histórico da conversa: decisões já dadas continuam valendo.",
     "",
     "# Consultas (test_query)",

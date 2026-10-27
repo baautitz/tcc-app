@@ -51,7 +51,7 @@ const questionSchema = z
     required: z.boolean().default(true),
     multiple: z.boolean().default(false),
     choices: z.array(choiceSchema).max(8).default([]),
-    allowOther: z.boolean().default(false),
+    allowOther: z.boolean().default(true),
     otherLabel: z.string().trim().min(1).max(80).default("Outra resposta"),
     otherPlaceholder: z
       .string()
@@ -62,13 +62,6 @@ const questionSchema = z
   })
   .strict()
   .superRefine((question, context) => {
-    if (question.choices.length === 0 && !question.allowOther) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["choices"],
-        message: "Informe opções ou permita uma resposta livre.",
-      });
-    }
     const values = new Set<string>();
     question.choices.forEach((choice, index) => {
       if (values.has(choice.value)) {
@@ -130,14 +123,21 @@ export class AiQuestionnaireTools {
         await this.options.onQuestion({
           type: "questionnaire",
           toolCallId,
-          questionnaire,
+          // As opções são sugestões: o administrador sempre pode personalizar a resposta.
+          questionnaire: {
+            ...questionnaire,
+            questions: questionnaire.questions.map((question) => ({
+              ...question,
+              allowOther: true,
+            })),
+          },
         });
         return "As perguntas foram exibidas no chat. Aguarde a resposta do administrador e não continue o trabalho nesta rodada.";
       },
       {
         name: "ask_admin_questions",
         description:
-          "Mostra perguntas interativas ao administrador e encerra esta rodada. Use somente em tarefas da plataforma de dashboards quando faltar uma decisão de negócio indispensável, como a semântica inclusiva de uma data final ou qual dashboard existente alterar. Em perguntas analíticas diretas, não pergunte quantas linhas/grupos mostrar, formato de resposta, ou se deve salvar; mantenha todos os grupos e deixe o limite técnico da amostra explícito. Nunca use para pedidos fora da plataforma nem para perguntas respondíveis pelos dados disponíveis. Reúna perguntas indispensáveis em uma chamada com no máximo quatro itens e aguarde a resposta antes de usar outras ferramentas.",
+          "Mostra perguntas interativas ao administrador e encerra esta rodada. Use somente em tarefas da plataforma de dashboards quando faltar uma decisão de negócio indispensável, como a semântica inclusiva de uma data final ou qual dashboard existente alterar. Em perguntas analíticas diretas, não pergunte quantas linhas/grupos mostrar, formato de resposta, ou se deve salvar; mantenha todos os grupos e deixe o limite técnico da amostra explícito. Nunca use para pedidos fora da plataforma nem para perguntas respondíveis pelos dados disponíveis. Toda pergunta aceita resposta livre além das opções, que são só sugestões. Reúna perguntas indispensáveis em uma chamada com no máximo quatro itens e aguarde a resposta antes de usar outras ferramentas.",
         schema: questionnaireSchema,
         returnDirect: true,
       },
