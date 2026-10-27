@@ -56,6 +56,10 @@ _Avoid_: Layout, malha
 Unidade quadrada da Grade, com tamanho padronizado e espaçamento fixo entre Células, igual em todos os Dashboards. Largura e altura de um Componente são medidas em Células.
 _Avoid_: Slot, bloco
 
+**Composição**:
+Arranjo de ordem e tamanhos dos Componentes de um Dashboard na Grade, proposto pela IA e ajustável pelo administrador. Segue princípios de Gestalt: proximidade (mesmo assunto lado a lado), similaridade (mesmo Tipo e altura na fileira), alinhamento (cada fileira fecha a largura, sem buracos), hierarquia (indicadores no topo, gráfico principal grande, tabela detalhada por último) e continuidade (leitura do resumo ao detalhe). O tamanho de um Componente que o administrador definiu é explícito e a IA o preserva, salvo pedido para reorganizar tudo.
+_Avoid_: Layout, disposição
+
 **Dashboard ativo**:
 Dashboard sobre o qual a conversa com a IA está trabalhando, vindo da página aberta ou escolhido pelo administrador. É exigido para gerar um Componente e é a fonte dos filtros mostrados no cartão do Componente isolado.
 _Avoid_: Dashboard atual, dashboard selecionado

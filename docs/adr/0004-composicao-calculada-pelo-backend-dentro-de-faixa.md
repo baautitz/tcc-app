@@ -1,0 +1,5 @@
+# Composição: o backend calcula a faixa de tamanho e valida, a IA escolhe dentro dela
+
+O tamanho padrão fixo por Tipo deixou de bastar (tabela com muitas colunas e tabela com duas ocupavam o mesmo espaço). Agora o backend deriva, da amostra da prévia (colunas, linhas, categorias, pontos, séries), uma faixa válida de `colSpan`/`rowSpan` por Componente; a IA escolhe dentro dela e o backend corrige ou recusa o que sair, como já faz com Recibos e fases (ADR 0002). Um validador determinístico mede a Composição antes do preview (fileira fechada em 12, altura uniforme na fileira, tabela larga não estreita, hierarquia) e devolve erros que a IA consegue acatar. Descartamos deixar só ao prompt, que não dá garantia, e uma função rígida sem margem de julgamento, que gera layouts todos iguais.
+
+O preview da Proposta (modal de 80vw × 80vh) permite mover e redimensionar. O layout ajustado vai ao commit como override validado (ordem, `colSpan`, `rowSpan` por ID, só IDs da proposta, limites 1 a 12), sem invalidar o Recibo de proposta, que continua travando o conteúdo. Tamanhos ajustados pelo administrador são explícitos no JSON e a IA os preserva nas rodadas seguintes.
