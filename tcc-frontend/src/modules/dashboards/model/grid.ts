@@ -1,5 +1,5 @@
 /** Lado de uma Célula, em px; fixo em qualquer largura de tela. */
-export const CELL_SIZE = 80;
+export const CELL_SIZE = 120;
 /** Espaçamento fixo entre Células, em px, nos dois eixos. */
 export const GRID_GAP = 16;
 /** Máximo de colunas da Grade e de Células de um Componente (colSpan/rowSpan). */
@@ -22,4 +22,9 @@ export function gridMetrics(containerWidth: number): GridMetrics {
     ),
   );
   return { columns, cellSize: CELL_SIZE, gap: GRID_GAP };
+}
+
+/** Largura em px ocupada pelas colunas e pelos gaps; é a do cabeçalho e dos filtros também. */
+export function gridWidth({ columns, cellSize, gap }: GridMetrics): number {
+  return columns * cellSize + (columns - 1) * gap;
 }

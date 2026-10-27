@@ -1,12 +1,7 @@
-import {
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useMemo, type ReactNode } from "react";
 import { gridMetrics } from "@/modules/dashboards/model/grid";
 import { placeComponents } from "@/modules/dashboards/model/grid-placement";
+import { useElementWidth } from "./useElementWidth";
 import type { DashboardComponent } from "@/modules/dashboards/model/types";
 
 /**
@@ -22,21 +17,7 @@ export function DashboardGrid({
   renderComponent: (component: DashboardComponent) => ReactNode;
   empty?: ReactNode;
 }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(0);
-  useLayoutEffect(() => {
-    const element = containerRef.current;
-    if (!element) return;
-    setWidth(element.clientWidth);
-    if (typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(([entry]) => {
-      if (entry) setWidth(entry.contentRect.width);
-    });
-    observer.observe(element);
-    return () => {
-      observer.disconnect();
-    };
-  }, []);
+  const [containerRef, width] = useElementWidth<HTMLDivElement>();
 
   const { columns, cellSize, gap } = gridMetrics(width);
   const placements = useMemo(

@@ -25,6 +25,8 @@ import type {
 import { DashboardComponentView } from "../components/DashboardComponentView";
 import { DashboardFilters } from "../components/DashboardFilters";
 import { DashboardGrid } from "../components/DashboardGrid";
+import { useElementWidth } from "../components/useElementWidth";
+import { gridMetrics, gridWidth } from "@/modules/dashboards/model/grid";
 import { DashboardUsersDialog } from "../components/DashboardUsersDialog";
 
 export function DashboardPage({
@@ -35,6 +37,7 @@ export function DashboardPage({
   onEditContext: () => void;
 }) {
   const { user } = useAuth();
+  const [frameRef, frameWidth] = useElementWidth<HTMLDivElement>();
   const [dashboard, setDashboard] = useState<Dashboard>();
   const [data, setData] = useState<Record<string, QueryState>>({});
   const [filters, setFilters] = useState<FilterValues>(() =>
@@ -177,101 +180,106 @@ export function DashboardPage({
     (state) => state.error && state.rows !== undefined,
   );
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-start gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-xl font-bold tracking-tight md:text-2xl">
-              {dashboard.name}
-            </h1>
-            <Badge variant="secondary">Dashboard</Badge>
+    <div ref={frameRef} className="w-full">
+      <div
+        className="mx-auto flex flex-col gap-6"
+        style={{ width: gridWidth(gridMetrics(frameWidth)) }}
+      >
+        <div className="flex items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-xl font-bold tracking-tight md:text-2xl">
+                {dashboard.name}
+              </h1>
+              <Badge variant="secondary">Dashboard</Badge>
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {dashboard.description || "Sem descrição."}
+            </p>
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {dashboard.description || "Sem descrição."}
-          </p>
+          <div className="flex shrink-0 items-center gap-2">
+            {user?.isAdmin && (
+              <>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={onEditContext}
+                  aria-label="Abrir contexto do dashboard"
+                >
+                  <Settings />
+                  <span className="sr-only">Contexto do dashboard</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setUsersDialogOpen(true)}
+                  aria-label="Gerenciar usuários do dashboard"
+                >
+                  <Users />
+                  <span className="sr-only">Gerenciar usuários</span>
+                </Button>
+              </>
+            )}
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={refreshData}
+              aria-label="Atualizar dashboard"
+              title="Atualizar dados dos componentes"
+            >
+              <RefreshCw
+                className={
+                  Object.values(data).some((state) => state.loading)
+                    ? "animate-spin"
+                    : undefined
+                }
+              />
+            </Button>
+          </div>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          {user?.isAdmin && (
-            <>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={onEditContext}
-                aria-label="Abrir contexto do dashboard"
-              >
-                <Settings />
-                <span className="sr-only">Contexto do dashboard</span>
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setUsersDialogOpen(true)}
-                aria-label="Gerenciar usuários do dashboard"
-              >
-                <Users />
-                <span className="sr-only">Gerenciar usuários</span>
-              </Button>
-            </>
-          )}
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={refreshData}
-            aria-label="Atualizar dashboard"
-            title="Atualizar dados dos componentes"
-          >
-            <RefreshCw
-              className={
-                Object.values(data).some((state) => state.loading)
-                  ? "animate-spin"
-                  : undefined
-              }
-            />
-          </Button>
-        </div>
-      </div>
-      <DashboardFilters
-        parameters={parameters}
-        lookupData={data}
-        appliedFilters={filters}
-        onApply={(values) => {
-          saveDashboardFilters(dashboardId, values);
-          setFilters(values);
-        }}
-      />
-      {hasStaleDataErrors && (
-        <Alert>
-          <AlertCircle />
-          <AlertTitle>Alguns dados não foram atualizados</AlertTitle>
-          <AlertDescription>
-            Os últimos resultados continuam visíveis. Revise as consultas com
-            erro ou tente atualizar novamente.
-          </AlertDescription>
-        </Alert>
-      )}
-      <DashboardGrid
-        components={dashboard.definition.components}
-        renderComponent={(component) => (
-          <DashboardComponentView
-            component={component}
-            state={data[component.queryUuid]}
-          />
+        <DashboardFilters
+          parameters={parameters}
+          lookupData={data}
+          appliedFilters={filters}
+          onApply={(values) => {
+            saveDashboardFilters(dashboardId, values);
+            setFilters(values);
+          }}
+        />
+        {hasStaleDataErrors && (
+          <Alert>
+            <AlertCircle />
+            <AlertTitle>Alguns dados não foram atualizados</AlertTitle>
+            <AlertDescription>
+              Os últimos resultados continuam visíveis. Revise as consultas com
+              erro ou tente atualizar novamente.
+            </AlertDescription>
+          </Alert>
         )}
-        empty={
-          <Card>
-            <CardContent className="flex flex-col items-center gap-2 py-12 text-center text-muted-foreground">
-              <Table2 />
-              Este dashboard ainda não possui componentes.
-            </CardContent>
-          </Card>
-        }
-      />
-      <DashboardUsersDialog
-        dashboardId={dashboardId}
-        open={usersDialogOpen}
-        onOpenChange={setUsersDialogOpen}
-        onSaved={refreshData}
-      />
+        <DashboardGrid
+          components={dashboard.definition.components}
+          renderComponent={(component) => (
+            <DashboardComponentView
+              component={component}
+              state={data[component.queryUuid]}
+            />
+          )}
+          empty={
+            <Card>
+              <CardContent className="flex flex-col items-center gap-2 py-12 text-center text-muted-foreground">
+                <Table2 />
+                Este dashboard ainda não possui componentes.
+              </CardContent>
+            </Card>
+          }
+        />
+        <DashboardUsersDialog
+          dashboardId={dashboardId}
+          open={usersDialogOpen}
+          onOpenChange={setUsersDialogOpen}
+          onSaved={refreshData}
+        />
+      </div>
     </div>
   );
 }
