@@ -474,4 +474,38 @@ describe("protocolo SSE v1 do chat", () => {
 
     expect(() => parser.push("", true)).toThrow(/sem evento terminal/i);
   });
+
+  it("valida o evento component_preview", () => {
+    const payload = {
+      version: 1,
+      type: "component_preview",
+      toolCallId: "t",
+      receiptId: "r",
+      expiresAt: "2099-01-01T00:00:00.000Z",
+      component: {
+        id: "c",
+        component: "stat_card",
+        title: "T",
+        queryUuid: "q",
+        colSpan: 6,
+        field: "total",
+      },
+      query: { rows: [{ total: 1 }] },
+    };
+    const start = wireEvent("start", {
+      version: 1,
+      type: "start",
+      requestId: "r1",
+      messageId: "m1",
+    });
+    const parse = (value: unknown) =>
+      new SseV1Parser().push(start + wireEvent("component_preview", value));
+    expect(parse(payload)[1]).toMatchObject({ type: "component_preview" });
+    expect(() =>
+      parse({
+        ...payload,
+        component: { ...payload.component, component: "x" },
+      }),
+    ).toThrow(/componente isolado/);
+  });
 });

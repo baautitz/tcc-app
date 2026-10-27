@@ -18,6 +18,8 @@ import {
   type ChatMessage,
   type QueryPreviewItem,
   type DashboardPreviewItem,
+  type ComponentPreviewItem,
+  type ComponentAdjustment,
   type ChatItem,
   isActionCardItem,
 } from "@/modules/ai/model/chat-items";
@@ -44,6 +46,8 @@ export function ChatWindow({
   onApplyDashboard,
   onContextProposalResolved,
   onSubmitQuestionnaire,
+  onApproveComponent,
+  onAdjustComponent,
 }: {
   items: ChatItem[];
   busy: boolean;
@@ -72,6 +76,11 @@ export function ChatWindow({
   onSubmitQuestionnaire: (
     item: QuestionnaireChatItem,
     answers: QuestionnaireAnswers,
+  ) => void;
+  onApproveComponent: (item: ComponentPreviewItem) => void;
+  onAdjustComponent: (
+    item: ComponentPreviewItem,
+    adjustment: ComponentAdjustment,
   ) => void;
 }) {
   const latestMessage = [...items]
@@ -187,6 +196,8 @@ export function ChatWindow({
                           onApplyDashboard={onApplyDashboard}
                           onReviewContext={setReviewContext}
                           onSubmitQuestionnaire={onSubmitQuestionnaire}
+                          onApproveComponent={onApproveComponent}
+                          onAdjustComponent={onAdjustComponent}
                         />
                       </MessageScrollerItem>
                     );

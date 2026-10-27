@@ -20,6 +20,7 @@ export type ChatActionCardKind =
   | "context_proposal"
   | "query_preview"
   | "dashboard_preview"
+  | "component_preview"
   | "questionnaire";
 export type ChatActionCardRef = { id: string; kind: ChatActionCardKind };
 
@@ -70,6 +71,32 @@ export type DashboardPreviewQuery = {
   error?: string;
   previewPending?: string;
 };
+export type ComponentType =
+  "stat_card" | "bar_chart" | "line_chart" | "pie_chart" | "data_table";
+/** Componente isolado (fase 3), no formato de proposta da IA. */
+export type ProposedComponent = {
+  id: string;
+  component: ComponentType;
+  title: string;
+  queryUuid: string;
+  colSpan: number;
+} & Record<string, unknown>;
+export type ComponentPreviewItem = {
+  id: string;
+  kind: "component_preview";
+  toolCallId: string;
+  receiptId: string;
+  expiresAt: string;
+  component: ProposedComponent;
+  query: DashboardPreviewQuery;
+  status?: "approving" | "approved" | "adjusting" | "superseded";
+  ownerMessageId?: string;
+};
+export type ComponentAdjustment = {
+  component?: ComponentType;
+  title?: string;
+  colSpan?: number;
+};
 export type DashboardPreviewItem = {
   id: string;
   kind: "dashboard_preview";
@@ -101,12 +128,14 @@ export type ChatItem =
   | ErrorMessage
   | QueryPreviewItem
   | DashboardPreviewItem
+  | ComponentPreviewItem
   | QuestionnaireChatItem;
 export type ChatActionCardItem =
   | ProposalMessage
   | ContextProposalMessage
   | QueryPreviewItem
   | DashboardPreviewItem
+  | ComponentPreviewItem
   | QuestionnaireChatItem;
 export type ChatRoleMessage = { role: "user" | "assistant"; content: string };
 
@@ -118,6 +147,7 @@ export function getActionCardReference(
     case "context_proposal":
     case "query_preview":
     case "dashboard_preview":
+    case "component_preview":
     case "questionnaire":
       return { id: item.id, kind: item.kind };
     default:
@@ -347,6 +377,7 @@ export function toolLabel(toolName: string) {
     test_query: "Testando consulta",
     save_query: "Salvando consulta",
     propose_context_update: "Preparando proposta de contexto",
+    preview_component: "Preparando o componente isolado",
     create_or_update_dashboard: "Atualizando dashboard",
     [REFRESH_TOOL_NAME]: "Atualizando componentes do dashboard",
   };

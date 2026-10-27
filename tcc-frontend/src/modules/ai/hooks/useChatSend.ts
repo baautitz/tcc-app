@@ -26,6 +26,8 @@ import {
   type ChatItem,
   type ChatMessage,
   type QueryPreviewItem,
+  type ComponentPreviewItem,
+  type ComponentAdjustment,
   type AiContinuation,
   type AiPageContext,
   type SavedQueryReference,
@@ -39,6 +41,7 @@ import {
   toolLabel,
   formatElapsedTime,
 } from "@/modules/ai/model/chat-items";
+import { aiApi } from "@/modules/ai/api/ai.api";
 import { runChatStream } from "@/modules/ai/hooks/useChatStream";
 
 type Session = {
@@ -548,7 +551,64 @@ export function useChatSend(session: Session, pathname: string) {
     [items, pathname, send, setItems],
   );
 
+  const markComponent = useCallback(
+    (id: string, status: ComponentPreviewItem["status"]) =>
+      setItems((current) =>
+        current.map((item) =>
+          item.kind === "component_preview" && item.id === id
+            ? { ...item, status }
+            : item,
+        ),
+      ),
+    [setItems],
+  );
+
+  /** Aprovar: registra o Recibo de componente no backend (nada é salvo) e segue para a fase 4. */
+  const approveComponent = useCallback(
+    async (item: ComponentPreviewItem) => {
+      if (busy || item.status) return;
+      markComponent(item.id, "approving");
+      try {
+        await aiApi.approveAiComponentReceipt(item.receiptId);
+      } catch (reason) {
+        markComponent(item.id, undefined);
+        toast.error(
+          reason instanceof Error
+            ? reason.message
+            : "Não foi possível aprovar o componente.",
+        );
+        return;
+      }
+      markComponent(item.id, "approved");
+      void send({
+        content: `O administrador aprovou o componente “${item.component.title}” (componentReceiptId ${item.receiptId}). Siga para a próxima fase: se o dashboard de destino e a posição ainda não foram ditos, pergunte; senão gere a proposta do dashboard.`,
+        silentUser: true,
+      });
+    },
+    [busy, markComponent, send],
+  );
+
+  /** Pedir ajuste: não persiste nada; a IA gera outro componente isolado. */
+  const adjustComponent = useCallback(
+    (item: ComponentPreviewItem, adjustment: ComponentAdjustment) => {
+      if (busy || item.status) return;
+      const changes = [
+        adjustment.component ? `tipo ${adjustment.component}` : "",
+        adjustment.title ? `título “${adjustment.title}”` : "",
+        adjustment.colSpan ? `largura ${adjustment.colSpan} de 12 colunas` : "",
+      ].filter(Boolean);
+      if (changes.length === 0) return;
+      markComponent(item.id, "adjusting");
+      void send({
+        content: `Pedir ajuste do componente “${item.component.title}”: ${changes.join(", ")}. Mostre o componente isolado de novo para eu aprovar.`,
+      });
+    },
+    [busy, markComponent, send],
+  );
+
   return {
+    approveComponent,
+    adjustComponent,
     send,
     retry,
     stop,

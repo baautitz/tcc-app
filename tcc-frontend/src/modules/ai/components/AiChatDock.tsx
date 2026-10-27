@@ -46,6 +46,8 @@ export function AiChatDock({
     clear,
     submitQuestionnaire,
     continueAfterQuerySaved,
+    approveComponent,
+    adjustComponent,
   } = useChatSend(session, location.pathname);
   const dashboardSavePendingRef = useRef(new Set<string>());
 
@@ -211,6 +213,8 @@ export function AiChatDock({
       onContextProposalResolved={markContextProposalResolved}
       onApplyDashboard={applyDashboard}
       onSubmitQuestionnaire={submitQuestionnaire}
+      onApproveComponent={approveComponent}
+      onAdjustComponent={adjustComponent}
     />
   );
 

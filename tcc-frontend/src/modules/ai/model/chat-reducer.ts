@@ -121,6 +121,18 @@ export function applyChatEvent(
         kind: "questionnaire",
         questionnaire: event.questionnaire,
       });
+    case "component_preview": {
+      const marked = items.map((item) =>
+        item.kind === "component_preview" && !item.status
+          ? { ...item, status: "superseded" as const }
+          : item,
+      );
+      return insertAfter(marked, assistantId, {
+        ...event,
+        id: event.receiptId,
+        kind: "component_preview",
+      });
+    }
     case "dashboard_preview": {
       const marked = items.map((item) =>
         item.kind === "dashboard_preview" &&

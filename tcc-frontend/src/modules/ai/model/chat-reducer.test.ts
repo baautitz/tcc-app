@@ -70,4 +70,29 @@ describe("applyChatEvent", () => {
       applyChatEvent(items, ev({ type: "start", requestId: "r" }), "a"),
     ).toBe(items);
   });
+  it("component_preview vira cartão pendente e substitui o anterior ainda indeciso", () => {
+    const preview = (receiptId: string) =>
+      ev({
+        type: "component_preview",
+        toolCallId: `call-${receiptId}`,
+        receiptId,
+        expiresAt: "2099-01-01T00:00:00.000Z",
+        component: {
+          id: "c",
+          component: "bar_chart",
+          title: "T",
+          queryUuid: "q",
+          colSpan: 12,
+        },
+        query: { rows: [] },
+      });
+    const asst2: ChatItem = { ...(asst as object), id: "b" } as ChatItem;
+    let out = applyChatEvent([asst], preview("r1"), "a");
+    out = applyChatEvent([...out, asst2], preview("r2"), "b");
+    expect(out.filter((i) => i.kind === "component_preview")).toMatchObject([
+      { id: "r1", status: "superseded" },
+      { id: "r2" },
+    ]);
+    expect(out.find((i) => i.id === "r2")).not.toHaveProperty("status");
+  });
 });
