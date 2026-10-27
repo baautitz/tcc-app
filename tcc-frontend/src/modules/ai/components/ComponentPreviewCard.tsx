@@ -1,15 +1,35 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { LoaderCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { DashboardComponentView } from "@/modules/dashboards/components/DashboardComponentView";
-import type { DashboardComponent } from "@/modules/dashboards/model/types";
+import { DashboardFilters } from "@/modules/dashboards/components/DashboardFilters";
+import type {
+  DashboardArgument,
+  DashboardComponent,
+  DashboardFilterValues,
+} from "@/modules/dashboards/model/types";
+import { aiApi } from "@/modules/ai/api/ai.api";
 import {
   isExpired,
   type ComponentAdjustment,
   type ComponentPreviewItem,
   type ComponentType,
+  type ComponentValues,
 } from "@/modules/ai/model/chat-items";
+
+const FILTER_PREFIX = "filter:";
+const PARAMETER_PREFIX = "param:";
+
+/** Só valores preenchidos seguem para o backend. */
+function withoutBlanks(values: Record<string, string | string[]>) {
+  return Object.fromEntries(
+    Object.entries(values).filter(([, value]) =>
+      Array.isArray(value) ? value.length > 0 : value.trim().length > 0,
+    ),
+  );
+}
 
 const typeLabels: Record<ComponentType, string> = {
   stat_card: "Indicador (stat_card)",
@@ -30,7 +50,7 @@ export function ComponentPreviewCard({
   item: ComponentPreviewItem;
   busy: boolean;
   isLatestInteraction: boolean;
-  onApprove: (item: ComponentPreviewItem) => void;
+  onApprove: (item: ComponentPreviewItem, values: ComponentValues) => void;
   onAdjust: (
     item: ComponentPreviewItem,
     adjustment: ComponentAdjustment,
@@ -61,9 +81,105 @@ export function ComponentPreviewCard({
     };
   }, [component]);
 
+  // Valores aplicados (os que geraram o resultado exibido) e resultado atual.
+  const [applied, setApplied] = useState<ComponentValues>({
+    contextValues: item.contextValues ?? {},
+    parameterValues: item.parameterValues ?? {},
+  });
+  const [query, setQuery] = useState(item.query);
+  const [applying, setApplying] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [applyError, setApplyError] = useState<string>();
+
+  // Um só formulário: filtros do Dashboard ativo + parâmetros da query sem filtro.
+  const fields = useMemo<DashboardArgument[]>(() => {
+    const parameters = item.parameters ?? [];
+    const filters = (item.filters ?? []).map((filter) => {
+      const bound = parameters.filter(
+        (parameter) => parameter.bound === filter.name,
+      );
+      return {
+        ...filter,
+        name: `${FILTER_PREFIX}${filter.name}`,
+        // Só é obrigatório se alimenta uma query que o exige.
+        required:
+          bound.length > 0 &&
+          (filter.required || bound.some((parameter) => parameter.required)),
+      };
+    });
+    const own = parameters
+      .filter((parameter) => parameter.bound === null)
+      .map((parameter) => ({
+        name: `${PARAMETER_PREFIX}${parameter.name}`,
+        label: parameter.label,
+        type: parameter.type,
+        required: parameter.required,
+      }));
+    return [...filters, ...own];
+  }, [item.filters, item.parameters]);
+  const appliedFields = useMemo<DashboardFilterValues>(
+    () => ({
+      ...Object.fromEntries(
+        Object.entries(applied.contextValues).map(([name, value]) => [
+          `${FILTER_PREFIX}${name}`,
+          value,
+        ]),
+      ),
+      ...Object.fromEntries(
+        Object.entries(applied.parameterValues).map(([name, value]) => [
+          `${PARAMETER_PREFIX}${name}`,
+          value,
+        ]),
+      ),
+    }),
+    [applied],
+  );
+  const lookupData = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(item.lookups ?? {}).map(([queryId, lookup]) => [
+          queryId,
+          { loading: false, ...lookup },
+        ]),
+      ),
+    [item.lookups],
+  );
+  const onValuesChange = useCallback(() => setDirty(true), []);
+  const applyFilters = async (values: DashboardFilterValues) => {
+    const next: ComponentValues = { contextValues: {}, parameterValues: {} };
+    for (const [name, value] of Object.entries(values)) {
+      if (name.startsWith(FILTER_PREFIX))
+        next.contextValues[name.slice(FILTER_PREFIX.length)] = value;
+      else if (name.startsWith(PARAMETER_PREFIX))
+        next.parameterValues[name.slice(PARAMETER_PREFIX.length)] = value;
+    }
+    next.contextValues = withoutBlanks(next.contextValues);
+    next.parameterValues = withoutBlanks(next.parameterValues);
+    setApplying(true);
+    setApplyError(undefined);
+    try {
+      const result = await aiApi.previewAiComponentReceipt(
+        item.receiptId,
+        next,
+      );
+      setQuery(result.query);
+      setApplied(next);
+      setDirty(false);
+    } catch (error) {
+      setApplyError(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível aplicar os filtros.",
+      );
+    } finally {
+      setApplying(false);
+    }
+  };
+
   const expired = isExpired(item.expiresAt);
   const decided = Boolean(item.status);
   const canAct = isLatestInteraction && !decided && !expired;
+  const canActOrPending = isLatestInteraction && !decided;
   const spanValue = Number(colSpan);
   const spanValid =
     Number.isInteger(spanValue) && spanValue >= 1 && spanValue <= 12;
@@ -88,26 +204,30 @@ export function ComponentPreviewCard({
         </p>
       </div>
 
-      {item.parameters && item.parameters.length > 0 && (
-        <dl className="grid gap-1 border bg-background p-2 text-xs">
-          <dt className="font-medium text-muted-foreground">
-            Parâmetros usados nesta prévia
-          </dt>
-          {item.parameters.map((parameter) => (
-            <dd key={parameter.name} className="flex flex-wrap gap-1">
-              <span className="font-medium">{parameter.label}:</span>
-              <span>
-                {parameter.value === null
-                  ? parameter.required
-                    ? "não informado"
-                    : "sem filtro (todos)"
-                  : Array.isArray(parameter.value)
-                    ? parameter.value.join(", ") || "sem filtro (todos)"
-                    : parameter.value}
-              </span>
-            </dd>
-          ))}
-        </dl>
+      {fields.length > 0 && (
+        <div className="flex flex-col gap-1">
+          <DashboardFilters
+            parameters={fields}
+            lookupData={lookupData}
+            appliedFilters={appliedFields}
+            onApply={applyFilters}
+            onValuesChange={onValuesChange}
+            heading="Filtros do dashboard"
+            description="Os valores são usados apenas nesta prévia; ao aprovar, seguem para a proposta."
+            submitLabel={applying ? "Aplicando…" : "Aplicar filtros"}
+            submitIcon={
+              applying ? (
+                <LoaderCircle className="animate-spin" />
+              ) : (
+                <RefreshCw />
+              )
+            }
+            submitDisabled={applying || busy || expired || !canActOrPending}
+          />
+          {applyError && (
+            <p className="text-xs text-destructive">{applyError}</p>
+          )}
+        </div>
       )}
 
       <div className="@container grid grid-cols-12 gap-4">
@@ -117,9 +237,9 @@ export function ComponentPreviewCard({
             layoutProps: { colSpan: 12, rowSpan: 1 },
           }}
           state={
-            item.query.error
-              ? { loading: false, error: item.query.error }
-              : { loading: false, rows: item.query.rows }
+            query.error
+              ? { loading: false, error: query.error }
+              : { loading: false, rows: query.rows }
           }
         />
       </div>
@@ -198,7 +318,9 @@ export function ComponentPreviewCard({
                   ? "Substituído por outra versão."
                   : expired
                     ? "Aprovação expirada. Peça um novo componente."
-                    : "Aprove para escolher destino e posição."}
+                    : dirty
+                      ? "Aplique os filtros para aprovar o que está na tela."
+                      : "Aprove para escolher destino e posição."}
         </span>
         {canAct && !adjusting && (
           <div className="flex gap-2">
@@ -210,7 +332,11 @@ export function ComponentPreviewCard({
             >
               Pedir ajuste
             </Button>
-            <Button size="sm" disabled={busy} onClick={() => onApprove(item)}>
+            <Button
+              size="sm"
+              disabled={busy || applying || dirty}
+              onClick={() => onApprove(item, applied)}
+            >
               Aprovar
             </Button>
           </div>

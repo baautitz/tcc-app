@@ -28,6 +28,7 @@ import {
   type QueryPreviewItem,
   type DashboardPreviewItem,
   type ComponentPreviewItem,
+  type ComponentValues,
   type ComponentAdjustment,
   type ChatItem,
   toolLabel,
@@ -67,7 +68,10 @@ export function ChatItemView({
     item: QuestionnaireChatItem,
     answers: QuestionnaireAnswers,
   ) => void;
-  onApproveComponent: (item: ComponentPreviewItem) => void;
+  onApproveComponent: (
+    item: ComponentPreviewItem,
+    values: ComponentValues,
+  ) => void;
   onAdjustComponent: (
     item: ComponentPreviewItem,
     adjustment: ComponentAdjustment,

@@ -28,6 +28,7 @@ import {
   type QueryPreviewItem,
   type ComponentPreviewItem,
   type ComponentAdjustment,
+  type ComponentValues,
   type AiContinuation,
   type AiPageContext,
   type SavedQueryReference,
@@ -598,11 +599,11 @@ export function useChatSend(session: Session, pathname: string) {
 
   /** Aprovar: registra o Recibo de componente no backend (nada é salvo) e segue para a fase 4. */
   const approveComponent = useCallback(
-    async (item: ComponentPreviewItem) => {
+    async (item: ComponentPreviewItem, values: ComponentValues) => {
       if (busy || item.status) return;
       markComponent(item.id, "approving");
       try {
-        await aiApi.approveAiComponentReceipt(item.receiptId);
+        await aiApi.approveAiComponentReceipt(item.receiptId, values);
       } catch (reason) {
         markComponent(item.id, undefined);
         toast.error(

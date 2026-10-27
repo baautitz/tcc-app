@@ -1,4 +1,8 @@
 import type { AiContextProposal } from "@/modules/ai/model/types";
+import type {
+  ComponentValues,
+  DashboardPreviewQuery,
+} from "@/modules/ai/model/chat-items";
 import { httpClient, type HttpClient } from "@/shared/api/client";
 
 export class AiApi {
@@ -14,10 +18,16 @@ export class AiApi {
       body: JSON.stringify(body),
       signal,
     });
-  approveAiComponentReceipt = (id: string) =>
+  approveAiComponentReceipt = (id: string, values?: ComponentValues) =>
     this.http.request<{ id: string; approved: true }>(
       `/api/admin/ai/component-receipts/${encodeURIComponent(id)}/approve`,
-      { method: "POST" },
+      { method: "POST", ...(values ? { body: JSON.stringify(values) } : {}) },
+    );
+  /** Repete a prévia do componente isolado com os valores informados, sem a IA. */
+  previewAiComponentReceipt = (id: string, values: ComponentValues) =>
+    this.http.request<{ query: DashboardPreviewQuery }>(
+      `/api/admin/ai/component-receipts/${encodeURIComponent(id)}/preview`,
+      { method: "POST", body: JSON.stringify(values) },
     );
   pendingAiContextProposals = () =>
     this.http.request<AiContextProposal[]>("/api/admin/ai/context-proposals");

@@ -19,6 +19,7 @@ import {
   type QueryPreviewItem,
   type DashboardPreviewItem,
   type ComponentPreviewItem,
+  type ComponentValues,
   type ComponentAdjustment,
   type ChatItem,
   isActionCardItem,
@@ -78,7 +79,10 @@ export function ChatWindow({
     item: QuestionnaireChatItem,
     answers: QuestionnaireAnswers,
   ) => void;
-  onApproveComponent: (item: ComponentPreviewItem) => void;
+  onApproveComponent: (
+    item: ComponentPreviewItem,
+    values: ComponentValues,
+  ) => void;
   onAdjustComponent: (
     item: ComponentPreviewItem,
     adjustment: ComponentAdjustment,

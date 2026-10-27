@@ -55,6 +55,7 @@ type DashboardPreviewItem = {
   definition: DashboardDefinition;
   changeSummary: string[];
   componentChanges: Record<string, "added" | "modified" | "unchanged">;
+  contextValues?: Record<string, string | string[]>;
   requiresTruncationAcknowledgement: boolean;
   queries: Record<string, DashboardPreviewQuery>;
   saved?: boolean;

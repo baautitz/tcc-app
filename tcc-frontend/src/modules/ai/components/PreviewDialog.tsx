@@ -33,7 +33,7 @@ export function PreviewDialog({
   testedIssues,
   testingPreview,
   previewTestError,
-  emptyPreviewFilters,
+  initialPreviewFilters,
   previewComponents,
   requiredArguments,
   runPreviewTest,
@@ -58,7 +58,7 @@ export function PreviewDialog({
   testedIssues: string[] | undefined;
   testingPreview: boolean;
   previewTestError: string | undefined;
-  emptyPreviewFilters: DashboardFilterValues;
+  initialPreviewFilters: DashboardFilterValues;
   previewComponents: DashboardPreviewItem["definition"]["components"];
   requiredArguments: ComponentProps<typeof DashboardFilters>["parameters"];
   runPreviewTest: (values: DashboardFilterValues) => Promise<void>;
@@ -103,7 +103,7 @@ export function PreviewDialog({
               <DashboardFilters
                 parameters={requiredArguments}
                 lookupData={previewLookupData}
-                appliedFilters={emptyPreviewFilters}
+                appliedFilters={initialPreviewFilters}
                 onApply={runPreviewTest}
                 onValuesChange={onPreviewValuesChange}
                 heading="Filtros obrigatórios"

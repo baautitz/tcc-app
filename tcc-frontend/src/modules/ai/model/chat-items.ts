@@ -1,8 +1,10 @@
 import type { AiContextProposal } from "@/modules/ai/model/types";
 import type {
+  DashboardArgument,
   DashboardDefinition,
   DashboardDocument,
 } from "@/modules/dashboards/model/types";
+import type { QueryParameter } from "@/modules/queries/model/types";
 import type { QueryPreview } from "@/modules/queries/model/types";
 import type { QuestionnaireChatItem } from "@/modules/ai/components/QuestionnaireCard";
 
@@ -93,14 +95,29 @@ export type ComponentPreviewItem = {
   expiresAt: string;
   component: ProposedComponent;
   query: DashboardPreviewQuery;
+  /** Parâmetros da query; `bound` é o filtro do dashboard ligado (nulo = input próprio). */
   parameters?: {
     name: string;
     label: string;
+    type: QueryParameter["type"];
     required: boolean;
+    bound: string | null;
     value: string | string[] | null;
   }[];
+  /** Filtros do Dashboard ativo (workspace.params). */
+  filters?: DashboardArgument[];
+  bindings?: Record<string, string>;
+  contextValues?: Record<string, string | string[]>;
+  parameterValues?: Record<string, string | string[]>;
+  /** Amostras das queries de lookup dos filtros, por UUID da query. */
+  lookups?: Record<string, DashboardPreviewQuery>;
   status?: "approving" | "approved" | "adjusting" | "superseded";
   ownerMessageId?: string;
+};
+/** Valores aplicados no cartão: filtros do dashboard e parâmetros sem filtro. */
+export type ComponentValues = {
+  contextValues: Record<string, string | string[]>;
+  parameterValues: Record<string, string | string[]>;
 };
 export type ComponentAdjustment = {
   component?: ComponentType;
@@ -123,6 +140,8 @@ export type DashboardPreviewItem = {
   definition: DashboardDefinition;
   changeSummary: string[];
   componentChanges: Record<string, "added" | "modified" | "unchanged">;
+  /** Valores dos filtros com que a prévia foi executada (do Recibo de componente). */
+  contextValues?: Record<string, string | string[]>;
   requiresTruncationAcknowledgement: boolean;
   queries: Record<string, DashboardPreviewQuery>;
   saved?: boolean;
