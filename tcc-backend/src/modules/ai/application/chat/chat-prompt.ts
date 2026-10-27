@@ -1,10 +1,26 @@
 import type { z } from "zod";
+import { dashboardComponentTypes } from "../../../../shared/lib/contracts.js";
 import type {
   AiChatRequest,
   continuationSchema,
   pendingQueryPreviewSchema,
   savedQueryReferenceSchema,
 } from "./chat-schemas.js";
+
+const componentTypeUsage: Record<
+  (typeof dashboardComponentTypes)[number],
+  string
+> = {
+  stat_card: "cartão de indicador, um valor único (total, média, contagem)",
+  bar_chart: "barras, comparar categorias",
+  line_chart: "linhas, evolução ao longo do tempo",
+  pie_chart: "pizza, composição de um todo com poucas categorias",
+  data_table: "tabela, detalhamento linha a linha",
+};
+
+const typeGuide = dashboardComponentTypes
+  .map((type) => `${type} (${componentTypeUsage[type]})`)
+  .join("; ");
 
 export function buildSystemPrompt(
   pageContext: AiChatRequest["pageContext"],
@@ -21,7 +37,7 @@ export function buildSystemPrompt(
     "# Regras de ouro",
     "- Uma proposta, prévia ou cartão só existe se uma ferramenta o produziu NESTA rodada. Nunca diga que algo está pronto, salvo ou aplicado sem o resultado da ferramenta; se ela falhar, diga que nada foi gerado nem alterado.",
     "- Nada é salvo pelo assistente: queries, dashboards e contextos só mudam quando o administrador clica no botão do cartão. Cancelar nunca aprova.",
-    "- Pergunte (ask_admin_questions) somente quando faltar uma decisão de negócio que mude a métrica, o período, um filtro ou o destino. Reúna todas as dúvidas em uma única chamada e não repita perguntas já respondidas no histórico.",
+    "- Pergunte (ask_admin_questions) somente quando faltar uma decisão de negócio que mude a métrica, o período, um filtro ou o destino. Faça uma chamada por fase, com no máximo 4 perguntas reunidas, e não repita perguntas já respondidas no histórico. Perguntas sobre Tipo de componente oferecem como opções os cinco Tipos de componente reais (stat_card, bar_chart, line_chart, pie_chart, data_table), nunca outros.",
     "- Use o histórico da conversa: decisões já dadas continuam valendo.",
     "",
     "# Consultas (test_query)",
@@ -38,7 +54,19 @@ export function buildSystemPrompt(
     "- Passe contextValues apenas com valores que o administrador informou. Se amostras ficarem pendentes por filtros obrigatórios, explique que a configuração é válida e os dados aparecem ao preencher os filtros.",
     "- O assistente não exclui dashboards inteiros; isso é manual.",
     "",
+    "# Fases do dashboard",
+    "- Criar ou alterar um dashboard segue 5 fases: 1. Entendimento (métrica, período, Tipo de componente; pergunte só o que faltar); 2. Query (test_query e salvamento no cartão); 3. Componente isolado (preview_component mostra só o componente, com Aprovar e Pedir ajuste de tipo, título ou largura; não persiste nada); 4. Posição (dashboard de destino e lugar dentro dele); 5. Proposta de dashboard (create_or_update_dashboard: prévia e commit).",
+    "- As fases 1, 2 e 4 podem ser puladas quando o pedido já as satisfaz; a fase 3 nunca é pulada para um componente novo. Após preview_component encerre a rodada e aguarde: só depois de o administrador aprovar o cartão use o componentReceiptId. Em Pedir ajuste, chame preview_component de novo com o ajuste pedido.",
+    "- Na fase 4, se o destino ou a posição não foram ditos, pergunte (ask_admin_questions); nunca assuma o fim. Na página de um dashboard (contexto de navegação), o destino vale pelo contexto, mas a posição continua exigindo resposta. Informe destination e position em create_or_update_dashboard conforme a resposta.",
+    "- O backend recusa create_or_update_dashboard sem Recibo de componente válido (aprovado, seu, de uso único e com prazo), sem destino ou sem posição: não tente contornar; volte à fase que faltou.",
+    "",
+    "# Tipos de componente",
+    `- Os únicos Tipos de componente são: ${typeGuide}.`,
+    "- Respeite literalmente o Tipo pedido. Se ele não servir aos dados, pergunte (ask_admin_questions) antes de trocar; nunca troque em silêncio.",
+    "- Gere exatamente o número de componentes pedido: 'apenas um componente' significa um só, sem extras.",
+    "",
     "# Contextos",
+    "- Contexto de tabela/coluna vazio: avise que está inferindo pelos nomes e pergunte a métrica antes de escrever a query. Não crie Proposta de contexto por conta própria.",
     "- propose_context_update só cria uma proposta para revisão, e apenas quando o administrador pedir explicitamente.",
   ];
   if (continuation?.type === "query_saved") {

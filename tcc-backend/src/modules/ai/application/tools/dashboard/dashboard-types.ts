@@ -29,7 +29,24 @@ export interface AiDashboardToolsOptions {
   now?: () => number;
 }
 
+/** Recibo de componente: prova a aprovação do componente isolado (fase 3). */
+export interface AiComponentReceipt {
+  id: string;
+  actorId: string;
+  component: unknown;
+  expiresAt: Date;
+  approvedAt: Date | null;
+  consumedAt: Date | null;
+}
+
 export interface AiDashboardToolsRepository {
+  issueComponentReceipt(input: {
+    id: string;
+    actorId: string;
+    component: unknown;
+    expiresAt: Date;
+  }): Promise<void>;
+  findComponentReceipt(id: string): Promise<AiComponentReceipt | undefined>;
   listSavedQueries(): Promise<AiDashboardQuery[]>;
   findSavedQueries(ids: string[]): Promise<AiDashboardQueryDefinition[]>;
   findDashboard(
@@ -39,16 +56,22 @@ export interface AiDashboardToolsRepository {
     query: AiDashboardQueryDefinition,
     values: Record<string, string | string[]>,
   ): Promise<AiDashboardQueryPreview>;
-  issueReceipt(input: {
-    id: string;
-    actorId: string;
-    mode: "create" | "update";
-    dashboardId: string;
-    expectedDashboardFingerprint: string | null;
-    document: DashboardDocument;
-    documentFingerprint: string;
-    referenceFingerprint: string;
-    hasTruncatedPreview: boolean;
-    expiresAt: Date;
-  }): Promise<void>;
+  issueReceipt(
+    input: {
+      id: string;
+      actorId: string;
+      mode: "create" | "update";
+      dashboardId: string;
+      expectedDashboardFingerprint: string | null;
+      document: DashboardDocument;
+      documentFingerprint: string;
+      referenceFingerprint: string;
+      hasTruncatedPreview: boolean;
+      expiresAt: Date;
+    },
+    options?: {
+      /** Uso único, na mesma transação: sem consumo válido nada é emitido. */
+      consumeComponentReceipt?: { id: string; actorId: string; now: Date };
+    },
+  ): Promise<boolean>;
 }

@@ -27,10 +27,13 @@ import {
 import {
   type QueryPreviewItem,
   type DashboardPreviewItem,
+  type ComponentPreviewItem,
+  type ComponentAdjustment,
   type ChatItem,
   toolLabel,
   isExpired,
 } from "@/modules/ai/model/chat-items";
+import { ComponentPreviewCard } from "@/modules/ai/components/ComponentPreviewCard";
 import { DashboardPreviewCard } from "@/modules/ai/components/DashboardPreviewCard";
 const ChatMarkdown = lazy(() =>
   import("@/modules/ai/components/ChatMarkdown").then((module) => ({
@@ -46,6 +49,8 @@ export function ChatItemView({
   onApplyDashboard,
   onReviewContext,
   onSubmitQuestionnaire,
+  onApproveComponent,
+  onAdjustComponent,
 }: {
   item: ChatItem;
   busy: boolean;
@@ -61,7 +66,24 @@ export function ChatItemView({
     item: QuestionnaireChatItem,
     answers: QuestionnaireAnswers,
   ) => void;
+  onApproveComponent: (item: ComponentPreviewItem) => void;
+  onAdjustComponent: (
+    item: ComponentPreviewItem,
+    adjustment: ComponentAdjustment,
+  ) => void;
 }) {
+  if (item.kind === "component_preview") {
+    return (
+      <ComponentPreviewCard
+        item={item}
+        busy={busy}
+        isLatestInteraction={isLatestInteraction}
+        onApprove={onApproveComponent}
+        onAdjust={onAdjustComponent}
+      />
+    );
+  }
+
   if (item.kind === "questionnaire") {
     return (
       <QuestionnaireCard

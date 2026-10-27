@@ -30,6 +30,12 @@ const migrations = [
       new URL("./migrations/0003_ai_context_approvals.sql", import.meta.url),
     ),
   },
+  {
+    id: "0004_ai_component_receipts",
+    path: fileURLToPath(
+      new URL("./migrations/0004_ai_component_receipts.sql", import.meta.url),
+    ),
+  },
 ];
 
 const client = await pool.connect();

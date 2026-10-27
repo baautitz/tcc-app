@@ -14,6 +14,11 @@ export class AiApi {
       body: JSON.stringify(body),
       signal,
     });
+  approveAiComponentReceipt = (id: string) =>
+    this.http.request<{ id: string; approved: true }>(
+      `/api/admin/ai/component-receipts/${encodeURIComponent(id)}/approve`,
+      { method: "POST" },
+    );
   pendingAiContextProposals = () =>
     this.http.request<AiContextProposal[]>("/api/admin/ai/context-proposals");
   aiContextProposal = (id: string) =>

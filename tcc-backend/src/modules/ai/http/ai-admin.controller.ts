@@ -1,8 +1,11 @@
 import { z } from "zod";
 import { AiChatService } from "../application/chat/ai-chat.js";
-import { aiChatToolsFactory } from "../../../container.js";
+import {
+  aiChatToolsFactory,
+  aiDashboardToolsRepository,
+} from "../../../container.js";
 import { contextProposalService } from "../application/context-proposals.js";
-import { throwApiError } from "../../../shared/lib/domain-error.js";
+import { ApiError, throwApiError } from "../../../shared/lib/domain-error.js";
 import type { AppContext } from "../../../shared/middleware/auth.js";
 
 const aiChatService = new AiChatService({
@@ -60,4 +63,18 @@ export async function dismissProposal(context: AppContext) {
   } catch (error) {
     return throwApiError(error);
   }
+}
+
+export async function approveComponentReceipt(context: AppContext) {
+  const receiptId = z.string().uuid().parse(context.req.param("receiptId"));
+  const approved = await aiDashboardToolsRepository.approveComponentReceipt(
+    receiptId,
+    context.get("currentUser").id,
+  );
+  if (!approved)
+    throw new ApiError(
+      409,
+      "O componente expirou, já foi usado ou não pertence a você. Peça um novo cartão ao assistente.",
+    );
+  return context.json({ id: receiptId, approved: true });
 }

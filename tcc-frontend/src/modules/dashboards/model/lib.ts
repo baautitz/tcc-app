@@ -145,3 +145,32 @@ export function colClass(component: DashboardComponent): string {
     "col-span-12"
   );
 }
+
+export type PivotedSeries = { key: string; label: string };
+
+/**
+ * Uma série por valor de `seriesKey`. Os valores ficam sob a chave
+ * `serie:<valor>` para não colidir com o eixo X (`nameKey`); linhas sem nome
+ * no eixo X são descartadas.
+ */
+export function pivotSeries(
+  rows: Record<string, unknown>[],
+  nameKey: string,
+  valueKey: string,
+  seriesKey: string,
+): { data: Record<string, unknown>[]; series: PivotedSeries[] } {
+  const series: PivotedSeries[] = [];
+  const byName = new Map<string, Record<string, unknown>>();
+  for (const row of rows) {
+    const rawName = row[nameKey];
+    if (rawName === null || rawName === undefined || rawName === "") continue;
+    const label = String(row[seriesKey] ?? "");
+    const key = `serie:${label}`;
+    if (!series.some((item) => item.key === key)) series.push({ key, label });
+    const name = String(rawName);
+    const point = byName.get(name) ?? { [nameKey]: rawName };
+    point[key] = row[valueKey];
+    byName.set(name, point);
+  }
+  return { data: [...byName.values()], series };
+}

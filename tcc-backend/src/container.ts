@@ -38,9 +38,13 @@ export const dashboardProposalService = new DashboardProposalService(
   externalSourceAdapter,
 );
 
+export const aiDashboardToolsRepository = new DrizzleAiDashboardToolsRepository(
+  externalSourceAdapter,
+);
+
 export const aiChatToolsFactory = new AiChatToolsFactory(
   new DrizzleAiReadToolsRepository(externalSourceAdapter, savedQueriesAdapter),
-  new DrizzleAiDashboardToolsRepository(externalSourceAdapter),
+  aiDashboardToolsRepository,
   new DrizzleAiContextProposalRepository(),
   externalSourceAdapter,
 );

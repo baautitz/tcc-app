@@ -3,6 +3,7 @@ import { sha256Hex, stableJson } from "../../../shared/lib/hash.js";
 import { z } from "zod";
 import {
   dashboardArgumentSchema,
+  dashboardComponentTypes,
   dashboardDocumentSchema,
   queryBindingSchema,
 } from "../../../shared/lib/contracts.js";
@@ -24,7 +25,7 @@ const componentBase = {
   queryUuid: z.string().uuid(),
   colSpan: z.number().int().min(1).max(12).default(12),
 };
-const aiComponentSchema = z.discriminatedUnion("component", [
+export const aiComponentSchema = z.discriminatedUnion("component", [
   z
     .object({
       ...componentBase,
@@ -39,6 +40,15 @@ const aiComponentSchema = z.discriminatedUnion("component", [
       component: z.literal("bar_chart"),
       nameKey: z.string().trim().min(1).max(160),
       valueKey: z.string().trim().min(1).max(160),
+    })
+    .strict(),
+  z
+    .object({
+      ...componentBase,
+      component: z.literal("line_chart"),
+      nameKey: z.string().trim().min(1).max(160),
+      valueKey: z.string().trim().min(1).max(160),
+      seriesKey: z.string().trim().min(1).max(160).optional(),
     })
     .strict(),
   z
@@ -61,6 +71,45 @@ const aiComponentSchema = z.discriminatedUnion("component", [
     .strict(),
 ]);
 
+// Falha na compilação se um Tipo de componente do contrato não tiver schema de proposta (ADR 0001).
+type MissingAiComponentTypes = Exclude<
+  (typeof dashboardComponentTypes)[number],
+  z.infer<typeof aiComponentSchema>["component"]
+>;
+export const aiComponentTypesAreComplete: [MissingAiComponentTypes] extends [
+  never,
+]
+  ? true
+  : never = true;
+
+/** Destino declarado da fase 4: dashboard novo ou um dashboard existente. */
+export const dashboardDestinationSchema = z
+  .object({
+    kind: z.enum(["new_dashboard", "existing_dashboard"]),
+    dashboardId: z.string().uuid().optional(),
+  })
+  .strict();
+
+/** Posição declarada da fase 4, relativa aos componentes do dashboard de destino. */
+export const componentPositionSchema = z
+  .object({
+    placement: z.enum(["start", "end", "before", "after"]),
+    relativeToComponentId: z.string().trim().min(1).max(160).optional(),
+  })
+  .strict()
+  .refine(
+    (position) =>
+      (position.placement === "before" || position.placement === "after") ===
+      (position.relativeToComponentId !== undefined),
+    {
+      message:
+        "Informe relativeToComponentId somente com placement 'before' ou 'after'.",
+    },
+  );
+
+export type DashboardDestination = z.infer<typeof dashboardDestinationSchema>;
+export type ComponentPosition = z.infer<typeof componentPositionSchema>;
+
 export const aiDashboardProposalInputSchema = z
   .object({
     mode: z.enum(["create", "update"]),
@@ -78,6 +127,9 @@ export const aiDashboardProposalInputSchema = z
       .array(z.string().trim().min(1).max(160))
       .max(24)
       .default([]),
+    componentReceiptId: z.string().uuid().optional(),
+    destination: dashboardDestinationSchema.optional(),
+    position: componentPositionSchema.optional(),
     contextValues: z
       .record(
         z.string().max(80),
@@ -159,6 +211,7 @@ export const aiDashboardProposalInputSchema = z
     }
   });
 
+export type AiProposedComponent = z.infer<typeof aiComponentSchema>;
 export type AiDashboardProposalInput = z.infer<
   typeof aiDashboardProposalInputSchema
 >;
@@ -473,3 +526,48 @@ export function makeDashboardProposalReceiptId(): string {
 }
 
 export const DASHBOARD_PROPOSAL_TTL_MS = 5 * 60 * 1_000;
+
+/** Prazo do Recibo de componente (aprovação do componente isolado). */
+export const COMPONENT_RECEIPT_TTL_MS = 30 * 60 * 1_000;
+
+export type ComponentPositionResult =
+  | { ok: true; document: DashboardDocument }
+  | { ok: false; code: string; message: string; instruction: string };
+
+/**
+ * Move o componente aprovado para a posição declarada; os demais mantêm a ordem.
+ * Âncora ausente ou igual ao próprio componente é recusa estruturada, não exceção.
+ */
+export function applyComponentPosition(
+  document: DashboardDocument,
+  componentId: string,
+  position: ComponentPosition,
+): ComponentPositionResult {
+  const components = [...document.ui.components];
+  const from = components.findIndex((item) => item.id === componentId);
+  if (from < 0) throw new Error("O componente aprovado não está na proposta.");
+  const [moved] = components.splice(from, 1);
+  let index = components.length;
+  if (position.placement === "start") index = 0;
+  else if (position.placement !== "end") {
+    const anchorId = position.relativeToComponentId;
+    const anchor = components.findIndex((item) => item.id === anchorId);
+    if (anchor < 0)
+      return {
+        ok: false,
+        code: "POSITION_ANCHOR_INVALID",
+        message:
+          anchorId === componentId
+            ? "O componente de referência não pode ser o próprio componente posicionado."
+            : `O componente de referência '${anchorId}' não existe no dashboard de destino.`,
+        instruction:
+          "Pergunte ao administrador em relação a qual outro componente do dashboard (ou início/fim) o componente entra.",
+      };
+    index = position.placement === "before" ? anchor : anchor + 1;
+  }
+  components.splice(index, 0, moved!);
+  return {
+    ok: true,
+    document: { ...document, ui: { ...document.ui, components } },
+  };
+}

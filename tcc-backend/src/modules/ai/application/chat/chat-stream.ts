@@ -95,6 +95,7 @@ export function runChatStream(options: {
         event.type === "tool_start" ||
         event.type === "query_preview" ||
         event.type === "dashboard_preview" ||
+        event.type === "component_preview" ||
         event.type === "dashboard_applied" ||
         event.type === "context_proposal" ||
         event.type === "questionnaire"
@@ -103,6 +104,7 @@ export function runChatStream(options: {
       if (
         event.type === "query_preview" ||
         event.type === "dashboard_preview" ||
+        event.type === "component_preview" ||
         event.type === "dashboard_applied" ||
         event.type === "context_proposal" ||
         event.type === "questionnaire"

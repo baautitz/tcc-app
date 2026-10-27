@@ -3,6 +3,7 @@ import type {
   DashboardDefinition,
   DashboardDocument,
 } from "@/modules/dashboards/model/types";
+import type { ComponentPreviewItem } from "@/modules/ai/model/chat-items";
 import type { QueryPreview } from "@/modules/queries/model/types";
 
 type DashboardPreviewQuery = {
@@ -61,6 +62,11 @@ type DashboardPreviewItem = {
   saving?: boolean;
 };
 
+type ComponentPreviewEventPayload = Omit<
+  ComponentPreviewItem,
+  "id" | "kind" | "status" | "ownerMessageId"
+>;
+
 export type ChatEvent =
   | { version: 1; type: "start"; requestId: string; messageId: string }
   | {
@@ -81,6 +87,7 @@ export type ChatEvent =
       ok: boolean;
     }
   | ({ version: 1; type: "query_preview"; toolCallId: string } & QueryPreview)
+  | ({ version: 1; type: "component_preview" } & ComponentPreviewEventPayload)
   | ({ version: 1; type: "dashboard_preview" } & Omit<
       DashboardPreviewItem,
       "id" | "kind" | "saved" | "stale"
@@ -377,6 +384,32 @@ function decodeEvent(eventName: string, data: string): ChatEvent | undefined {
       )
         return normalizedPayload as ChatEvent;
       throw new Error("A prévia do dashboard está malformada.");
+    }
+    case "component_preview": {
+      const component = payload.component;
+      const query = payload.query;
+      if (
+        typeof payload.toolCallId === "string" &&
+        typeof payload.receiptId === "string" &&
+        typeof payload.expiresAt === "string" &&
+        isRecord(component) &&
+        typeof component.id === "string" &&
+        [
+          "stat_card",
+          "bar_chart",
+          "line_chart",
+          "pie_chart",
+          "data_table",
+        ].includes(String(component.component)) &&
+        typeof component.title === "string" &&
+        typeof component.queryUuid === "string" &&
+        Number.isSafeInteger(component.colSpan) &&
+        isRecord(query) &&
+        Array.isArray(query.rows) &&
+        query.rows.every(isRecord)
+      )
+        return normalizedPayload as ChatEvent;
+      throw new Error("O componente isolado da IA está malformado.");
     }
     case "dashboard_applied":
       if (

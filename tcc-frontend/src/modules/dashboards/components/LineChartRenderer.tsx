@@ -1,4 +1,5 @@
 import {
+  Legend,
   Line,
   LineChart,
   ResponsiveContainer,
@@ -6,6 +7,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { pivotSeries, propertyString } from "@/modules/dashboards/model/lib";
 import { Card, CardContent } from "@/shared/ui/card";
 import { chartEmptyMessage, chartRowsFor } from "./ChartRows";
 import { ComponentError, ComponentPreviewHeader } from "./ComponentFrame";
@@ -26,6 +28,13 @@ export const LineChartRenderer: Renderer = ({
         changeStatus={changeStatus}
       />
     );
+  const seriesKey = propertyString(component, "seriesKey");
+  const { data, series } = seriesKey
+    ? pivotSeries(chartRows, nameKey, valueKey, seriesKey)
+    : {
+        data: chartRows,
+        series: [{ key: valueKey, label: valueKey }],
+      };
   return (
     <Card className={cardClassName}>
       <ComponentPreviewHeader
@@ -34,7 +43,7 @@ export const LineChartRenderer: Renderer = ({
       />
       <CardContent>
         <ResponsiveContainer width="100%" height={280}>
-          <LineChart data={chartRows}>
+          <LineChart data={data}>
             <XAxis
               dataKey={nameKey}
               tickLine={false}
@@ -43,13 +52,19 @@ export const LineChartRenderer: Renderer = ({
             />
             <YAxis tickLine={false} axisLine={false} fontSize={11} />
             <Tooltip />
-            <Line
-              type="monotone"
-              dataKey={valueKey}
-              stroke="var(--chart-1)"
-              strokeWidth={2}
-              dot={false}
-            />
+            {seriesKey && <Legend />}
+            {series.map((serie, index) => (
+              <Line
+                key={serie.key}
+                type="monotone"
+                dataKey={serie.key}
+                name={serie.label}
+                stroke={`var(--chart-${(index % 5) + 1})`}
+                strokeWidth={2}
+                dot={false}
+                connectNulls
+              />
+            ))}
           </LineChart>
         </ResponsiveContainer>
       </CardContent>

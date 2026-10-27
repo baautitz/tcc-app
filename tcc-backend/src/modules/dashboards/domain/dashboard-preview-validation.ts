@@ -59,6 +59,7 @@ export function validateDashboardPreviewFields(
     }
     if (
       component.component === "bar_chart" ||
+      component.component === "line_chart" ||
       component.component === "pie_chart"
     ) {
       const availableFields = [...keys].slice(0, 16);
@@ -76,6 +77,14 @@ export function validateDashboardPreviewFields(
           );
         }
       }
+      if (
+        component.component === "line_chart" &&
+        props.seriesKey !== undefined &&
+        (typeof props.seriesKey !== "string" || !keys.has(props.seriesKey))
+      )
+        issues.push(
+          `O gráfico '${component.id}' usa '${String(props.seriesKey)}' como série, mas esse alias não existe. Aliases disponíveis: ${availableFieldsLabel}.`,
+        );
       const hasNumericValue = (value: unknown) =>
         typeof value === "number"
           ? Number.isFinite(value)

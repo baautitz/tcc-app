@@ -1,8 +1,9 @@
 import type { ExternalSourcePort } from "../../data-sources/domain/external-source.js";
-import { asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../../shared/db/client.js";
 import {
+  aiComponentReceipts,
   dashboardProposalReceipts,
   dataSources,
   savedQueries,
@@ -26,6 +27,23 @@ import type {
   AiDashboardToolsRepository,
 } from "../application/tools/ai-dashboard-tools.js";
 import { parameterDefinitionSchema } from "../../../shared/lib/contracts.js";
+
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/** Limpa (até 200) recibos expirados ou consumidos há mais de um dia da tabela. */
+async function deleteStaleReceipts(
+  tx: Tx,
+  table: typeof aiComponentReceipts | typeof dashboardProposalReceipts,
+) {
+  await tx.execute(sql`DELETE FROM ${table}
+      WHERE id IN (
+        SELECT id FROM ${table}
+        WHERE expires_at <= now()
+          OR (consumed_at IS NOT NULL AND consumed_at < now() - interval '1 day')
+        ORDER BY expires_at ASC
+        LIMIT 200
+      )`);
+}
 
 export class DrizzleAiDashboardToolsRepository implements AiDashboardToolsRepository {
   constructor(private readonly externalSource: ExternalSourcePort) {}
@@ -132,19 +150,68 @@ export class DrizzleAiDashboardToolsRepository implements AiDashboardToolsReposi
     return result;
   }
 
+  async issueComponentReceipt(input: {
+    id: string;
+    actorId: string;
+    component: unknown;
+    expiresAt: Date;
+  }) {
+    await db.transaction(async (tx) => {
+      await deleteStaleReceipts(tx, aiComponentReceipts);
+      await tx.insert(aiComponentReceipts).values(input);
+    });
+  }
+
+  async findComponentReceipt(id: string) {
+    const [row] = await db
+      .select()
+      .from(aiComponentReceipts)
+      .where(eq(aiComponentReceipts.id, id));
+    return row;
+  }
+
+  /** Chamado pelo botão Aprovar do cartão; só o dono, dentro do prazo e antes do uso. */
+  async approveComponentReceipt(id: string, actorId: string, now = new Date()) {
+    const rows = await db
+      .update(aiComponentReceipts)
+      .set({ approvedAt: now })
+      .where(
+        and(
+          eq(aiComponentReceipts.id, id),
+          eq(aiComponentReceipts.actorId, actorId),
+          isNull(aiComponentReceipts.consumedAt),
+          gt(aiComponentReceipts.expiresAt, now),
+        ),
+      )
+      .returning({ id: aiComponentReceipts.id });
+    return rows.length === 1;
+  }
+
   async issueReceipt(
     input: Parameters<AiDashboardToolsRepository["issueReceipt"]>[0],
+    options?: Parameters<AiDashboardToolsRepository["issueReceipt"]>[1],
   ) {
-    await db.transaction(async (tx) => {
-      await tx.execute(sql`DELETE FROM dashboard_proposal_receipts
-          WHERE id IN (
-            SELECT id FROM dashboard_proposal_receipts
-            WHERE expires_at <= now()
-              OR (consumed_at IS NOT NULL AND consumed_at < now() - interval '1 day')
-            ORDER BY expires_at ASC
-            LIMIT 200
-          )`);
+    return db.transaction(async (tx) => {
+      const consume = options?.consumeComponentReceipt;
+      if (consume) {
+        const rows = await tx
+          .update(aiComponentReceipts)
+          .set({ consumedAt: consume.now })
+          .where(
+            and(
+              eq(aiComponentReceipts.id, consume.id),
+              eq(aiComponentReceipts.actorId, consume.actorId),
+              isNotNull(aiComponentReceipts.approvedAt),
+              isNull(aiComponentReceipts.consumedAt),
+              gt(aiComponentReceipts.expiresAt, consume.now),
+            ),
+          )
+          .returning({ id: aiComponentReceipts.id });
+        if (rows.length !== 1) return false;
+      }
+      await deleteStaleReceipts(tx, dashboardProposalReceipts);
       await tx.insert(dashboardProposalReceipts).values(input);
+      return true;
     });
   }
 }

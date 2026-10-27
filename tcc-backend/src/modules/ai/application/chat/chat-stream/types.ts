@@ -32,6 +32,10 @@ export type AiSseEvent =
     >)
   | ({ version: 1 } & Extract<
       AiToolProgressEvent,
+      { type: "component_preview" }
+    >)
+  | ({ version: 1 } & Extract<
+      AiToolProgressEvent,
       { type: "dashboard_applied" }
     >)
   | ({ version: 1 } & Extract<AiToolProgressEvent, { type: "questionnaire" }>)
