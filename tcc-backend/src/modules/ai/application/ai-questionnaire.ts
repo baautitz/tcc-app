@@ -85,7 +85,7 @@ const questionSchema = z
 const questionnaireSchema = z
   .object({
     title: z.string().trim().min(1).max(160),
-    questions: z.array(questionSchema).min(1).max(5),
+    questions: z.array(questionSchema).min(1).max(4),
   })
   .strict()
   .superRefine((input, context) => {
@@ -137,7 +137,7 @@ export class AiQuestionnaireTools {
       {
         name: "ask_admin_questions",
         description:
-          "Mostra perguntas interativas ao administrador e encerra esta rodada. Use somente em tarefas da plataforma de dashboards quando faltar uma decisão de negócio indispensável, como a semântica inclusiva de uma data final ou qual dashboard existente alterar. Em perguntas analíticas diretas, não pergunte quantas linhas/grupos mostrar, formato de resposta, ou se deve salvar; mantenha todos os grupos e deixe o limite técnico da amostra explícito. Nunca use para pedidos fora da plataforma nem para perguntas respondíveis pelos dados disponíveis. Reúna perguntas indispensáveis em uma chamada com até cinco itens e aguarde a resposta antes de usar outras ferramentas.",
+          "Mostra perguntas interativas ao administrador e encerra esta rodada. Use somente em tarefas da plataforma de dashboards quando faltar uma decisão de negócio indispensável, como a semântica inclusiva de uma data final ou qual dashboard existente alterar. Em perguntas analíticas diretas, não pergunte quantas linhas/grupos mostrar, formato de resposta, ou se deve salvar; mantenha todos os grupos e deixe o limite técnico da amostra explícito. Nunca use para pedidos fora da plataforma nem para perguntas respondíveis pelos dados disponíveis. Reúna perguntas indispensáveis em uma chamada com no máximo quatro itens e aguarde a resposta antes de usar outras ferramentas.",
         schema: questionnaireSchema,
         returnDirect: true,
       },
