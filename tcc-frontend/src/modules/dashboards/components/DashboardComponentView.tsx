@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { AlertCircle } from "lucide-react";
 import type { DashboardComponent } from "@/modules/dashboards/model/types";
 import { Alert, AlertDescription, AlertTitle } from "@/shared/ui/alert";
@@ -14,7 +15,7 @@ import {
 } from "./ComponentFrame";
 import { rendererFor } from "./registry";
 
-export function DashboardComponentView({
+export const DashboardComponentView = memo(function DashboardComponentView({
   component,
   state,
   changeStatus,
@@ -74,4 +75,4 @@ export function DashboardComponentView({
     cardClassName,
     changeStatus,
   });
-}
+});

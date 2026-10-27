@@ -49,7 +49,12 @@ export const BarChartRenderer: Renderer = ({
               />
               <YAxis tickLine={false} axisLine={false} fontSize={11} />
               <Tooltip {...chartTooltipProps} />
-              <Bar dataKey={valueKey} fill="var(--chart-1)" radius={0} />
+              <Bar
+                dataKey={valueKey}
+                fill="var(--chart-1)"
+                radius={0}
+                isAnimationActive={false}
+              />
             </BarChart>
           </ResponsiveContainer>
         </ChartArea>

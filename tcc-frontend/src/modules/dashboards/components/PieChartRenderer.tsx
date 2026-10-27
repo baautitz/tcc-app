@@ -44,6 +44,7 @@ export const PieChartRenderer: Renderer = ({
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
+                  isAnimationActive={false}
                   data={chartRows}
                   dataKey={valueKey}
                   nameKey={nameKey}

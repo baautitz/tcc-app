@@ -73,6 +73,7 @@ export const LineChartRenderer: Renderer = ({
               {seriesKey && <Legend />}
               {series.map((serie, index) => (
                 <Line
+                  isAnimationActive={false}
                   key={serie.key}
                   type="monotone"
                   dataKey={serie.key}

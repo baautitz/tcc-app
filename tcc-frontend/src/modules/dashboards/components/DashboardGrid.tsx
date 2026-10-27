@@ -52,6 +52,7 @@ export function DashboardGrid({
     /** Posição, em px dentro da Grade, do canto do componente ao começar a mover. */
     origin: { left: number; top: number };
   } | null>(null);
+  const frameRef = useRef<number | undefined>(undefined);
   const [activeId, setActiveId] = useState<string>();
   /** Mover só pré-visualiza: a ordem é gravada ao soltar. */
   const [move, setMove] = useState<{
@@ -123,17 +124,24 @@ export function DashboardGrid({
           Math.floor((event.clientY - rect.top) / step) + 1,
         );
         const others = components.filter((item) => item.id !== drag.id);
-        setMove({
-          id: drag.id,
-          index: dropIndex(
-            others.map((item) => item.layoutProps),
-            columns,
-            col,
-            row,
-          ),
-          dx: event.clientX - drag.startX,
-          dy: event.clientY - drag.startY,
-          origin: drag.origin,
+        const { clientX, clientY } = event;
+        // Um cálculo por quadro: o arrasto não precisa de um por evento do ponteiro.
+        if (frameRef.current !== undefined)
+          cancelAnimationFrame(frameRef.current);
+        frameRef.current = requestAnimationFrame(() => {
+          frameRef.current = undefined;
+          setMove({
+            id: drag.id,
+            index: dropIndex(
+              others.map((item) => item.layoutProps),
+              columns,
+              col,
+              row,
+            ),
+            dx: clientX - drag.startX,
+            dy: clientY - drag.startY,
+            origin: drag.origin,
+          });
         });
         return;
       }
@@ -163,6 +171,10 @@ export function DashboardGrid({
         );
     },
     onPointerUp: () => {
+      if (frameRef.current !== undefined) {
+        cancelAnimationFrame(frameRef.current);
+        frameRef.current = undefined;
+      }
       const drag = dragRef.current;
       if (drag?.mode === "move" && move && onEdit) {
         const next = moveItem(components, move.id, move.index);
@@ -174,6 +186,10 @@ export function DashboardGrid({
       setActiveId(undefined);
     },
     onPointerCancel: () => {
+      if (frameRef.current !== undefined) {
+        cancelAnimationFrame(frameRef.current);
+        frameRef.current = undefined;
+      }
       dragRef.current = null;
       setMove(null);
       setActiveId(undefined);
