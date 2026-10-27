@@ -6,6 +6,7 @@ import {
   runComponentPreview,
   type FilterValues,
 } from "./tools/dashboard/component-values.js";
+import { suggestComponentSize } from "./tools/dashboard/composition.js";
 import type {
   AiComponentReceipt,
   AiDashboardToolsRepository,
@@ -127,6 +128,7 @@ export class AiComponentPreviewService {
       ),
     );
     return {
+      suggestedLayout: suggestComponentSize(component, preview.rows),
       query: preview.error
         ? preview
         : issues.length > 0

@@ -50,7 +50,7 @@ import {
   type FilterValues,
   type ParameterBindings,
 } from "./component-values.js";
-import { composeDashboard } from "./composition.js";
+import { composeDashboard, suggestComponentSize } from "./composition.js";
 
 type DashboardRuntime = ToolRuntime & { toolCallId?: string };
 
@@ -342,6 +342,7 @@ export class AiDashboardTools {
         expiresAt: expiresAt.toISOString(),
         component,
         query: preview,
+        suggestedLayout: suggestComponentSize(component, preview.rows),
         parameters: describePreviewParameters(
           query.parameters,
           bindings,

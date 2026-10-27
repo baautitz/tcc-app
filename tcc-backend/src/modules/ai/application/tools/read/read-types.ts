@@ -119,6 +119,7 @@ export type AiToolProgressEvent =
       expiresAt: string;
       component: import("../../../../dashboards/domain/dashboard-proposals.js").AiProposedComponent;
       query: import("../../../../dashboards/domain/dashboard-preview-validation.js").AiDashboardQueryPreview;
+      suggestedLayout?: { colSpan: number; rowSpan: number };
       parameters: {
         name: string;
         label: string;

@@ -451,6 +451,13 @@ function decodeEvent(eventName: string, data: string): ChatEvent | undefined {
         optional(payload.filters, (value) =>
           isArrayOf(value, (item) => typeof item.name === "string"),
         ) &&
+        optional(
+          payload.suggestedLayout,
+          (value) =>
+            isRecord(value) &&
+            Number.isSafeInteger(value.colSpan) &&
+            Number.isSafeInteger(value.rowSpan),
+        ) &&
         optional(payload.bindings, isStringMap) &&
         optional(payload.contextValues, isValueMap) &&
         optional(payload.parameterValues, isValueMap) &&

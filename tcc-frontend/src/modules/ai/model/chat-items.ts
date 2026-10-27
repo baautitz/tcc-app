@@ -95,6 +95,8 @@ export type ComponentPreviewItem = {
   expiresAt: string;
   component: ProposedComponent;
   query: DashboardPreviewQuery;
+  /** Tamanho (em Células) que o componente terá no dashboard, pela amostra. */
+  suggestedLayout?: { colSpan: number; rowSpan: number };
   /** Parâmetros da query; `bound` é o filtro do dashboard ligado (nulo = input próprio). */
   parameters?: {
     name: string;

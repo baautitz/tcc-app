@@ -25,7 +25,10 @@ export class AiApi {
     );
   /** Repete a prévia do componente isolado com os valores informados, sem a IA. */
   previewAiComponentReceipt = (id: string, values: ComponentValues) =>
-    this.http.request<{ query: DashboardPreviewQuery }>(
+    this.http.request<{
+      query: DashboardPreviewQuery;
+      suggestedLayout?: { colSpan: number; rowSpan: number };
+    }>(
       `/api/admin/ai/component-receipts/${encodeURIComponent(id)}/preview`,
       { method: "POST", body: JSON.stringify(values) },
     );

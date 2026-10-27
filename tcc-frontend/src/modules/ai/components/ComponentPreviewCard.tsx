@@ -67,6 +67,8 @@ export function ComponentPreviewCard({
   const [title, setTitle] = useState(component.title);
   const [colSpan, setColSpan] = useState(String(component.colSpan ?? 12));
 
+  const [suggested, setSuggested] = useState(item.suggestedLayout);
+
   const viewComponent = useMemo<DashboardComponent>(() => {
     const {
       id,
@@ -81,10 +83,13 @@ export function ComponentPreviewCard({
       type: kind,
       title: componentTitle,
       queryUuid,
-      layoutProps: { colSpan: span ?? 12, rowSpan: previewRowSpan(kind) },
+      layoutProps: {
+        colSpan: span ?? 12,
+        rowSpan: suggested?.rowSpan ?? previewRowSpan(kind),
+      },
       props: { ...config, title: componentTitle, queryUuid },
     };
-  }, [component]);
+  }, [component, suggested]);
 
   // Valores aplicados (os que geraram o resultado exibido) e resultado atual.
   const [applied, setApplied] = useState<ComponentValues>({
@@ -168,6 +173,7 @@ export function ComponentPreviewCard({
         next,
       );
       setQuery(result.query);
+      setSuggested(result.suggestedLayout);
       setApplied(next);
       setDirty(false);
     } catch (error) {
@@ -205,9 +211,11 @@ export function ComponentPreviewCard({
           Componente isolado · {typeLabels[component.component]}
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
-          {component.colSpan
-            ? `Largura ${String(component.colSpan)} colunas.`
-            : "Largura padrão do tipo."}{" "}
+          {suggested
+            ? `Tamanho no dashboard: ${String(suggested.colSpan)}×${String(suggested.rowSpan)} Células.`
+            : component.colSpan
+              ? `Largura ${String(component.colSpan)} colunas.`
+              : "Largura padrão do tipo."}{" "}
           Nada é salvo nesta etapa.
         </p>
       </div>
@@ -244,7 +252,8 @@ export function ComponentPreviewCard({
             ...viewComponent,
             layoutProps: {
               colSpan: 12,
-              rowSpan: previewRowSpan(viewComponent.type),
+              rowSpan:
+                suggested?.rowSpan ?? previewRowSpan(viewComponent.type),
             },
           },
         ]}

@@ -86,7 +86,7 @@ export function PreviewDialog({
       open={previewOpen && !item.saved && isLatestInteraction}
       onOpenChange={setPreviewOpen}
     >
-      <DialogContent className="flex h-[80vh] w-[calc(100%-1rem)] max-w-none flex-col overflow-hidden p-4 sm:h-[80vh] sm:w-[80vw] sm:max-w-[80vw] sm:p-6">
+      <DialogContent className="flex h-[95vh] w-[calc(100%-1rem)] max-w-none flex-col overflow-hidden p-4 sm:h-[95vh] sm:w-[80vw] sm:max-w-[80vw] sm:p-6">
         <DialogHeader className="shrink-0 border-b pb-4 pr-8 text-left">
           <DialogTitle className="text-xl">
             Prévia visual dos componentes propostos
