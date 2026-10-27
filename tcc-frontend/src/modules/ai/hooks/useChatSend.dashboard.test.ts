@@ -85,4 +85,18 @@ describe("Dashboard ativo escolhido no chat", () => {
     };
     expect(body.pageContext.dashboardId).toBe("d-1");
   });
+
+  it("selecionar com o chat ocupado mantém o seletor aberto e não fixa o dashboard", async () => {
+    vi.mocked(runChatStream).mockImplementation(() => new Promise(() => {}));
+    const { result } = setup("/admin/queries");
+    await act(async () => {
+      void result.current.chat.send({ content: "primeira" });
+    });
+    act(() => result.current.session.setDashboardPickerOpen(true));
+    await act(async () => {
+      result.current.chat.selectDashboard({ id: "d-1", name: "Vendas" });
+    });
+    expect(result.current.session.dashboardPickerOpen).toBe(true);
+    expect(vi.mocked(runChatStream)).toHaveBeenCalledTimes(1);
+  });
 });

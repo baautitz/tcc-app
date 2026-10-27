@@ -87,7 +87,10 @@ export function DashboardListPage({
           </p>
         </div>
         {canCreate && (
-          <Button onClick={() => handleCreateOpenChange(true)}>
+          <Button
+            disabled={actionDisabled}
+            onClick={() => handleCreateOpenChange(true)}
+          >
             <Plus /> Novo dashboard
           </Button>
         )}

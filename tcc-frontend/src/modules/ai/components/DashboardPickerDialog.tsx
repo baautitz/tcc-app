@@ -29,16 +29,18 @@ export function DashboardPickerDialog({
   useEffect(() => {
     if (!open) return;
     let active = true;
+    setLoading(true);
     dashboardsApi
       .dashboards()
       .then((list) => {
         if (active) setDashboards(list);
       })
       .catch((reason: Error) => {
-        if (active)
-          toast.error(
-            reason.message || "Não foi possível carregar os dashboards.",
-          );
+        if (!active) return;
+        setDashboards([]);
+        toast.error(
+          reason.message || "Não foi possível carregar os dashboards.",
+        );
       })
       .finally(() => {
         if (active) setLoading(false);

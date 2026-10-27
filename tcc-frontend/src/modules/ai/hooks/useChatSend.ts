@@ -653,13 +653,21 @@ export function useChatSend(session: Session, pathname: string) {
 
   /** Seletor: define o Dashboard ativo da conversa (sem navegar) e a IA retoma sozinha. */
   const selectDashboard = useCallback(
-    (dashboard: { id: string; name: string }) => {
+    async (dashboard: { id: string; name: string }) => {
+      const previous = chosenDashboardRef.current;
       chosenDashboardRef.current = dashboard;
       setDashboardPickerOpen(false);
-      void send({
+      const sent = await send({
         content: `O administrador escolheu o dashboard “${dashboard.name}” (${dashboard.id}) como Dashboard ativo. Retome de onde parou, sem repetir o pedido.`,
         silentUser: true,
       });
+      if (!sent) {
+        chosenDashboardRef.current = previous;
+        setDashboardPickerOpen(true);
+        toast.error(
+          "Aguarde a resposta atual terminar para escolher o dashboard.",
+        );
+      }
     },
     [send, setDashboardPickerOpen],
   );

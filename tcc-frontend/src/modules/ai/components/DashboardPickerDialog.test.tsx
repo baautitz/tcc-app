@@ -11,7 +11,56 @@ vi.mock("@/modules/dashboards/api/dashboards.api", () => ({
   },
 }));
 
+import { dashboardsApi } from "@/modules/dashboards/api/dashboards.api";
+
 describe("DashboardPickerDialog", () => {
+  it("desabilita Novo dashboard enquanto o chat está ocupado", async () => {
+    render(
+      <DashboardPickerDialog
+        open
+        busy
+        onOpenChange={vi.fn()}
+        onSelect={vi.fn()}
+      />,
+    );
+    const button = await screen.findByRole("button", {
+      name: /Novo dashboard/,
+    });
+    expect((button as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("ao reabrir mostra carregando e, se falhar, não mantém a lista antiga", async () => {
+    const view = render(
+      <DashboardPickerDialog
+        open
+        busy={false}
+        onOpenChange={vi.fn()}
+        onSelect={vi.fn()}
+      />,
+    );
+    await screen.findByText("Vendas");
+    view.rerender(
+      <DashboardPickerDialog
+        open={false}
+        busy={false}
+        onOpenChange={vi.fn()}
+        onSelect={vi.fn()}
+      />,
+    );
+    vi.mocked(dashboardsApi.dashboards).mockRejectedValueOnce(
+      new Error("falhou"),
+    );
+    view.rerender(
+      <DashboardPickerDialog
+        open
+        busy={false}
+        onOpenChange={vi.fn()}
+        onSelect={vi.fn()}
+      />,
+    );
+    expect(await screen.findByText(/Nenhum dashboard/)).toBeTruthy();
+  });
+
   it("mostra Selecionar dashboard e devolve a escolha", async () => {
     const onSelect = vi.fn();
     render(
