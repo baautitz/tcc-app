@@ -908,3 +908,74 @@ describe("Composição: tamanho derivado da amostra", () => {
   });
 });
 
+describe("ligação dos parâmetros aos filtros do dashboard", () => {
+  const dateParameters = [
+    { name: "start_date", label: "Data inicial", type: "date", required: true },
+    { name: "end_date", label: "Data final", type: "date", required: true },
+  ];
+  const run = async () => {
+    const events: AiToolProgressEvent[] = [];
+    const repository = makeRepository({
+      findSavedQueries: vi.fn(async (ids: string[]) =>
+        ids.includes(queryId)
+          ? [{ ...savedQuery, parameters: dateParameters }]
+          : [],
+      ),
+      // O cartão foi aprovado com o dashboard vazio: sem filtros, os valores
+      // digitados viram parâmetros próprios do componente.
+      findComponentReceipt: vi.fn(async () => ({
+        ...validReceipt,
+        parameterValues: {
+          start_date: "2016-09-04",
+          end_date: "2018-10-17",
+        },
+      })),
+    });
+    const tool = createAiDashboardTools({
+      currentUser: admin,
+      repository,
+      onToolEvent: (event) => {
+        events.push(event);
+      },
+    }).find((candidate) => candidate.name === "create_or_update_dashboard")!;
+    await tool.invoke(
+      {
+        ...validProposal(),
+        workspace: {
+          params: [
+            { name: "data_inicial", label: "Data Inicial", type: "date", required: true },
+            { name: "data_final", label: "Data Final", type: "date", required: true },
+          ],
+        },
+        queryBindings: [
+          {
+            queryUuid: queryId,
+            parameters: {
+              start_date: { source: "context", argument: "data_inicial" },
+              end_date: { source: "context", argument: "data_final" },
+            },
+          },
+        ],
+      } as never,
+      { toolCallId: "call-x" } as never,
+    );
+    return eventFrom(events, "dashboard_preview");
+  };
+
+  it("mantém a ligação aos filtros que a IA declarou, e não valores fixos", async () => {
+    const preview = await run();
+    expect(preview.document.queryBindings[0]?.parameters).toEqual({
+      start_date: { source: "context", argument: "data_inicial" },
+      end_date: { source: "context", argument: "data_final" },
+    });
+  });
+
+  it("leva os valores digitados no cartão para os filtros ligados", async () => {
+    const preview = await run();
+    expect(preview.contextValues).toEqual({
+      data_inicial: "2016-09-04",
+      data_final: "2018-10-17",
+    });
+  });
+});
+

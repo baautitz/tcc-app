@@ -85,19 +85,27 @@ function applyReceiptValues(
   ))
     if (filterNames.has(filter))
       parameters[parameter] = { source: "context", argument: filter };
+  const existing = document.queryBindings.find(
+    (binding) => binding.queryUuid === queryUuid,
+  );
+  const contextValues: FilterValues = {};
   for (const [parameter, value] of Object.entries(
     receipt.parameterValues ?? {},
-  ))
-    if (!parameters[parameter] && !isBlank(value))
-      parameters[parameter] = { source: "manual", value };
-  const contextValues: FilterValues = {};
+  )) {
+    if (parameters[parameter] || isBlank(value)) continue;
+    const declared = existing?.parameters[parameter];
+    // A proposta já liga o parâmetro a um filtro: o valor digitado no cartão
+    // vira o valor inicial do filtro, não um valor fixo que o ignora.
+    if (declared?.source === "context" && filterNames.has(declared.argument)) {
+      contextValues[declared.argument] ??= value;
+      continue;
+    }
+    if (!declared) parameters[parameter] = { source: "manual", value };
+  }
   for (const [filter, value] of Object.entries(receipt.contextValues ?? {}))
     if (filterNames.has(filter) && !isBlank(value))
       contextValues[filter] = value;
   if (Object.keys(parameters).length === 0) return { document, contextValues };
-  const existing = document.queryBindings.find(
-    (binding) => binding.queryUuid === queryUuid,
-  );
   const merged = {
     queryUuid,
     parameters: { ...existing?.parameters, ...parameters },

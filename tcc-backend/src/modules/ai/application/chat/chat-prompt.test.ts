@@ -28,6 +28,11 @@ describe("prompt do sistema da IA", () => {
     expect(prompt).toMatch(/dashboard está vazio ou é novo, não pergunte a posição/);
   });
 
+  it("liga aos filtros os parâmetros que a própria IA criou a pedido", () => {
+    expect(prompt).toMatch(/parâmetros que você mesmo gerou/);
+    expect(prompt).toMatch(/source context em queryBindings/);
+  });
+
   it("exige o número exato de componentes pedido", () => {
     expect(prompt).toMatch(/exatamente o número de componentes pedido/);
   });
