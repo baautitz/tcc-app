@@ -590,7 +590,7 @@ export function useChatSend(session: Session, pathname: string) {
 
   /** Pedir ajuste: não persiste nada; a IA gera outro componente isolado. */
   const adjustComponent = useCallback(
-    (item: ComponentPreviewItem, adjustment: ComponentAdjustment) => {
+    async (item: ComponentPreviewItem, adjustment: ComponentAdjustment) => {
       if (busy || item.status) return;
       const changes = [
         adjustment.component ? `tipo ${adjustment.component}` : "",
@@ -599,11 +599,22 @@ export function useChatSend(session: Session, pathname: string) {
       ].filter(Boolean);
       if (changes.length === 0) return;
       markComponent(item.id, "adjusting");
-      void send({
+      const sent = await send({
         content: `Pedir ajuste do componente “${item.component.title}”: ${changes.join(", ")}. Mostre o componente isolado de novo para eu aprovar.`,
       });
+      // Falha ou parada: devolve o cartão ao estado inicial para poder tentar de novo.
+      if (!sent)
+        setItems((current) =>
+          current.map((entry) =>
+            entry.kind === "component_preview" &&
+            entry.id === item.id &&
+            entry.status === "adjusting"
+              ? { ...entry, status: undefined }
+              : entry,
+          ),
+        );
     },
-    [busy, markComponent, send],
+    [busy, markComponent, send, setItems],
   );
 
   return {

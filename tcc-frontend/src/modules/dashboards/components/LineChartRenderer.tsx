@@ -31,7 +31,10 @@ export const LineChartRenderer: Renderer = ({
   const seriesKey = propertyString(component, "seriesKey");
   const { data, series } = seriesKey
     ? pivotSeries(chartRows, nameKey, valueKey, seriesKey)
-    : { data: chartRows, series: [valueKey] };
+    : {
+        data: chartRows,
+        series: [{ key: valueKey, label: valueKey }],
+      };
   return (
     <Card className={cardClassName}>
       <ComponentPreviewHeader
@@ -52,9 +55,10 @@ export const LineChartRenderer: Renderer = ({
             {seriesKey && <Legend />}
             {series.map((serie, index) => (
               <Line
-                key={serie}
+                key={serie.key}
                 type="monotone"
-                dataKey={serie}
+                dataKey={serie.key}
+                name={serie.label}
                 stroke={`var(--chart-${(index % 5) + 1})`}
                 strokeWidth={2}
                 dot={false}
