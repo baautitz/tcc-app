@@ -1,4 +1,5 @@
 import {
+  useId,
   useMemo,
   useRef,
   useState,
@@ -79,6 +80,13 @@ export function DashboardGrid({
     [shown, columns, onEdit],
   );
 
+  const patternId = useId();
+  // Na edição, mostra as linhas virtuais: as ocupadas mais duas livres para soltar.
+  const editRows = onEdit
+    ? Math.max(0, ...placements.map((p) => p.row + p.rowSpan - 1)) + 2
+    : 0;
+  const gridWidthPx = columns * step - gap;
+  const gridHeightPx = editRows * step - gap;
   const landing = move
     ? placements[shown.findIndex((item) => item.id === move.id)]
     : undefined;
@@ -203,13 +211,39 @@ export function DashboardGrid({
       ) : (
         <div
           ref={gridRef}
-          className="grid justify-center"
+          className="relative mx-auto grid"
           style={{
+            width: gridWidthPx,
             gridTemplateColumns: `repeat(${String(columns)}, ${String(cellSize)}px)`,
             gridAutoRows: `${String(cellSize)}px`,
             gap,
+            ...(onEdit ? { minHeight: gridHeightPx } : {}),
           }}
         >
+          {onEdit && (
+            <svg
+              aria-hidden="true"
+              className="pointer-events-none absolute top-0 left-0 text-muted-foreground/15"
+              width={gridWidthPx}
+              height={gridHeightPx}
+            >
+              <defs>
+                <pattern
+                  id={patternId}
+                  width={step}
+                  height={step}
+                  patternUnits="userSpaceOnUse"
+                >
+                  <rect
+                    width={cellSize}
+                    height={cellSize}
+                    fill="currentColor"
+                  />
+                </pattern>
+              </defs>
+              <rect width="100%" height="100%" fill={`url(#${patternId})`} />
+            </svg>
+          )}
           {landing && (
             <div
               aria-hidden="true"
