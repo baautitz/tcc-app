@@ -90,7 +90,7 @@ export function PreviewDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto py-1 pr-1">
+        <div className="min-h-0 min-w-0 flex-1 space-y-5 overflow-y-auto py-1 pr-1">
           {previewComponents.length > 0 ? (
             <section className="space-y-3 rounded border bg-muted/20 p-3">
               <div>

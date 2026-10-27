@@ -138,10 +138,11 @@ export function numericChartRows(
   });
 }
 export function colClass(component: DashboardComponent): string {
-  return (
+  // min-w-0: item de grid não encolhe abaixo do conteúdo (gráficos) e vaza do contêiner
+  return `min-w-0 ${
     colSpanClass[Math.min(12, Math.max(1, component.layoutProps.colSpan))] ??
     "col-span-12"
-  );
+  }`;
 }
 
 export type PivotedSeries = { key: string; label: string };
