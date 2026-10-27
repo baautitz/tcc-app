@@ -15,7 +15,11 @@ import {
 import { Card, CardContent } from "@/shared/ui/card";
 import { chartTooltipProps } from "./chartTooltip";
 import { chartEmptyMessage, chartRowsFor } from "./ChartRows";
-import { ComponentError, ComponentPreviewHeader } from "./ComponentFrame";
+import {
+  ChartArea,
+  ComponentError,
+  ComponentPreviewHeader,
+} from "./ComponentFrame";
 import type { Renderer } from "./renderers";
 
 // Uma série com menos de 2 valores não forma linha; sem ponto ela some.
@@ -54,32 +58,34 @@ export const LineChartRenderer: Renderer = ({
         component={component}
         changeStatus={changeStatus}
       />
-      <CardContent>
-        <ResponsiveContainer width="100%" height={280}>
-          <LineChart data={data}>
-            <XAxis
-              dataKey={nameKey}
-              tickLine={false}
-              axisLine={false}
-              fontSize={11}
-            />
-            <YAxis tickLine={false} axisLine={false} fontSize={11} />
-            <Tooltip {...chartTooltipProps} />
-            {seriesKey && <Legend />}
-            {series.map((serie, index) => (
-              <Line
-                key={serie.key}
-                type="monotone"
-                dataKey={serie.key}
-                name={serie.label}
-                stroke={colors[index % colors.length]}
-                strokeWidth={2}
-                dot={isolatedPoints(data, serie.key)}
-                connectNulls
+      <CardContent className="flex min-h-0 flex-1">
+        <ChartArea>
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={data}>
+              <XAxis
+                dataKey={nameKey}
+                tickLine={false}
+                axisLine={false}
+                fontSize={11}
               />
-            ))}
-          </LineChart>
-        </ResponsiveContainer>
+              <YAxis tickLine={false} axisLine={false} fontSize={11} />
+              <Tooltip {...chartTooltipProps} />
+              {seriesKey && <Legend />}
+              {series.map((serie, index) => (
+                <Line
+                  key={serie.key}
+                  type="monotone"
+                  dataKey={serie.key}
+                  name={serie.label}
+                  stroke={colors[index % colors.length]}
+                  strokeWidth={2}
+                  dot={isolatedPoints(data, serie.key)}
+                  connectNulls
+                />
+              ))}
+            </LineChart>
+          </ResponsiveContainer>
+        </ChartArea>
       </CardContent>
     </Card>
   );

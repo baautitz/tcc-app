@@ -23,7 +23,7 @@ function document(id: string, name: string) {
     description: "",
     workspace: { params: [] },
     queryBindings: [],
-    ui: { layout: { type: "grid", columns: 12, gap: 16 }, components: [] },
+    ui: { components: [] },
   };
 }
 

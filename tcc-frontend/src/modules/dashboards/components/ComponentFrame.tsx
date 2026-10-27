@@ -10,10 +10,7 @@ import {
   CardTitle,
 } from "@/shared/ui/card";
 import { Skeleton } from "@/shared/ui/skeleton";
-import {
-  colClass,
-  componentChangeClasses,
-} from "@/modules/dashboards/model/lib";
+import { componentChangeClasses } from "@/modules/dashboards/model/lib";
 import type { DashboardComponentChange } from "@/modules/dashboards/model/types";
 
 export function ComponentPreviewHeader({
@@ -44,18 +41,14 @@ export function ComponentPreviewHeader({
   );
 }
 
-export function ComponentLoading({
-  component,
-}: {
-  component: DashboardComponent;
-}) {
+export function ComponentLoading() {
   return (
-    <Card className={colClass(component)}>
+    <Card>
       <CardHeader>
         <Skeleton className="h-4 w-32" />
       </CardHeader>
       <CardContent>
-        <Skeleton className="h-36 w-full" />
+        <Skeleton className="h-full min-h-12 w-full" />
       </CardContent>
     </Card>
   );
@@ -71,14 +64,12 @@ export function ComponentError({
 }) {
   const change = componentChangeClasses(changeStatus);
   return (
-    <Card
-      className={[colClass(component), change?.card].filter(Boolean).join(" ")}
-    >
+    <Card className={change?.card}>
       <ComponentPreviewHeader
         component={component}
         changeStatus={changeStatus}
       />
-      <CardContent>
+      <CardContent className="min-h-0 flex-1 overflow-auto">
         <Alert variant="destructive">
           <AlertCircle />
           <AlertTitle>Dados indisponíveis</AlertTitle>
@@ -86,5 +77,14 @@ export function ComponentError({
         </Alert>
       </CardContent>
     </Card>
+  );
+}
+
+/** Área de gráfico que preenche a altura que o Componente ocupa na Grade. */
+export function ChartArea({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="relative min-h-0 flex-1">
+      <div className="absolute inset-0">{children}</div>
+    </div>
   );
 }

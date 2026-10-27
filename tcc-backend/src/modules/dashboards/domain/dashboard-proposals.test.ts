@@ -31,17 +31,92 @@ describe("contrato da proposta gerada pela IA", () => {
         },
       ],
     };
-    expect(() => aiDashboardProposalInputSchema.parse(proposal)).toThrow();
+    expect(() => aiDashboardProposalInputSchema.parse(proposal)).not.toThrow();
+    expect(() =>
+      aiDashboardProposalInputSchema.parse({ ...proposal, gap: 28 }),
+    ).toThrow();
+    expect(() =>
+      aiDashboardProposalInputSchema.parse({ ...proposal, columns: 12 }),
+    ).toThrow();
+  });
+
+  it("usa a Grade: tamanho padrão por Tipo, mantido em atualizações", () => {
+    const base = { title: "Total", queryUuid: queryId };
+    const created = createDashboardDocument(
+      aiDashboardProposalInputSchema.parse({
+        mode: "create",
+        name: "Vendas",
+        components: [
+          { ...base, id: "kpi", component: "stat_card", field: "total" },
+          {
+            ...base,
+            id: "bars",
+            component: "bar_chart",
+            nameKey: "mes",
+            valueKey: "total",
+          },
+          {
+            ...base,
+            id: "table",
+            component: "data_table",
+            columns: [{ key: "mes" }],
+          },
+        ],
+      }),
+      dashboardId,
+    );
+    expect(created.ui.components.map((c) => c.layoutProps)).toEqual([
+      { colSpan: 3, rowSpan: 2 },
+      { colSpan: 6, rowSpan: 5 },
+      { colSpan: 12, rowSpan: 6 },
+    ]);
+    const updated = createDashboardDocument(
+      aiDashboardProposalInputSchema.parse({
+        mode: "update",
+        dashboardId,
+        name: "Vendas",
+        components: [
+          { ...base, id: "kpi", component: "stat_card", field: "total" },
+        ],
+      }),
+      dashboardId,
+      created,
+    );
+    expect(updated.ui.components[0]?.layoutProps).toEqual({
+      colSpan: 3,
+      rowSpan: 2,
+    });
     expect(() =>
       aiDashboardProposalInputSchema.parse({
-        ...proposal,
-        components: [{ ...proposal.components[0], rowSpan: undefined }],
-        gap: 28,
+        mode: "create",
+        name: "Vendas",
+        components: [
+          {
+            ...base,
+            id: "kpi",
+            component: "stat_card",
+            field: "total",
+            colSpan: 13,
+          },
+        ],
       }),
     ).toThrow();
   });
 
-  it("cria documento compatível apenas com UUID de query e gap suportado", () => {
+  it("rejeita dashboard com layout (columns/gap) do formato antigo", () => {
+    expect(() =>
+      dashboardDocumentSchema.parse({
+        id: dashboardId,
+        name: "Antigo",
+        ui: { layout: { columns: 12, gap: 16 }, components: [] },
+      }),
+    ).toThrow(/layout/);
+    expect(
+      dashboardDocumentSchema.parse({ id: dashboardId, name: "Novo" }).ui,
+    ).toEqual({ components: [] });
+  });
+
+  it("cria documento compatível apenas com UUID de query", () => {
     const input = aiDashboardProposalInputSchema.parse({
       mode: "create",
       name: "Relatório antigo",
@@ -64,10 +139,9 @@ describe("contrato da proposta gerada pela IA", () => {
     expect(dashboardDocumentSchema.parse(document)).toMatchObject({
       id: dashboardId,
       ui: {
-        layout: { gap: 16 },
         components: [
           {
-            layoutProps: { colSpan: 4, rowSpan: 1 },
+            layoutProps: { colSpan: 4, rowSpan: 2 },
             props: { queryUuid: queryId, title: "Total de vendas" },
           },
         ],
@@ -111,7 +185,6 @@ describe("contrato da proposta gerada pela IA", () => {
         },
       ],
       ui: {
-        layout: { gap: 16 },
         components: [
           {
             id: "old-total",
@@ -184,10 +257,10 @@ describe("contrato da proposta gerada pela IA", () => {
       name: "Vendas",
       workspace: { params: [] },
       queryBindings: [],
-      ui: { layout: { gap: 16 }, components: [] },
+      ui: { components: [] },
     };
     const right = {
-      ui: { components: [], layout: { gap: 16 } },
+      ui: { components: [] },
       queryBindings: [],
       workspace: { params: [] },
       name: "Vendas",
@@ -234,7 +307,6 @@ describe("contrato da proposta gerada pela IA", () => {
         },
       ],
       ui: {
-        layout: { gap: 16 },
         components: [
           {
             id: "old",
@@ -265,7 +337,6 @@ describe("contrato da proposta gerada pela IA", () => {
         },
       ],
       ui: {
-        layout: { gap: 24 },
         components: [
           {
             id: "new",
@@ -288,7 +359,6 @@ describe("contrato da proposta gerada pela IA", () => {
     expect(summary.join("\n")).toContain(
       "Descrição: “Descrição antiga” → “Descrição nova”.",
     );
-    expect(summary.join("\n")).toContain("Espaçamento (gap): 16 → 24.");
     expect(summary.join("\n")).toContain(
       "Filtros do dashboard: adicionados: Período (period, text) · removidos: Data inicial (from, date)",
     );

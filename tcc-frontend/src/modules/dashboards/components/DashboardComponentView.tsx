@@ -2,10 +2,7 @@ import { AlertCircle } from "lucide-react";
 import type { DashboardComponent } from "@/modules/dashboards/model/types";
 import { Alert, AlertDescription, AlertTitle } from "@/shared/ui/alert";
 import { Card, CardContent } from "@/shared/ui/card";
-import {
-  colClass,
-  componentChangeClasses,
-} from "@/modules/dashboards/model/lib";
+import { componentChangeClasses } from "@/modules/dashboards/model/lib";
 import type {
   DashboardComponentChange,
   QueryState,
@@ -27,11 +24,9 @@ export function DashboardComponentView({
   changeStatus?: DashboardComponentChange;
 }) {
   const change = componentChangeClasses(changeStatus);
-  const cardClassName = [colClass(component), change?.card]
-    .filter(Boolean)
-    .join(" ");
+  const cardClassName = change?.card ?? "";
   if (!state || (state.loading && state.rows === undefined))
-    return <ComponentLoading component={component} />;
+    return <ComponentLoading />;
   if (state.previewPending && state.rows === undefined) {
     return (
       <Card className={cardClassName}>
@@ -39,7 +34,7 @@ export function DashboardComponentView({
           component={component}
           changeStatus={changeStatus}
         />
-        <CardContent>
+        <CardContent className="min-h-0 flex-1 overflow-auto">
           <Alert>
             <AlertCircle />
             <AlertTitle>Prévia aguardando filtros</AlertTitle>

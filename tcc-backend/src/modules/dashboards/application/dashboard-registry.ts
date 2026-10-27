@@ -53,7 +53,7 @@ export class DashboardRegistryService {
       description: metadata.description || undefined,
       workspace: { params: [] },
       queryBindings: [],
-      ui: { layout: { type: "grid", columns: 12, gap: 16 }, components: [] },
+      ui: { components: [] },
     });
 
     const directory = resolve(process.cwd(), "dashboards");

@@ -468,7 +468,7 @@ export class AiDashboardTools {
       return refuse(
         "COMPONENT_RECEIPT_INVALID",
         "O componente da proposta difere do componente que o administrador aprovou.",
-        "Envie o componente exatamente como aprovado; para mudar tipo, título ou largura, gere outro cartão com preview_component.",
+        "Envie o componente exatamente como aprovado; para mudar tipo, título, largura ou altura, gere outro cartão com preview_component.",
       );
     const targetId =
       parsed.mode === "update"
@@ -844,7 +844,7 @@ export class AiDashboardTools {
       tool((input, runtime) => this.previewComponent(input, runtime), {
         name: "preview_component",
         description:
-          "Fase 3: mostra o componente isolado (renderizado sozinho, com a amostra da query salva) num cartão com Aprovar e Pedir ajuste. Não persiste nada. O cartão mostra os filtros do Dashboard ativo e o administrador pode refazer a prévia com outros valores. Se a query tem parâmetros que correspondem a filtros do dashboard, passe parameterBindings (objeto parâmetro_da_query -> filtro_do_dashboard, nomes exatos de get_saved_query e get_current_dashboard); parâmetro sem filtro correspondente fica com input próprio no cartão. Retorna componentReceiptId, que só vale depois de o administrador aprovar o cartão. Para um ajuste (tipo, título ou largura), chame de novo e aguarde nova aprovação. Após chamar, encerre a rodada.",
+          "Fase 3: mostra o componente isolado (renderizado sozinho, com a amostra da query salva) num cartão com Aprovar e Pedir ajuste. Não persiste nada. O cartão mostra os filtros do Dashboard ativo e o administrador pode refazer a prévia com outros valores. Se a query tem parâmetros que correspondem a filtros do dashboard, passe parameterBindings (objeto parâmetro_da_query -> filtro_do_dashboard, nomes exatos de get_saved_query e get_current_dashboard); parâmetro sem filtro correspondente fica com input próprio no cartão. Retorna componentReceiptId, que só vale depois de o administrador aprovar o cartão. Para um ajuste (tipo, título, largura ou altura), chame de novo e aguarde nova aprovação. Após chamar, encerre a rodada.",
         schema: z
           .object({
             component: aiComponentSchema,

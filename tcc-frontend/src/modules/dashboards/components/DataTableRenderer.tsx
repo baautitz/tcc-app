@@ -25,7 +25,7 @@ export const DataTableRenderer: Renderer = ({
         component={component}
         changeStatus={changeStatus}
       />
-      <CardContent>
+      <CardContent className="min-h-0 flex-1 overflow-auto">
         {rows.length ? (
           <Table>
             <TableHeader>

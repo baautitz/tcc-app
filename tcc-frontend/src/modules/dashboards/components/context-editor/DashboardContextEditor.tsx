@@ -1,3 +1,4 @@
+import { MAX_COLUMNS } from "@/modules/dashboards/model/grid";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, FileCode2, Plus, Save, Trash2 } from "lucide-react";
 import { dashboardsApi } from "@/modules/dashboards/api/dashboards.api";
@@ -426,7 +427,7 @@ export function DashboardContextEditor({
           {
             id: `component_${current.ui.components.length + 1}`,
             component: "data_table",
-            layoutProps: { colSpan: 12, rowSpan: 1 },
+            layoutProps: { colSpan: MAX_COLUMNS, rowSpan: 6 },
             props: { title: "Novo componente", queryUuid: "" },
           },
         ],
@@ -913,19 +914,43 @@ export function DashboardContextEditor({
                     >
                       <Trash2 />
                     </Button>
-                    <Label className="flex flex-col items-stretch gap-2 text-xs md:col-span-2">
-                      Colunas (1 a 12)
+                    <Label className="flex flex-col items-stretch gap-2 text-xs">
+                      Colunas (1 a {MAX_COLUMNS})
                       <Input
                         type="number"
                         min={1}
-                        max={12}
+                        max={MAX_COLUMNS}
                         value={component.layoutProps.colSpan}
                         onChange={(event) =>
                           updateComponent(index, (current) => ({
                             ...current,
                             layoutProps: {
                               ...current.layoutProps,
-                              colSpan: event.target.valueAsNumber || 12,
+                              colSpan: Math.min(
+                                MAX_COLUMNS,
+                                event.target.valueAsNumber || MAX_COLUMNS,
+                              ),
+                            },
+                          }))
+                        }
+                      />
+                    </Label>
+                    <Label className="flex flex-col items-stretch gap-2 text-xs">
+                      Linhas (1 a {MAX_COLUMNS})
+                      <Input
+                        type="number"
+                        min={1}
+                        max={MAX_COLUMNS}
+                        value={component.layoutProps.rowSpan}
+                        onChange={(event) =>
+                          updateComponent(index, (current) => ({
+                            ...current,
+                            layoutProps: {
+                              ...current.layoutProps,
+                              rowSpan: Math.min(
+                                MAX_COLUMNS,
+                                event.target.valueAsNumber || 1,
+                              ),
                             },
                           }))
                         }

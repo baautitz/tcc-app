@@ -206,7 +206,6 @@ function buildDashboardDefinitionFromDocument(
     validateQueryBindings(dashboard, queriesById);
   }
 
-  const layout = record(dashboard.ui.layout);
   const components = dashboard.ui.components.map((component) => {
     const props = record(component.props);
     const queryUuid = text(props.queryUuid, "");
@@ -230,7 +229,6 @@ function buildDashboardDefinitionFromDocument(
   });
 
   return dashboardDefinitionSchema.parse({
-    layout: { columns: 12, gap: Number(layout.gap) || 16 },
     workspace: { params: dashboard.workspace.params },
     queryBindings: dashboard.queryBindings,
     components,

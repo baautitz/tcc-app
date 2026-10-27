@@ -52,7 +52,6 @@ function dashboard() {
       },
     ],
     ui: {
-      layout: { gap: 16 },
       components: [
         {
           id: "sales-table",
@@ -156,7 +155,6 @@ describe("sincronização de dashboards por UUID", () => {
       validateDashboardDocument({
         ...dashboard(),
         ui: {
-          layout: { gap: 16 },
           components: [
             {
               id: "bad",
@@ -199,7 +197,6 @@ describe("sincronização de dashboards por UUID", () => {
         },
       ],
       ui: {
-        layout: { gap: 16 },
         components: [
           {
             id: "sales",
@@ -238,7 +235,6 @@ describe("sincronização de dashboards por UUID", () => {
         },
       ],
       ui: {
-        layout: { gap: 16 },
         components: [
           {
             id: "total",

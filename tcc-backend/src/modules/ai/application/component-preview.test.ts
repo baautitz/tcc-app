@@ -66,7 +66,7 @@ function port(overrides: Partial<ComponentPreviewPort> = {}) {
           params: [{ name: "periodo_inicio", label: "Início", type: "date" }],
         },
         queryBindings: [],
-        ui: { layout: { gap: 16 }, components: [] },
+        ui: { components: [] },
       }),
       fingerprint: "f",
     })),

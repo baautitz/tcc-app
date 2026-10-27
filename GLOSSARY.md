@@ -48,6 +48,14 @@ _Avoid_: Widget, gráfico (quando se fala de qualquer tipo)
 Forma de exibir os dados de um Componente. Existem cinco: cartão de indicador, gráfico de barras, gráfico de linhas, gráfico de pizza e tabela. O Tipo pedido pelo administrador é respeitado literalmente; se não servir aos dados, a IA pergunta antes de trocar.
 _Avoid_: Formato, visual
 
+**Grade**:
+Estrutura virtual de Células quadradas em que os Componentes de um Dashboard se encaixam. O número de colunas não é definido pelo Dashboard: é o que couber na largura disponível, até 12, e por isso é o mesmo conceito em desktop e mobile. Cada Componente ocupa de 1 a 12 Células de largura e de 1 a 12 de altura; se a Grade tiver menos colunas, ocupa todas. A posição é derivada da ordem na lista, nunca antes do Componente anterior na ordem de leitura (esquerda para direita, de cima para baixo). Quem empilha em quem resulta da largura disponível.
+_Avoid_: Layout, malha
+
+**Célula**:
+Unidade quadrada da Grade, com tamanho padronizado e espaçamento fixo entre Células, igual em todos os Dashboards. Largura e altura de um Componente são medidas em Células.
+_Avoid_: Slot, bloco
+
 **Dashboard ativo**:
 Dashboard sobre o qual a conversa com a IA está trabalhando, vindo da página aberta ou escolhido pelo administrador. É exigido para gerar um Componente e é a fonte dos filtros mostrados no cartão do Componente isolado.
 _Avoid_: Dashboard atual, dashboard selecionado

@@ -440,7 +440,8 @@ function decodeEvent(eventName: string, data: string): ChatEvent | undefined {
         ].includes(String(component.component)) &&
         typeof component.title === "string" &&
         typeof component.queryUuid === "string" &&
-        Number.isSafeInteger(component.colSpan) &&
+        (component.colSpan === undefined ||
+          Number.isSafeInteger(component.colSpan)) &&
         isRecord(query) &&
         Array.isArray(query.rows) &&
         query.rows.every(isRecord) &&

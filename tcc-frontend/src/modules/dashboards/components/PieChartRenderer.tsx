@@ -4,7 +4,11 @@ import { formatValue } from "@/shared/lib/utils";
 import { colors } from "@/modules/dashboards/model/lib";
 import { chartTooltipProps } from "./chartTooltip";
 import { chartEmptyMessage, chartRowsFor } from "./ChartRows";
-import { ComponentError, ComponentPreviewHeader } from "./ComponentFrame";
+import {
+  ChartArea,
+  ComponentError,
+  ComponentPreviewHeader,
+} from "./ComponentFrame";
 import type { Renderer } from "./renderers";
 
 export const PieChartRenderer: Renderer = ({
@@ -34,26 +38,28 @@ export const PieChartRenderer: Renderer = ({
         component={component}
         changeStatus={changeStatus}
       />
-      <CardContent>
-        <div className="grid items-center gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(9rem,0.8fr)]">
-          <ResponsiveContainer width="100%" height={280}>
-            <PieChart>
-              <Pie
-                data={chartRows}
-                dataKey={valueKey}
-                nameKey={nameKey}
-                outerRadius={96}
-              >
-                {chartRows.map((row, index) => (
-                  <Cell
-                    key={`${String(row[nameKey])}-${index}`}
-                    fill={colors[index % colors.length]}
-                  />
-                ))}
-              </Pie>
-              <Tooltip {...chartTooltipProps} />
-            </PieChart>
-          </ResponsiveContainer>
+      <CardContent className="min-h-0 flex-1">
+        <div className="grid h-full items-center gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(9rem,0.8fr)]">
+          <ChartArea>
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={chartRows}
+                  dataKey={valueKey}
+                  nameKey={nameKey}
+                  outerRadius={96}
+                >
+                  {chartRows.map((row, index) => (
+                    <Cell
+                      key={`${String(row[nameKey])}-${index}`}
+                      fill={colors[index % colors.length]}
+                    />
+                  ))}
+                </Pie>
+                <Tooltip {...chartTooltipProps} />
+              </PieChart>
+            </ResponsiveContainer>
+          </ChartArea>
           <div className="flex flex-col gap-2">
             <p className="text-xs font-medium">Ranking por vendas</p>
             {rankedRows.map(({ row, rank }) => (

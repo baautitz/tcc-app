@@ -60,7 +60,7 @@ const dashboardWithFilter = () =>
       ],
     },
     queryBindings: [],
-    ui: { layout: { gap: 16 }, components: [] },
+    ui: { components: [] },
   });
 const rows = {
   rows: [{ month_label: "Setembro", amount: "125.50" }],

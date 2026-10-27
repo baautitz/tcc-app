@@ -17,7 +17,6 @@ export type DashboardComponent = {
 };
 
 export type DashboardDefinition = {
-  layout: { columns: 12; gap: number };
   components: DashboardComponent[];
   workspace: { params: DashboardArgument[] };
   queryBindings: QueryBinding[];
@@ -53,7 +52,6 @@ export type DashboardDocument = {
   workspace: { params: DashboardArgument[] };
   queryBindings: QueryBinding[];
   ui: {
-    layout: Record<string, unknown> & { gap: number };
     components: DashboardDocumentComponent[];
   } & Record<string, unknown>;
 };

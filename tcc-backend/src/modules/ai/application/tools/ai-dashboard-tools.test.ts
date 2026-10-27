@@ -83,7 +83,6 @@ function validProposal() {
     mode: "create",
     name: "Faturamento mensal",
     description: "Evolução de vendas por mês",
-    gap: 16,
     workspace: { params: [] },
     queryBindings: [],
     components: [
@@ -133,7 +132,7 @@ describe("propostas de dashboard da IA", () => {
         ],
       },
       queryBindings: [],
-      ui: { layout: { gap: 16 }, components: [] },
+      ui: { components: [] },
     });
     const tools = createAiDashboardTools({
       currentUser: admin,
@@ -191,7 +190,7 @@ describe("propostas de dashboard da IA", () => {
         ],
       },
       queryBindings: [],
-      ui: { layout: { gap: 16 }, components: [] },
+      ui: { components: [] },
     });
     const tools = createAiDashboardTools({
       currentUser: admin,
@@ -330,7 +329,7 @@ const emptyDashboard = (id: string) =>
     name: "Atual",
     workspace: { params: [] },
     queryBindings: [],
-    ui: { layout: { gap: 16 }, components: [] },
+    ui: { components: [] },
   });
 
 describe("fases da IA: Recibo de componente, destino e posição", () => {
@@ -378,7 +377,7 @@ describe("fases da IA: Recibo de componente, destino e posição", () => {
       name: "Atual",
       workspace: { params: [] },
       queryBindings: [],
-      ui: { layout: { gap: 16 }, components: [] },
+      ui: { components: [] },
     });
     const repository = makeRepository({
       findDashboard: vi.fn(async () => ({
@@ -456,7 +455,6 @@ describe("fases da IA: Recibo de componente, destino e posição", () => {
       workspace: { params: [] },
       queryBindings: [],
       ui: {
-        layout: { gap: 16 },
         components: ["a", "b"].map((id) => ({
           id,
           component: "stat_card",
@@ -584,7 +582,6 @@ describe("fases da IA: Recibo de componente, destino e posição", () => {
       workspace: { params: [] },
       queryBindings: [],
       ui: {
-        layout: { gap: 16 },
         components: ["a", "b", "c"].map((id) => ({
           id,
           component: "stat_card",

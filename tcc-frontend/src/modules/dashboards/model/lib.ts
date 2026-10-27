@@ -10,30 +10,6 @@ export const colors = Array.from(
   { length: 10 },
   (_, index) => `var(--chart-${index + 1})`,
 );
-export const colSpanClass: Record<number, string> = {
-  1: "col-span-12 @md:col-span-1",
-  2: "col-span-12 @md:col-span-2",
-  3: "col-span-12 @md:col-span-3",
-  4: "col-span-12 @md:col-span-4",
-  5: "col-span-12 @md:col-span-5",
-  6: "col-span-12 @md:col-span-6",
-  7: "col-span-12 @md:col-span-7",
-  8: "col-span-12 @md:col-span-8",
-  9: "col-span-12 @md:col-span-9",
-  10: "col-span-12 @md:col-span-10",
-  11: "col-span-12 @md:col-span-11",
-  12: "col-span-12",
-};
-export const gapClass: Record<number, string> = {
-  2: "gap-0.5",
-  4: "gap-1",
-  8: "gap-2",
-  12: "gap-3",
-  16: "gap-4",
-  20: "gap-5",
-  24: "gap-6",
-  32: "gap-8",
-};
 export function componentChangeClasses(status?: DashboardComponentChange) {
   switch (status) {
     case "added":
@@ -137,14 +113,6 @@ export function numericChartRows(
       : row;
   });
 }
-export function colClass(component: DashboardComponent): string {
-  // min-w-0: item de grid não encolhe abaixo do conteúdo (gráficos) e vaza do contêiner
-  return `min-w-0 ${
-    colSpanClass[Math.min(12, Math.max(1, component.layoutProps.colSpan))] ??
-    "col-span-12"
-  }`;
-}
-
 export type PivotedSeries = { key: string; label: string };
 
 /**

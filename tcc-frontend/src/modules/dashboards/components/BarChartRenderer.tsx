@@ -9,7 +9,11 @@ import {
 import { Card, CardContent } from "@/shared/ui/card";
 import { chartTooltipProps } from "./chartTooltip";
 import { chartEmptyMessage, chartRowsFor } from "./ChartRows";
-import { ComponentError, ComponentPreviewHeader } from "./ComponentFrame";
+import {
+  ChartArea,
+  ComponentError,
+  ComponentPreviewHeader,
+} from "./ComponentFrame";
 import type { Renderer } from "./renderers";
 
 export const BarChartRenderer: Renderer = ({
@@ -33,20 +37,22 @@ export const BarChartRenderer: Renderer = ({
         component={component}
         changeStatus={changeStatus}
       />
-      <CardContent>
-        <ResponsiveContainer width="100%" height={280}>
-          <BarChart data={chartRows}>
-            <XAxis
-              dataKey={nameKey}
-              tickLine={false}
-              axisLine={false}
-              fontSize={11}
-            />
-            <YAxis tickLine={false} axisLine={false} fontSize={11} />
-            <Tooltip {...chartTooltipProps} />
-            <Bar dataKey={valueKey} fill="var(--chart-1)" radius={0} />
-          </BarChart>
-        </ResponsiveContainer>
+      <CardContent className="flex min-h-0 flex-1">
+        <ChartArea>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={chartRows}>
+              <XAxis
+                dataKey={nameKey}
+                tickLine={false}
+                axisLine={false}
+                fontSize={11}
+              />
+              <YAxis tickLine={false} axisLine={false} fontSize={11} />
+              <Tooltip {...chartTooltipProps} />
+              <Bar dataKey={valueKey} fill="var(--chart-1)" radius={0} />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartArea>
       </CardContent>
     </Card>
   );

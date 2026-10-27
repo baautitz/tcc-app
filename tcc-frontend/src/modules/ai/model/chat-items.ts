@@ -85,7 +85,7 @@ export type ProposedComponent = {
   component: ComponentType;
   title: string;
   queryUuid: string;
-  colSpan: number;
+  colSpan?: number;
 } & Record<string, unknown>;
 export type ComponentPreviewItem = {
   id: string;

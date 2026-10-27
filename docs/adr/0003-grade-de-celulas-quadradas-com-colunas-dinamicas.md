@@ -1,0 +1,3 @@
+# Grade de Células quadradas com colunas dinâmicas
+
+O Dashboard não declara `columns` nem `gap`: a Grade é feita de Células quadradas de tamanho e espaçamento padronizados, e o número de colunas (até 12) é o que couber na largura do container. Cada Componente guarda só `colSpan` e `rowSpan` (1 a 12), e a posição é derivada da ordem da lista, nunca antes do Componente anterior na ordem de leitura. Descartamos breakpoints fixos (12/6/1 colunas) porque escalar spans proporcionalmente distorce a altura dos gráficos, e coordenadas explícitas por Componente porque o administrador e a IA não precisam decidir posição em cada tela. Os dashboards já salvos foram convertidos ao novo formato, sem leitura tolerante do formato antigo (24 colunas e `gap`).

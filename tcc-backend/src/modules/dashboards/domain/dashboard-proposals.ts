@@ -5,25 +5,22 @@ import {
   dashboardArgumentSchema,
   dashboardComponentTypes,
   dashboardDocumentSchema,
+  defaultColSpanByType,
+  defaultRowSpanByType,
+  maxDashboardColumns,
+  maxDashboardRows,
   queryBindingSchema,
 } from "../../../shared/lib/contracts.js";
 import type { DashboardDocument } from "./dashboards.js";
 
-const gapSchema = z.union([
-  z.literal(2),
-  z.literal(4),
-  z.literal(8),
-  z.literal(12),
-  z.literal(16),
-  z.literal(20),
-  z.literal(24),
-  z.literal(32),
-]);
 const componentBase = {
   id: z.string().trim().min(1).max(160),
   title: z.string().trim().min(1).max(160),
   queryUuid: z.string().uuid(),
-  colSpan: z.number().int().min(1).max(12).default(12),
+  // Sem colSpan, vale o padrão do Tipo de componente.
+  colSpan: z.number().int().min(1).max(maxDashboardColumns).optional(),
+  // Sem rowSpan, vale o padrão do Tipo de componente.
+  rowSpan: z.number().int().min(1).max(maxDashboardRows).optional(),
 };
 export const aiComponentSchema = z.discriminatedUnion("component", [
   z
@@ -116,7 +113,6 @@ export const aiDashboardProposalInputSchema = z
     dashboardId: z.string().uuid().optional(),
     name: z.string().trim().min(1).max(200),
     description: z.string().trim().max(2000).optional(),
-    gap: gapSchema.optional(),
     workspace: z
       .object({ params: z.array(dashboardArgumentSchema).max(30).default([]) })
       .strict()
@@ -297,7 +293,6 @@ export function summarizeDashboardChanges(
   return [
     `Nome do dashboard: ${previous ? `“${displayValue(previous.name)}”` : "(novo)"} → “${displayValue(next.name)}”.`,
     `Descrição: ${previous ? `“${displayValue(previous.description ?? "")}”` : "(nova)"} → “${displayValue(next.description ?? "")}”.`,
-    `Espaçamento (gap): ${previous ? String(previous.ui.layout.gap) : "(novo)"} → ${String(next.ui.layout.gap)}.`,
     `${describe("Componentes", components)}${orderSummary}`,
     describe("Filtros do dashboard", params),
     describe("Mapeamentos de parâmetros das queries", bindings),
@@ -352,6 +347,11 @@ export function createDashboardDocument(
     input.queryBindings,
     (binding) => binding.queryUuid,
   );
+  const previousLayoutById = new Map(
+    (input.mode === "update" ? (previous?.ui.components ?? []) : []).map(
+      (component) => [component.id, component.layoutProps] as const,
+    ),
+  );
   const proposedComponents = input.components.map((component) => {
     const {
       id,
@@ -359,14 +359,24 @@ export function createDashboardDocument(
       queryUuid,
       title,
       colSpan,
+      rowSpan,
       ...config
     } = component;
     const props = { ...config, title, queryUuid };
     return {
       id,
       component: kind,
-      // The current renderer uses colSpan only. rowSpan is fixed to one.
-      layoutProps: { colSpan, rowSpan: 1 },
+      layoutProps: {
+        // Componente existente que omite o tamanho mantém o atual.
+        colSpan:
+          colSpan ??
+          previousLayoutById.get(id)?.colSpan ??
+          defaultColSpanByType[kind],
+        rowSpan:
+          rowSpan ??
+          previousLayoutById.get(id)?.rowSpan ??
+          defaultRowSpanByType[kind],
+      },
       props,
     };
   });
@@ -429,11 +439,6 @@ export function createDashboardDocument(
     workspace: { params: workspaceParams },
     queryBindings,
     ui: {
-      layout: {
-        type: "grid",
-        columns: 12,
-        gap: input.gap ?? previous?.ui.layout.gap ?? 16,
-      },
       components: nextComponents,
     },
   });

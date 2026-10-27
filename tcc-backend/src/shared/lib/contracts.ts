@@ -240,14 +240,40 @@ export const dashboardComponentTypes = [
   "data_table",
 ] as const;
 
+/** Máximo de Células de largura e de altura de um Componente na Grade (ADR 0003). */
+export const maxDashboardColumns = 12;
+export const maxDashboardRows = 12;
+/** Células de largura ocupadas por padrão por cada Tipo de componente (única fonte, ADR 0001). */
+export const defaultColSpanByType: Record<
+  (typeof dashboardComponentTypes)[number],
+  number
+> = {
+  stat_card: 3,
+  bar_chart: 6,
+  line_chart: 6,
+  pie_chart: 6,
+  data_table: 12,
+};
+/** Células de altura ocupadas por padrão por cada Tipo de componente (única fonte, ADR 0001). */
+export const defaultRowSpanByType: Record<
+  (typeof dashboardComponentTypes)[number],
+  number
+> = {
+  stat_card: 2,
+  bar_chart: 5,
+  line_chart: 5,
+  pie_chart: 5,
+  data_table: 6,
+};
+
 const dashboardDocumentComponentSchema = z
   .object({
     id: z.string().trim().min(1).max(160),
     component: z.enum(dashboardComponentTypes),
     layoutProps: z
       .object({
-        colSpan: z.number().int().min(1).max(12).default(12),
-        rowSpan: z.number().int().min(1).max(12).default(1),
+        colSpan: z.number().int().min(1).max(maxDashboardColumns).default(12),
+        rowSpan: z.number().int().min(1).max(maxDashboardRows).default(1),
       })
       .default({ colSpan: 12, rowSpan: 1 }),
     props: z.record(z.unknown()),
@@ -268,14 +294,10 @@ export const dashboardDocumentSchema = z
     queryBindings: z.array(queryBindingSchema).default([]),
     ui: z
       .object({
-        layout: z
-          .object({ gap: z.number().int().min(0).max(48).default(16) })
-          .passthrough()
-          .default({ gap: 16 }),
         components: z.array(dashboardDocumentComponentSchema).default([]),
       })
       .passthrough()
-      .default({ layout: { gap: 16 }, components: [] }),
+      .default({ components: [] }),
   })
   .passthrough()
   .superRefine((dashboard, context) => {
@@ -285,6 +307,14 @@ export const dashboardDocumentSchema = z
         path: ["sources"],
         message:
           "SQL deve ser salva no catálogo de queries; o dashboard referencia somente UUIDs.",
+      });
+    }
+    if ("layout" in dashboard.ui) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["ui", "layout"],
+        message:
+          "A Grade é padronizada: remova ui.layout (columns e gap) do dashboard.",
       });
     }
     const names = new Set<string>();
@@ -336,8 +366,8 @@ const componentSchema = z
     queryUuid: z.string().uuid(),
     layoutProps: z
       .object({
-        colSpan: z.number().int().min(1).max(12).default(12),
-        rowSpan: z.number().int().min(1).max(12).default(1),
+        colSpan: z.number().int().min(1).max(maxDashboardColumns).default(12),
+        rowSpan: z.number().int().min(1).max(maxDashboardRows).default(1),
       })
       .default({ colSpan: 12, rowSpan: 1 }),
     props: z.record(z.unknown()).default({}),
@@ -346,12 +376,6 @@ const componentSchema = z
 
 export const dashboardDefinitionSchema = z
   .object({
-    layout: z
-      .object({
-        columns: z.literal(12).default(12),
-        gap: z.number().int().min(0).max(48).default(16),
-      })
-      .default({ columns: 12, gap: 16 }),
     components: z.array(componentSchema).default([]),
     workspace: z
       .object({ params: z.array(dashboardArgumentSchema).default([]) })

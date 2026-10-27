@@ -3,6 +3,7 @@ import { LoaderCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
+import { DashboardGrid } from "@/modules/dashboards/components/DashboardGrid";
 import { DashboardComponentView } from "@/modules/dashboards/components/DashboardComponentView";
 import { DashboardFilters } from "@/modules/dashboards/components/DashboardFilters";
 import type {
@@ -60,7 +61,7 @@ export function ComponentPreviewCard({
   const [adjusting, setAdjusting] = useState(false);
   const [type, setType] = useState<ComponentType>(component.component);
   const [title, setTitle] = useState(component.title);
-  const [colSpan, setColSpan] = useState(String(component.colSpan));
+  const [colSpan, setColSpan] = useState(String(component.colSpan ?? 12));
 
   const viewComponent = useMemo<DashboardComponent>(() => {
     const {
@@ -76,7 +77,7 @@ export function ComponentPreviewCard({
       type: kind,
       title: componentTitle,
       queryUuid,
-      layoutProps: { colSpan: span, rowSpan: 1 },
+      layoutProps: { colSpan: span ?? 12, rowSpan: 5 },
       props: { ...config, title: componentTitle, queryUuid },
     };
   }, [component]);
@@ -188,7 +189,7 @@ export function ComponentPreviewCard({
     ...(title.trim() && title.trim() !== component.title
       ? { title: title.trim() }
       : {}),
-    ...(spanValid && spanValue !== component.colSpan
+    ...(spanValid && spanValue !== (component.colSpan ?? 12)
       ? { colSpan: spanValue }
       : {}),
   };
@@ -200,7 +201,10 @@ export function ComponentPreviewCard({
           Componente isolado · {typeLabels[component.component]}
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
-          Largura {component.colSpan} de 12 colunas. Nada é salvo nesta etapa.
+          {component.colSpan
+            ? `Largura ${String(component.colSpan)} colunas.`
+            : "Largura padrão do tipo."}{" "}
+          Nada é salvo nesta etapa.
         </p>
       </div>
 
@@ -230,19 +234,21 @@ export function ComponentPreviewCard({
         </div>
       )}
 
-      <div className="@container grid grid-cols-12 gap-4">
-        <DashboardComponentView
-          component={{
-            ...viewComponent,
-            layoutProps: { colSpan: 12, rowSpan: 1 },
-          }}
-          state={
-            query.error
-              ? { loading: false, error: query.error }
-              : { loading: false, rows: query.rows }
-          }
-        />
-      </div>
+      <DashboardGrid
+        components={[
+          { ...viewComponent, layoutProps: { colSpan: 12, rowSpan: 5 } },
+        ]}
+        renderComponent={(previewComponent) => (
+          <DashboardComponentView
+            component={previewComponent}
+            state={
+              query.error
+                ? { loading: false, error: query.error }
+                : { loading: false, rows: query.rows }
+            }
+          />
+        )}
+      />
 
       {adjusting && canAct && (
         <form

@@ -12,7 +12,6 @@ import { Skeleton } from "@/shared/ui/skeleton";
 import { useRegisterCurrentViewRefresh } from "@/shared/context/CurrentViewRefreshContext";
 import {
   collectArguments,
-  gapClass,
   queryArguments,
 } from "@/modules/dashboards/model/lib";
 import type {
@@ -21,6 +20,7 @@ import type {
 } from "@/modules/dashboards/model/types";
 import { DashboardComponentView } from "../components/DashboardComponentView";
 import { DashboardFilters } from "../components/DashboardFilters";
+import { DashboardGrid } from "../components/DashboardGrid";
 import { DashboardUsersDialog } from "../components/DashboardUsersDialog";
 
 export function DashboardPage({
@@ -167,7 +167,6 @@ export function DashboardPage({
       </div>
     );
   const parameters = collectArguments(dashboard);
-  const gridGap = gapClass[dashboard.definition.layout.gap] ?? "gap-4";
   const hasStaleDataErrors = Object.values(data).some(
     (state) => state.error && state.rows !== undefined,
   );
@@ -241,23 +240,23 @@ export function DashboardPage({
           </AlertDescription>
         </Alert>
       )}
-      <div className={`@container grid grid-cols-12 ${gridGap}`}>
-        {dashboard.definition.components.map((component) => (
+      <DashboardGrid
+        components={dashboard.definition.components}
+        renderComponent={(component) => (
           <DashboardComponentView
-            key={component.id}
             component={component}
             state={data[component.queryUuid]}
           />
-        ))}
-        {dashboard.definition.components.length === 0 && (
-          <Card className="col-span-12">
+        )}
+        empty={
+          <Card>
             <CardContent className="flex flex-col items-center gap-2 py-12 text-center text-muted-foreground">
               <Table2 />
               Este dashboard ainda não possui componentes.
             </CardContent>
           </Card>
-        )}
-      </div>
+        }
+      />
       <DashboardUsersDialog
         dashboardId={dashboardId}
         open={usersDialogOpen}

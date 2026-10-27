@@ -18,7 +18,6 @@ const dashboard = {
   name: "Painel",
   description: "",
   definition: {
-    layout: { columns: 12, gap: 16 },
     workspace: { params: [] },
     queryBindings: [],
     components: [
