@@ -1,4 +1,5 @@
 import type { QueryPreviewItem } from "@/modules/ai/model/chat-items";
+import { QueryChangeDiff } from "@/modules/ai/components/QueryChangeDiff";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import {
@@ -78,6 +79,16 @@ export function ReviewPreviewDialog({
                 disabled={savingPreview}
               />
             </label>
+            {reviewPreview.intent.mode === "update" &&
+              reviewPreview.intent.queryId && (
+                <QueryChangeDiff
+                  key={reviewPreview.id}
+                  queryId={reviewPreview.intent.queryId}
+                  name={reviewName}
+                  sqlText={reviewPreview.sqlText}
+                  parameters={reviewPreview.parameters}
+                />
+              )}
             <div className="rounded border bg-muted/40 p-3">
               <p className="font-medium">SQL testado</p>
               <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-all font-mono text-xs">
