@@ -29,11 +29,17 @@ export function DashboardListPage({
   loading,
   canCreate,
   onOpen,
+  actionLabel = "Abrir dashboard",
+  actionDisabled = false,
+  title = "Dashboards",
 }: {
   dashboards: DashboardSummary[];
   loading: boolean;
   canCreate: boolean;
-  onOpen: (id: string) => void;
+  onOpen: (id: string, name: string) => void;
+  actionLabel?: string;
+  actionDisabled?: boolean;
+  title?: string;
 }) {
   const [createOpen, setCreateOpen] = useState(false);
   const [name, setName] = useState("");
@@ -59,7 +65,7 @@ export function DashboardListPage({
       });
       setCreateOpen(false);
       toast.success("Dashboard criado.");
-      onOpen(created.id);
+      onOpen(created.id, name.trim());
     } catch (reason) {
       toast.error(
         reason instanceof Error
@@ -75,13 +81,16 @@ export function DashboardListPage({
     <div className="flex flex-col gap-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Dashboards</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Dashboards associados ao seu usuário.
           </p>
         </div>
         {canCreate && (
-          <Button onClick={() => handleCreateOpenChange(true)}>
+          <Button
+            disabled={actionDisabled}
+            onClick={() => handleCreateOpenChange(true)}
+          >
             <Plus /> Novo dashboard
           </Button>
         )}
@@ -106,8 +115,12 @@ export function DashboardListPage({
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <Button variant="outline" onClick={() => onOpen(dashboard.id)}>
-                  Abrir dashboard
+                <Button
+                  variant="outline"
+                  disabled={actionDisabled}
+                  onClick={() => onOpen(dashboard.id, dashboard.name)}
+                >
+                  {actionLabel}
                 </Button>
               </CardContent>
             </Card>

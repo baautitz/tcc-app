@@ -32,6 +32,7 @@ export function useChatSession() {
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [activityProgress, setActivityProgress] = useState<string>();
+  const [dashboardPickerOpen, setDashboardPickerOpen] = useState(false);
   // setItems is stable, so the ops are stable too.
   const ops = useMemo(() => chatItemOps(setItems), []);
   return {
@@ -43,6 +44,8 @@ export function useChatSession() {
     setBusy,
     activityProgress,
     setActivityProgress,
+    dashboardPickerOpen,
+    setDashboardPickerOpen,
     ...ops,
   };
 }

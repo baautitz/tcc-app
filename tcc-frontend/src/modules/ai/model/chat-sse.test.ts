@@ -508,4 +508,87 @@ describe("protocolo SSE v1 do chat", () => {
       }),
     ).toThrow(/componente isolado/);
   });
+
+  it("rejeita campos novos malformados do component_preview", () => {
+    const start = wireEvent("start", {
+      version: 1,
+      type: "start",
+      requestId: "r1",
+      messageId: "m1",
+    });
+    const base = {
+      version: 1,
+      type: "component_preview",
+      toolCallId: "t",
+      receiptId: "r",
+      expiresAt: "2099-01-01T00:00:00.000Z",
+      component: {
+        id: "c",
+        component: "stat_card",
+        title: "T",
+        queryUuid: "q",
+        colSpan: 6,
+        field: "total",
+      },
+      query: { rows: [{ total: 1 }] },
+    };
+    const parse = (extra: unknown) =>
+      new SseV1Parser().push(
+        start +
+          wireEvent("component_preview", { ...base, ...(extra as object) }),
+      );
+    expect(
+      parse({
+        parameters: [],
+        filters: [{ name: "f" }],
+        bindings: { a: "f" },
+        contextValues: { f: "x" },
+        parameterValues: { a: ["x"] },
+        lookups: { q: { rows: [] } },
+      })[1],
+    ).toMatchObject({ type: "component_preview" });
+    for (const bad of [
+      { parameters: "x" },
+      { parameters: [null] },
+      { filters: {} },
+      { filters: [1] },
+      { bindings: { a: 1 } },
+      { contextValues: [] },
+      { contextValues: { f: 1 } },
+      { parameterValues: null },
+      { lookups: { q: { rows: "x" } } },
+      { lookups: [] },
+    ])
+      expect(() => parse(bad)).toThrow(/componente isolado/);
+  });
+
+  it("interpreta o evento dashboard_required e rejeita o malformado", () => {
+    const start = wireEvent("start", {
+      version: 1,
+      type: "start",
+      requestId: "r1",
+      messageId: "m1",
+    });
+    const ok = new SseV1Parser().push(
+      start +
+        wireEvent("dashboard_required", {
+          version: 1,
+          type: "dashboard_required",
+          toolCallId: "t1",
+        }),
+    );
+    expect(ok[1]).toMatchObject({
+      type: "dashboard_required",
+      toolCallId: "t1",
+    });
+    expect(() =>
+      new SseV1Parser().push(
+        start +
+          wireEvent("dashboard_required", {
+            version: 1,
+            type: "dashboard_required",
+          }),
+      ),
+    ).toThrow(/dashboard/i);
+  });
 });

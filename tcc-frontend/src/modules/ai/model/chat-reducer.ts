@@ -121,6 +121,11 @@ export function applyChatEvent(
         kind: "questionnaire",
         questionnaire: event.questionnaire,
       });
+    case "dashboard_required":
+      return insertAfter(items, assistantId, {
+        id: event.toolCallId,
+        kind: "dashboard_required",
+      });
     case "component_preview": {
       const marked = items.map((item) =>
         item.kind === "component_preview" && !item.status

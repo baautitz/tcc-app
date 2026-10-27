@@ -5,13 +5,11 @@ import type {
 } from "@/modules/dashboards/model/types";
 import type { DashboardComponentChange, FilterValues } from "./types";
 
-export const colors = [
-  "var(--chart-1)",
-  "var(--chart-2)",
-  "var(--chart-3)",
-  "var(--chart-4)",
-  "var(--chart-5)",
-];
+/** Paleta única dos gráficos (--chart-1..10), usada por todos os renderers. */
+export const colors = Array.from(
+  { length: 10 },
+  (_, index) => `var(--chart-${index + 1})`,
+);
 export const colSpanClass: Record<number, string> = {
   1: "col-span-12 @md:col-span-1",
   2: "col-span-12 @md:col-span-2",

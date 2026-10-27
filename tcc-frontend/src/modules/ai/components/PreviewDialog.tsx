@@ -33,7 +33,7 @@ export function PreviewDialog({
   testedIssues,
   testingPreview,
   previewTestError,
-  emptyPreviewFilters,
+  initialPreviewFilters,
   previewComponents,
   requiredArguments,
   runPreviewTest,
@@ -58,7 +58,7 @@ export function PreviewDialog({
   testedIssues: string[] | undefined;
   testingPreview: boolean;
   previewTestError: string | undefined;
-  emptyPreviewFilters: DashboardFilterValues;
+  initialPreviewFilters: DashboardFilterValues;
   previewComponents: DashboardPreviewItem["definition"]["components"];
   requiredArguments: ComponentProps<typeof DashboardFilters>["parameters"];
   runPreviewTest: (values: DashboardFilterValues) => Promise<void>;
@@ -103,7 +103,7 @@ export function PreviewDialog({
               <DashboardFilters
                 parameters={requiredArguments}
                 lookupData={previewLookupData}
-                appliedFilters={emptyPreviewFilters}
+                appliedFilters={initialPreviewFilters}
                 onApply={runPreviewTest}
                 onValuesChange={onPreviewValuesChange}
                 heading="Filtros obrigatórios"
@@ -186,36 +186,6 @@ export function PreviewDialog({
                   </li>
                 ))}
               </ul>
-            </div>
-          )}
-
-          {previewComponents.length > 0 && (
-            <div
-              role="note"
-              aria-label="Legenda das alterações dos componentes"
-              className="flex flex-wrap gap-x-4 gap-y-2 border bg-muted/20 px-3 py-2 text-xs text-muted-foreground"
-            >
-              <span className="flex items-center gap-2">
-                <span
-                  className="size-3 border border-emerald-600/50 bg-emerald-500/10"
-                  aria-hidden="true"
-                />
-                Verde: novo componente
-              </span>
-              <span className="flex items-center gap-2">
-                <span
-                  className="size-3 border border-amber-600/50 bg-amber-500/10"
-                  aria-hidden="true"
-                />
-                Amarelo: componente modificado
-              </span>
-              <span className="flex items-center gap-2">
-                <span
-                  className="size-3 border border-border bg-muted"
-                  aria-hidden="true"
-                />
-                Neutro: sem alteração
-              </span>
             </div>
           )}
 

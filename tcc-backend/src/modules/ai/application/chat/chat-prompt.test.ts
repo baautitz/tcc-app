@@ -53,10 +53,30 @@ describe("prompt do sistema da IA", () => {
     expect(prompt).toMatch(/contexto de navegação.*destino.*posição/i);
   });
 
+  it("exige Dashboard ativo na fase 3 e o usa no lugar da pergunta de destino", () => {
+    expect(prompt).toMatch(/Dashboard ativo: a fase 3 exige um/);
+    expect(prompt).toMatch(/DASHBOARD_REQUIRED/);
+    expect(prompt).toMatch(/seletor de dashboard/);
+    expect(prompt).toMatch(/sem repetir o pedido/);
+    expect(prompt).toMatch(
+      /destino é o Dashboard ativo.*não pergunte o destino/,
+    );
+    expect(prompt).toMatch(/posição continua exigindo resposta/);
+  });
+
   it("limita ask_admin_questions a uma chamada por fase e 4 perguntas", () => {
     expect(prompt).toMatch(/uma chamada por fase/);
     expect(prompt).toMatch(/no máximo 4 perguntas/);
     expect(prompt).toMatch(/cinco Tipos de componente reais/);
+  });
+});
+
+describe("preview com parâmetros", () => {
+  const prompt = buildSystemPrompt(undefined);
+  it("exige que o administrador informe os parâmetros e pergunta na dúvida", () => {
+    expect(prompt).toContain("nunca escolha um período por conta própria");
+    expect(prompt).toContain("O cartão exibe os parâmetros usados");
+    expect(prompt).toContain("acompanha o filtro ou é fixo");
   });
 });
 
@@ -83,5 +103,32 @@ describe("ask_admin_questions", () => {
   it("aceita 4 perguntas e rejeita 5", () => {
     expect(parse(4)).toBe(true);
     expect(parse(5)).toBe(false);
+  });
+
+  it("sempre permite resposta livre, mesmo com opções e allowOther=false", async () => {
+    const events: unknown[] = [];
+    const [questionTool] = new AiQuestionnaireTools({
+      currentUser: { isAdmin: true } as never,
+      onQuestion: (event) => void events.push(event),
+    }).tools();
+    await questionTool!.invoke({
+      title: "T",
+      questions: [
+        {
+          name: "posicao",
+          prompt: "Onde?",
+          allowOther: false,
+          choices: [{ value: "fim", label: "No final" }],
+        },
+        { name: "livre", prompt: "Como?" },
+      ],
+    });
+    const [event] = events as {
+      questionnaire: { questions: { allowOther: boolean }[] };
+    }[];
+    expect(event!.questionnaire.questions.map((q) => q.allowOther)).toEqual([
+      true,
+      true,
+    ]);
   });
 });

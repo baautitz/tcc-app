@@ -21,6 +21,9 @@ import type {
 } from "./chat-stream/types.js";
 import { buildVisibleChunks } from "./chat-stream/visible-chunks.js";
 
+// O contador de tempo da interface só avança quando chega um evento de progresso.
+const PROGRESS_INTERVAL_MS = 1_000;
+
 export {
   errorFromBody,
   makeEvent,
@@ -98,7 +101,8 @@ export function runChatStream(options: {
         event.type === "component_preview" ||
         event.type === "dashboard_applied" ||
         event.type === "context_proposal" ||
-        event.type === "questionnaire"
+        event.type === "questionnaire" ||
+        event.type === "dashboard_required"
       )
         pendingModelText = [];
       if (
@@ -107,7 +111,8 @@ export function runChatStream(options: {
         event.type === "component_preview" ||
         event.type === "dashboard_applied" ||
         event.type === "context_proposal" ||
-        event.type === "questionnaire"
+        event.type === "questionnaire" ||
+        event.type === "dashboard_required"
       ) {
         hasStructuredResponse = true;
         latestStructuredEvent = event;
@@ -192,7 +197,7 @@ export function runChatStream(options: {
       progressInterval = setInterval(() => {
         if (stream.aborted || clientDisconnected) return;
         void writeProgress().catch(() => undefined);
-      }, 10_000);
+      }, PROGRESS_INTERVAL_MS);
       timeoutHandle = setTimeout(() => {
         abortController.abort();
         resolveTimeout();

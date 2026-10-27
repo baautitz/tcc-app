@@ -36,6 +36,15 @@ const migrations = [
       new URL("./migrations/0004_ai_component_receipts.sql", import.meta.url),
     ),
   },
+  {
+    id: "0005_ai_component_receipt_filters",
+    path: fileURLToPath(
+      new URL(
+        "./migrations/0005_ai_component_receipt_filters.sql",
+        import.meta.url,
+      ),
+    ),
+  },
 ];
 
 const client = await pool.connect();

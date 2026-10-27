@@ -95,4 +95,13 @@ describe("applyChatEvent", () => {
     ]);
     expect(out.find((i) => i.id === "r2")).not.toHaveProperty("status");
   });
+  it("dashboard_required insere o cartão de seleção depois do assistente", () => {
+    const out = applyChatEvent(
+      [asst],
+      ev({ type: "dashboard_required", toolCallId: "t9" }),
+      "a",
+    );
+    expect(out.map((i) => i.id)).toEqual(["a", "t9"]);
+    expect(out[1]).toMatchObject({ kind: "dashboard_required" });
+  });
 });

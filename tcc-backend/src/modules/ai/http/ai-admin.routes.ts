@@ -11,6 +11,7 @@ import {
   dismissProposal,
   getContextProposalById,
   listContextProposals,
+  previewComponentReceipt,
 } from "./ai-admin.controller.js";
 
 export const aiAdminRoutes = new Hono<{ Variables: AppVariables }>();
@@ -44,4 +45,10 @@ aiAdminRoutes.post(
   authentication,
   adminRequired,
   approveComponentReceipt,
+);
+aiAdminRoutes.post(
+  "/api/admin/ai/component-receipts/:receiptId/preview",
+  authentication,
+  adminRequired,
+  previewComponentReceipt,
 );

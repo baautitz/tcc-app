@@ -28,6 +28,7 @@ import {
   type QueryPreviewItem,
   type ComponentPreviewItem,
   type ComponentAdjustment,
+  type ComponentValues,
   type AiContinuation,
   type AiPageContext,
   type SavedQueryReference,
@@ -52,6 +53,7 @@ type Session = {
   busy: boolean;
   setBusy: (busy: boolean) => void;
   setActivityProgress: (progress: string | undefined) => void;
+  setDashboardPickerOpen: (open: boolean) => void;
   updateAssistant: (
     id: string,
     update: (message: ChatMessage) => ChatMessage,
@@ -67,6 +69,7 @@ export function useChatSend(session: Session, pathname: string) {
     busy,
     setBusy,
     setActivityProgress,
+    setDashboardPickerOpen,
     updateAssistant,
   } = session;
   const navigate = useNavigate();
@@ -81,6 +84,10 @@ export function useChatSend(session: Session, pathname: string) {
   const lastContinuationRef = useRef<AiContinuation | undefined>(undefined);
   const lastPageContextRef = useRef<AiPageContext | undefined>(undefined);
   const lastSilentUserRef = useRef(false);
+  // Dashboard ativo escolhido no seletor; vale quando a página não tem dashboard.
+  const chosenDashboardRef = useRef<{ id: string; name: string } | undefined>(
+    undefined,
+  );
   const pathRef = useRef(pathname);
   const refreshedToolCallsRef = useRef(new Set<string>());
   pathRef.current = pathname;
@@ -122,6 +129,9 @@ export function useChatSend(session: Session, pathname: string) {
           );
           return;
         }
+        case "dashboard_required":
+          setDashboardPickerOpen(true);
+          break;
         case "dashboard_applied": {
           const currentDashboardId = /^\/dashboards\/([^/]+)$/.exec(
             pathRef.current,
@@ -164,7 +174,13 @@ export function useChatSend(session: Session, pathname: string) {
         refreshCurrentView();
       }
     },
-    [navigate, refreshCurrentView, setActivityProgress, setItems],
+    [
+      navigate,
+      refreshCurrentView,
+      setActivityProgress,
+      setDashboardPickerOpen,
+      setItems,
+    ],
   );
 
   const stop = useCallback(() => {
@@ -216,7 +232,17 @@ export function useChatSend(session: Session, pathname: string) {
       );
       if (!retrying || options?.silentUser)
         conversation.push({ role: "user", content });
-      const pageContext = options?.pageContext ?? pageContextForPath(pathname);
+      const chosen = chosenDashboardRef.current;
+      const pathContext = pageContextForPath(pathname);
+      const pageContext =
+        options?.pageContext ??
+        (chosen && !pathContext.dashboardId
+          ? {
+              ...pathContext,
+              dashboardId: chosen.id,
+              dashboardName: chosen.name,
+            }
+          : pathContext);
       const requestPath = pageContext.pathname;
       const savedQueryReferences = new Map<string, SavedQueryReference>();
       for (const item of items) {
@@ -496,13 +522,21 @@ export function useChatSend(session: Session, pathname: string) {
     setItems([]);
     setDraft("");
     threadIdRef.current = crypto.randomUUID();
+    chosenDashboardRef.current = undefined;
+    setDashboardPickerOpen(false);
     activeAssistantIdRef.current = null;
     lastPromptRef.current = "";
     lastContinuationRef.current = undefined;
     lastPageContextRef.current = undefined;
     lastSilentUserRef.current = false;
     refreshedToolCallsRef.current.clear();
-  }, [setActivityProgress, setBusy, setDraft, setItems]);
+  }, [
+    setActivityProgress,
+    setBusy,
+    setDashboardPickerOpen,
+    setDraft,
+    setItems,
+  ]);
 
   const continueAfterQuerySaved = useCallback(
     (preview: QueryPreviewItem, queryId: string, queryName: string) => {
@@ -565,11 +599,11 @@ export function useChatSend(session: Session, pathname: string) {
 
   /** Aprovar: registra o Recibo de componente no backend (nada é salvo) e segue para a fase 4. */
   const approveComponent = useCallback(
-    async (item: ComponentPreviewItem) => {
+    async (item: ComponentPreviewItem, values: ComponentValues) => {
       if (busy || item.status) return;
       markComponent(item.id, "approving");
       try {
-        await aiApi.approveAiComponentReceipt(item.receiptId);
+        await aiApi.approveAiComponentReceipt(item.receiptId, values);
       } catch (reason) {
         markComponent(item.id, undefined);
         toast.error(
@@ -617,7 +651,29 @@ export function useChatSend(session: Session, pathname: string) {
     [busy, markComponent, send, setItems],
   );
 
+  /** Seletor: define o Dashboard ativo da conversa (sem navegar) e a IA retoma sozinha. */
+  const selectDashboard = useCallback(
+    async (dashboard: { id: string; name: string }) => {
+      const previous = chosenDashboardRef.current;
+      chosenDashboardRef.current = dashboard;
+      setDashboardPickerOpen(false);
+      const sent = await send({
+        content: `O administrador escolheu o dashboard “${dashboard.name}” (${dashboard.id}) como Dashboard ativo. Retome de onde parou, sem repetir o pedido.`,
+        silentUser: true,
+      });
+      if (!sent) {
+        chosenDashboardRef.current = previous;
+        setDashboardPickerOpen(true);
+        toast.error(
+          "Aguarde a resposta atual terminar para escolher o dashboard.",
+        );
+      }
+    },
+    [send, setDashboardPickerOpen],
+  );
+
   return {
+    selectDashboard,
     approveComponent,
     adjustComponent,
     send,

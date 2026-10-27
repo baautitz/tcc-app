@@ -143,6 +143,8 @@ export function structuredResponseFallback(
         : `A proposta do dashboard “${event.document.name}” foi gerada, mas ainda tem ${event.issues.length} pendência(s) e não pode ser aplicada. Revise os problemas no cartão; nada foi salvo.`;
     case "component_preview":
       return `O componente “${event.component.title}” está isolado no cartão. Nada foi salvo; aprove ou peça ajuste no cartão para eu continuar.`;
+    case "dashboard_required":
+      return "Escolha um dashboard na janela aberta para eu continuar.";
     case "dashboard_applied":
       return `O patch no dashboard “${event.dashboardName}” foi aplicado e salvo.`;
     case "context_proposal":

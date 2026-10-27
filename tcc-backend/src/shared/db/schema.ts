@@ -232,6 +232,13 @@ export const aiComponentReceipts = pgTable(
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     approvedAt: timestamp("approved_at", { withTimezone: true }),
     consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    dashboardId: uuid("dashboard_id"),
+    parameterBindings:
+      jsonb("parameter_bindings").$type<Record<string, string>>(),
+    contextValues:
+      jsonb("context_values").$type<Record<string, string | string[]>>(),
+    parameterValues:
+      jsonb("parameter_values").$type<Record<string, string | string[]>>(),
     createdAt,
   },
   (table) => [

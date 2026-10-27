@@ -7,7 +7,11 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { pivotSeries, propertyString } from "@/modules/dashboards/model/lib";
+import {
+  colors,
+  pivotSeries,
+  propertyString,
+} from "@/modules/dashboards/model/lib";
 import { Card, CardContent } from "@/shared/ui/card";
 import { chartEmptyMessage, chartRowsFor } from "./ChartRows";
 import { ComponentError, ComponentPreviewHeader } from "./ComponentFrame";
@@ -59,7 +63,7 @@ export const LineChartRenderer: Renderer = ({
                 type="monotone"
                 dataKey={serie.key}
                 name={serie.label}
-                stroke={`var(--chart-${(index % 5) + 1})`}
+                stroke={colors[index % colors.length]}
                 strokeWidth={2}
                 dot={false}
                 connectNulls

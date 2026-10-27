@@ -48,6 +48,10 @@ _Avoid_: Widget, gráfico (quando se fala de qualquer tipo)
 Forma de exibir os dados de um Componente. Existem cinco: cartão de indicador, gráfico de barras, gráfico de linhas, gráfico de pizza e tabela. O Tipo pedido pelo administrador é respeitado literalmente; se não servir aos dados, a IA pergunta antes de trocar.
 _Avoid_: Formato, visual
 
+**Dashboard ativo**:
+Dashboard sobre o qual a conversa com a IA está trabalhando, vindo da página aberta ou escolhido pelo administrador. É exigido para gerar um Componente e é a fonte dos filtros mostrados no cartão do Componente isolado.
+_Avoid_: Dashboard atual, dashboard selecionado
+
 **Contexto**:
 Descrição semântica de uma tabela ou coluna de uma fonte de dados, lida pela IA para escrever queries. Só muda depois que um humano aprova uma Proposta de contexto.
 _Avoid_: Metadados, documentação da tabela

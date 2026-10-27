@@ -19,7 +19,10 @@ export function useDashboardPreview(
   const [testedIssues, setTestedIssues] = useState<string[]>();
   const [testingPreview, setTestingPreview] = useState(false);
   const [previewTestError, setPreviewTestError] = useState<string>();
-  const emptyPreviewFilters = useMemo<DashboardFilterValues>(() => ({}), []);
+  const initialPreviewFilters = useMemo<DashboardFilterValues>(
+    () => item.contextValues ?? {},
+    [item.contextValues],
+  );
   const previewComponentIds = useMemo(
     () => new Set(item.previewComponentIds),
     [item.previewComponentIds],
@@ -216,7 +219,7 @@ export function useDashboardPreview(
     testedIssues,
     testingPreview,
     previewTestError,
-    emptyPreviewFilters,
+    initialPreviewFilters,
     previewComponents,
     requiredArguments,
     componentTitles,

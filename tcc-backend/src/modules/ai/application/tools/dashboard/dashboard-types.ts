@@ -37,6 +37,14 @@ export interface AiComponentReceipt {
   expiresAt: Date;
   approvedAt: Date | null;
   consumedAt: Date | null;
+  /** Dashboard ativo quando o cartão foi emitido (nulo em Recibos antigos). */
+  dashboardId?: string | null;
+  /** Ligação parâmetro da query -> filtro do dashboard. */
+  parameterBindings?: Record<string, string> | null;
+  /** Valores dos filtros do dashboard guardados ao aprovar. */
+  contextValues?: Record<string, string | string[]> | null;
+  /** Valores dos parâmetros sem filtro correspondente, guardados ao aprovar. */
+  parameterValues?: Record<string, string | string[]> | null;
 }
 
 export interface AiDashboardToolsRepository {
@@ -45,6 +53,8 @@ export interface AiDashboardToolsRepository {
     actorId: string;
     component: unknown;
     expiresAt: Date;
+    dashboardId?: string;
+    parameterBindings?: Record<string, string>;
   }): Promise<void>;
   findComponentReceipt(id: string): Promise<AiComponentReceipt | undefined>;
   listSavedQueries(): Promise<AiDashboardQuery[]>;

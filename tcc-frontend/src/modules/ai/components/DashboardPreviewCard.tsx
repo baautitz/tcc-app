@@ -34,7 +34,7 @@ export function DashboardPreviewCard({
     previewOpen,
     testingPreview,
     previewTestError,
-    emptyPreviewFilters,
+    initialPreviewFilters,
     previewComponents,
     requiredArguments,
     runPreviewTest,
@@ -177,7 +177,7 @@ export function DashboardPreviewCard({
         testedIssues={testedIssues}
         testingPreview={testingPreview}
         previewTestError={previewTestError}
-        emptyPreviewFilters={emptyPreviewFilters}
+        initialPreviewFilters={initialPreviewFilters}
         previewComponents={previewComponents}
         requiredArguments={requiredArguments}
         runPreviewTest={runPreviewTest}
