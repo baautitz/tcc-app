@@ -43,35 +43,20 @@ type DashboardRuntime = ToolRuntime & { toolCallId?: string };
 /** Segundo argumento que o LangChain passa ao handler da ferramenta. */
 type ToolCallRuntime = Record<string, any>;
 
-function refusal(code: string, message: string, instruction: string) {
-  return { ok: false as const, code, message, instruction };
+/** Documento mínimo só com o componente, para reusar a validação da prévia. */
+function isolatedDocument(component: z.infer<typeof aiComponentSchema>) {
+  return createDashboardDocument(
+    aiDashboardProposalInputSchema.parse({
+      mode: "create",
+      name: "Componente isolado",
+      components: [component],
+    }),
+    crypto.randomUUID(),
+  );
 }
 
-const REQUIRED_FIELDS: Record<string, string[]> = {
-  stat_card: ["field"],
-  bar_chart: ["nameKey", "valueKey"],
-  line_chart: ["nameKey", "valueKey"],
-  pie_chart: ["nameKey", "valueKey"],
-  data_table: [],
-};
-
-function missingPreviewFields(
-  component: z.infer<typeof aiComponentSchema>,
-  rows: Record<string, unknown>[],
-) {
-  const first = rows[0];
-  if (!first) return [];
-  const record = component as Record<string, unknown>;
-  const wanted = [
-    ...REQUIRED_FIELDS[component.component]!.map((key) => String(record[key])),
-    ...(component.component === "line_chart" && component.seriesKey
-      ? [component.seriesKey]
-      : []),
-    ...(component.component === "data_table"
-      ? component.columns.map((column) => column.key)
-      : []),
-  ];
-  return wanted.filter((key) => !Object.hasOwn(first, key));
+function refusal(code: string, message: string, instruction: string) {
+  return { ok: false as const, code, message, instruction };
 }
 
 export class AiDashboardTools {
@@ -222,12 +207,18 @@ export class AiDashboardTools {
               : "A consulta falhou durante a prévia.",
         };
       }
-      const missing = missingPreviewFields(component, preview.rows);
-      if (preview.error || missing.length > 0)
+      const issues = preview.error
+        ? [preview.error]
+        : validateDashboardPreviewFields(
+            isolatedDocument(component),
+            { [component.queryUuid]: preview },
+            undefined,
+            new Set(),
+          );
+      if (issues.length > 0)
         return refusal(
           "COMPONENT_PREVIEW_INVALID",
-          preview.error ??
-            `A query não retorna as colunas: ${missing.join(", ")}.`,
+          issues.join(" "),
           "Nenhum cartão foi gerado. Corrija os aliases do componente (ou a query) e chame preview_component de novo.",
         );
       const id = makeDashboardProposalReceiptId();
@@ -265,16 +256,37 @@ export class AiDashboardTools {
     }
   }
 
-  /** Gates das fases 3 e 4: devolve a recusa, ou o id do componente aprovado. */
+  /**
+   * Gates das fases 3 e 4. Só componentes novos ou alterados (`changedIds`,
+   * comparados ao documento atual) exigem Recibo, destino e posição; reordenar
+   * e remover não. Cada Recibo cobre um único componente.
+   */
   private async checkPhases(
     parsed: z.infer<typeof aiDashboardProposalInputSchema>,
+    changedIds: string[],
   ): Promise<
     { refused: ReturnType<typeof refusal> } | { approvedId: string | undefined }
   > {
     const refuse = (code: string, message: string, instruction: string) => ({
       refused: refusal(code, message, instruction),
     });
-    if (parsed.components.length > 0 && !parsed.componentReceiptId)
+    if (parsed.destination) {
+      const { kind, dashboardId } = parsed.destination;
+      const consistent =
+        kind === "new_dashboard"
+          ? parsed.mode === "create"
+          : parsed.mode === "update" &&
+            (dashboardId ?? parsed.dashboardId) === parsed.dashboardId;
+      if (!consistent)
+        return refuse(
+          "DESTINATION_MISMATCH",
+          "O destino declarado não bate com mode/dashboardId.",
+          "Use new_dashboard com mode=create, ou existing_dashboard com mode=update e o mesmo dashboardId.",
+        );
+    }
+    if (changedIds.length === 0) return { approvedId: undefined };
+
+    if (!parsed.componentReceiptId)
       return refuse(
         "COMPONENT_RECEIPT_REQUIRED",
         "Falta o Recibo de componente: o administrador ainda não aprovou o componente isolado.",
@@ -290,30 +302,15 @@ export class AiDashboardTools {
         "Falta o dashboard de destino.",
         "Pergunte ao administrador em qual dashboard (novo ou existente) o componente entra; não assuma.",
       );
-    if (parsed.destination) {
-      const { kind, dashboardId } = parsed.destination;
-      const consistent =
-        kind === "new_dashboard"
-          ? parsed.mode === "create"
-          : parsed.mode === "update" &&
-            (dashboardId ?? parsed.dashboardId) === parsed.dashboardId;
-      if (!consistent)
-        return refuse(
-          "DESTINATION_MISMATCH",
-          "O destino declarado não bate com mode/dashboardId.",
-          "Use new_dashboard com mode=create, ou existing_dashboard com mode=update e o mesmo dashboardId.",
-        );
-    }
-    if (parsed.components.length > 0 && !parsed.position)
+    if (!parsed.position)
       return refuse(
         "POSITION_REQUIRED",
         "Falta a posição do componente dentro do dashboard.",
         "Pergunte ao administrador onde o componente fica (início, fim, antes ou depois de um componente); nunca assuma o fim.",
       );
-    if (parsed.components.length === 0) return { approvedId: undefined };
 
     const receipt = await this.options.repository.findComponentReceipt(
-      parsed.componentReceiptId!,
+      parsed.componentReceiptId,
     );
     const now = (this.options.now ?? Date.now)();
     const approved = receipt
@@ -341,6 +338,13 @@ export class AiDashboardTools {
         "O componente da proposta difere do componente que o administrador aprovou.",
         "Envie o componente exatamente como aprovado; para mudar tipo, título ou largura, gere outro cartão com preview_component.",
       );
+    const unapproved = changedIds.filter((id) => id !== approved.data.id);
+    if (unapproved.length > 0)
+      return refuse(
+        "COMPONENT_RECEIPT_REQUIRED",
+        `Os componentes novos ou alterados ${unapproved.map((id) => `'${id}'`).join(", ")} não têm Recibo aprovado; cada Recibo cobre um único componente.`,
+        "Aprove cada componente novo ou alterado com preview_component e proponha um por vez; reenvie os demais exatamente como estão no dashboard.",
+      );
     return { approvedId: approved.data.id };
   }
 
@@ -358,8 +362,6 @@ export class AiDashboardTools {
     });
     let ok = false;
     try {
-      const phases = await this.checkPhases(parsed);
-      if ("refused" in phases) return phases.refused;
       const mode = parsed.mode;
       const targetId =
         mode === "update"
@@ -387,12 +389,24 @@ export class AiDashboardTools {
         dashboardId,
         previous?.document,
       );
-      if (phases.approvedId && parsed.position)
-        document = applyComponentPosition(
+      const changes = dashboardComponentChanges(document, previous?.document);
+      const changedIds = parsed.components
+        .map((component) => component.id)
+        .filter((id) => changes[id] !== "unchanged");
+      const phases = await this.checkPhases(parsed, changedIds);
+      if ("refused" in phases) return phases.refused;
+      if (phases.approvedId && parsed.position) {
+        const positioned = applyComponentPosition(
           document,
           phases.approvedId,
           parsed.position,
         );
+        if (!positioned.ok) {
+          const { ok: _ok, ...details } = positioned;
+          return refusal(details.code, details.message, details.instruction);
+        }
+        document = positioned.document;
+      }
       dashboardDocumentSchema.parse(document);
       const proposedComponentIds = parsed.components.map(
         (component) => component.id,
@@ -579,31 +593,37 @@ export class AiDashboardTools {
         );
       }
       if (issues.length === 0) {
-        if (
-          parsed.componentReceiptId &&
-          !(await this.options.repository.consumeComponentReceipt(
-            parsed.componentReceiptId,
-            this.options.currentUser.id,
-            new Date((this.options.now ?? Date.now)()),
-          ))
-        )
+        const consumed = await this.options.repository.issueReceipt(
+          {
+            id,
+            actorId: this.options.currentUser.id,
+            mode,
+            dashboardId,
+            expectedDashboardFingerprint: previous?.fingerprint ?? null,
+            document,
+            documentFingerprint,
+            referenceFingerprint: referencesFingerprint,
+            hasTruncatedPreview,
+            expiresAt,
+          },
+          // O Recibo de componente só é consumido junto com a emissão do
+          // Recibo da proposta (mesma transação): falha aqui não o queima.
+          phases.approvedId && parsed.componentReceiptId
+            ? {
+                consumeComponentReceipt: {
+                  id: parsed.componentReceiptId,
+                  actorId: this.options.currentUser.id,
+                  now: new Date((this.options.now ?? Date.now)()),
+                },
+              }
+            : undefined,
+        );
+        if (!consumed)
           return refusal(
             "COMPONENT_RECEIPT_INVALID",
             "O Recibo de componente já foi usado ou expirou.",
             "Gere um novo cartão com preview_component e aguarde a aprovação do administrador.",
           );
-        await this.options.repository.issueReceipt({
-          id,
-          actorId: this.options.currentUser.id,
-          mode,
-          dashboardId,
-          expectedDashboardFingerprint: previous?.fingerprint ?? null,
-          document,
-          documentFingerprint,
-          referenceFingerprint: referencesFingerprint,
-          hasTruncatedPreview,
-          expiresAt,
-        });
       }
       await this.emit(preview);
       ok = true;

@@ -530,12 +530,19 @@ export const DASHBOARD_PROPOSAL_TTL_MS = 5 * 60 * 1_000;
 /** Prazo do Recibo de componente (aprovação do componente isolado). */
 export const COMPONENT_RECEIPT_TTL_MS = 30 * 60 * 1_000;
 
-/** Move o componente aprovado para a posição declarada; os demais mantêm a ordem. */
+export type ComponentPositionResult =
+  | { ok: true; document: DashboardDocument }
+  | { ok: false; code: string; message: string; instruction: string };
+
+/**
+ * Move o componente aprovado para a posição declarada; os demais mantêm a ordem.
+ * Âncora ausente ou igual ao próprio componente é recusa estruturada, não exceção.
+ */
 export function applyComponentPosition(
   document: DashboardDocument,
   componentId: string,
   position: ComponentPosition,
-): DashboardDocument {
+): ComponentPositionResult {
   const components = [...document.ui.components];
   const from = components.findIndex((item) => item.id === componentId);
   if (from < 0) throw new Error("O componente aprovado não está na proposta.");
@@ -543,15 +550,24 @@ export function applyComponentPosition(
   let index = components.length;
   if (position.placement === "start") index = 0;
   else if (position.placement !== "end") {
-    const anchor = components.findIndex(
-      (item) => item.id === position.relativeToComponentId,
-    );
+    const anchorId = position.relativeToComponentId;
+    const anchor = components.findIndex((item) => item.id === anchorId);
     if (anchor < 0)
-      throw new Error(
-        `O componente de referência '${position.relativeToComponentId}' não existe no dashboard de destino.`,
-      );
+      return {
+        ok: false,
+        code: "POSITION_ANCHOR_INVALID",
+        message:
+          anchorId === componentId
+            ? "O componente de referência não pode ser o próprio componente posicionado."
+            : `O componente de referência '${anchorId}' não existe no dashboard de destino.`,
+        instruction:
+          "Pergunte ao administrador em relação a qual outro componente do dashboard (ou início/fim) o componente entra.",
+      };
     index = position.placement === "before" ? anchor : anchor + 1;
   }
   components.splice(index, 0, moved!);
-  return { ...document, ui: { ...document.ui, components } };
+  return {
+    ok: true,
+    document: { ...document, ui: { ...document.ui, components } },
+  };
 }

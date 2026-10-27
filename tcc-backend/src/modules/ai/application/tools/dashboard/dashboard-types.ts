@@ -47,12 +47,6 @@ export interface AiDashboardToolsRepository {
     expiresAt: Date;
   }): Promise<void>;
   findComponentReceipt(id: string): Promise<AiComponentReceipt | undefined>;
-  /** Uso único: true somente se o recibo era do Ator, aprovado, não usado e dentro do prazo. */
-  consumeComponentReceipt(
-    id: string,
-    actorId: string,
-    now: Date,
-  ): Promise<boolean>;
   listSavedQueries(): Promise<AiDashboardQuery[]>;
   findSavedQueries(ids: string[]): Promise<AiDashboardQueryDefinition[]>;
   findDashboard(
@@ -62,16 +56,22 @@ export interface AiDashboardToolsRepository {
     query: AiDashboardQueryDefinition,
     values: Record<string, string | string[]>,
   ): Promise<AiDashboardQueryPreview>;
-  issueReceipt(input: {
-    id: string;
-    actorId: string;
-    mode: "create" | "update";
-    dashboardId: string;
-    expectedDashboardFingerprint: string | null;
-    document: DashboardDocument;
-    documentFingerprint: string;
-    referenceFingerprint: string;
-    hasTruncatedPreview: boolean;
-    expiresAt: Date;
-  }): Promise<void>;
+  issueReceipt(
+    input: {
+      id: string;
+      actorId: string;
+      mode: "create" | "update";
+      dashboardId: string;
+      expectedDashboardFingerprint: string | null;
+      document: DashboardDocument;
+      documentFingerprint: string;
+      referenceFingerprint: string;
+      hasTruncatedPreview: boolean;
+      expiresAt: Date;
+    },
+    options?: {
+      /** Uso único, na mesma transação: sem consumo válido nada é emitido. */
+      consumeComponentReceipt?: { id: string; actorId: string; now: Date };
+    },
+  ): Promise<boolean>;
 }
