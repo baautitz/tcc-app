@@ -17,6 +17,14 @@ import { chartEmptyMessage, chartRowsFor } from "./ChartRows";
 import { ComponentError, ComponentPreviewHeader } from "./ComponentFrame";
 import type { Renderer } from "./renderers";
 
+// Uma série com menos de 2 valores não forma linha; sem ponto ela some.
+function isolatedPoints(data: Record<string, unknown>[], key: string) {
+  const filled = data.filter(
+    (row) => row[key] !== null && row[key] !== undefined,
+  );
+  return filled.length < 2 ? { r: 3 } : false;
+}
+
 export const LineChartRenderer: Renderer = ({
   component,
   rows,
@@ -65,7 +73,7 @@ export const LineChartRenderer: Renderer = ({
                 name={serie.label}
                 stroke={colors[index % colors.length]}
                 strokeWidth={2}
-                dot={false}
+                dot={isolatedPoints(data, serie.key)}
                 connectNulls
               />
             ))}
