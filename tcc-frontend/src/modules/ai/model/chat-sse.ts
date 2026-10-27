@@ -139,6 +139,41 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+function optional(value: unknown, valid: (value: unknown) => boolean) {
+  return value === undefined || valid(value);
+}
+
+function isArrayOf(
+  value: unknown,
+  valid: (item: Record<string, unknown>) => boolean,
+) {
+  return (
+    Array.isArray(value) && value.every((item) => isRecord(item) && valid(item))
+  );
+}
+
+function isPlainMap(
+  value: unknown,
+  valid: (item: unknown) => boolean,
+): value is Record<string, unknown> {
+  return (
+    isRecord(value) &&
+    !Array.isArray(value) &&
+    Object.values(value).every(valid)
+  );
+}
+
+const isStringMap = (value: unknown) =>
+  isPlainMap(value, (item) => typeof item === "string");
+
+const isValueMap = (value: unknown) =>
+  isPlainMap(
+    value,
+    (item) =>
+      typeof item === "string" ||
+      (Array.isArray(item) && item.every((entry) => typeof entry === "string")),
+  );
+
 function decodeEvent(eventName: string, data: string): ChatEvent | undefined {
   let payload: unknown;
   try {
@@ -408,7 +443,25 @@ function decodeEvent(eventName: string, data: string): ChatEvent | undefined {
         Number.isSafeInteger(component.colSpan) &&
         isRecord(query) &&
         Array.isArray(query.rows) &&
-        query.rows.every(isRecord)
+        query.rows.every(isRecord) &&
+        optional(payload.parameters, (value) =>
+          isArrayOf(value, (item) => typeof item.name === "string"),
+        ) &&
+        optional(payload.filters, (value) =>
+          isArrayOf(value, (item) => typeof item.name === "string"),
+        ) &&
+        optional(payload.bindings, isStringMap) &&
+        optional(payload.contextValues, isValueMap) &&
+        optional(payload.parameterValues, isValueMap) &&
+        optional(payload.lookups, (value) =>
+          isPlainMap(
+            value,
+            (lookup) =>
+              isRecord(lookup) &&
+              Array.isArray(lookup.rows) &&
+              lookup.rows.every(isRecord),
+          ),
+        )
       )
         return normalizedPayload as ChatEvent;
       throw new Error("O componente isolado da IA está malformado.");
