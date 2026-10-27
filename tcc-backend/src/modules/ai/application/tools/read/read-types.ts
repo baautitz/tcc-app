@@ -97,6 +97,8 @@ export type AiToolProgressEvent =
       definition: import("../../../../../shared/lib/contracts.js").DashboardDefinition;
       changeSummary: string[];
       componentChanges: Record<string, "added" | "modified" | "unchanged">;
+      /** Valores dos filtros com que a prévia foi executada (vindos do Recibo de componente). */
+      contextValues?: Record<string, string | string[]>;
       queries: Record<
         string,
         {
@@ -120,9 +122,29 @@ export type AiToolProgressEvent =
       parameters: {
         name: string;
         label: string;
+        type: "text" | "number" | "date" | "boolean" | "multi_select";
         required: boolean;
+        /** Filtro do dashboard ligado ao parâmetro; nulo = input do próprio parâmetro. */
+        bound: string | null;
         value: string | string[] | null;
       }[];
+      /** Filtros do Dashboard ativo (workspace.params). */
+      filters: {
+        name: string;
+        label: string;
+        type: "text" | "number" | "date" | "boolean" | "multi_select";
+        required: boolean;
+        options?: { label: string; value: string }[];
+        lookup?: { queryUuid: string; valueField: string; labelField: string };
+      }[];
+      bindings: Record<string, string>;
+      contextValues: Record<string, string | string[]>;
+      parameterValues: Record<string, string | string[]>;
+      /** Amostras das queries de lookup dos filtros, por UUID da query. */
+      lookups: Record<
+        string,
+        import("../../../../dashboards/domain/dashboard-preview-validation.js").AiDashboardQueryPreview
+      >;
     }
   | { type: "dashboard_required"; toolCallId: string }
   | {

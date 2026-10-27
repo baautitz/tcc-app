@@ -1,17 +1,19 @@
 import { randomUUID } from "node:crypto";
-import { access, mkdir, readFile, rm, rmdir } from "node:fs/promises";
+import { readFile, rm } from "node:fs/promises";
 import { resolve } from "node:path";
 import { eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { getEnvironment } from "../../src/shared/config/config.js";
 import { db, pool } from "../../src/shared/db/client.js";
 import {
+  aiComponentReceipts,
   dashboardProposalReceipts,
   dashboards,
   dataSources,
   savedQueries,
   users,
 } from "../../src/shared/db/schema.js";
+import type { AiToolProgressEvent } from "../../src/modules/ai/application/tools/ai-read-tools.js";
 import { AiDashboardTools } from "../../src/modules/ai/application/tools/ai-dashboard-tools.js";
 import { DrizzleAiDashboardToolsRepository } from "../../src/modules/ai/infrastructure/ai-dashboard-tools-repository.js";
 import { externalSourceAdapter } from "../../src/modules/data-sources/infrastructure/external-source-adapter.js";
@@ -33,12 +35,18 @@ integrationDescribe(
     const dashboardsDir = resolve(process.cwd(), "dashboards");
     let dashboardId = "";
     let dashboardFile = "";
-    let createdDir = false;
     let admin: SmokeUser;
     let other: SmokeUser;
     let sourceId: string;
     let queryId: string;
     let receiptId: string;
+    let componentReceiptId: string;
+    let baseline: string;
+    const events: AiToolProgressEvent[] = [];
+    let proposeComponent: () => Promise<{
+      proposalId: string;
+      canCommit: boolean;
+    }>;
 
     beforeAll(async () => {
       admin = await createUser(true, "Dashboard proposal");
@@ -63,14 +71,17 @@ integrationDescribe(
       sourceId = source.id;
       const draft = {
         dataSourceId: sourceId,
-        sqlText: "SELECT 1 AS value",
-        parameters: [],
+        sqlText: "SELECT {{amount}}::int AS value, {{note}}::text AS note",
+        parameters: [
+          { name: "amount", label: "Valor", type: "number", required: true },
+          { name: "note", label: "Nota", type: "text", required: false },
+        ],
       };
       const preview = (await (
         await jsonRequest("/api/queries/test", {
           method: "POST",
           token: admin.token,
-          body: draft,
+          body: { ...draft, values: { amount: "1" } },
         })
       ).json()) as { testRunId: string };
       const created = await jsonRequest("/api/queries", {
@@ -85,8 +96,43 @@ integrationDescribe(
       expect(created.status).toBe(201);
       queryId = ((await created.json()) as { id: string }).id;
 
+      // Dashboard ativo: criado e com um filtro (workspace.params) pelas rotas de administração.
+      const createdDashboard = await jsonRequest("/api/admin/dashboards", {
+        method: "POST",
+        token: admin.token,
+        body: { name: "Dashboard de integração" },
+      });
+      expect(createdDashboard.status).toBe(201);
+      dashboardId = ((await createdDashboard.json()) as { id: string }).id;
+      dashboardFile = resolve(dashboardsDir, `${dashboardId}.json`);
+      const current = (await (
+        await jsonRequest(`/api/admin/dashboards/${dashboardId}`, {
+          token: admin.token,
+        })
+      ).json()) as {
+        document: { workspace: { params: unknown[] } };
+        revision: string;
+      };
+      current.document.workspace.params = [
+        { name: "valor", label: "Valor", type: "number", required: true },
+      ];
+      const saved = await jsonRequest(`/api/admin/dashboards/${dashboardId}`, {
+        method: "PUT",
+        token: admin.token,
+        body: {
+          document: current.document,
+          expectedRevision: current.revision,
+        },
+      });
+      expect(saved.status).toBe(200);
+      baseline = await readFile(dashboardFile, "utf8");
+
       const tools = new AiDashboardTools({
         currentUser: { id: admin.id, isAdmin: true } as AuthenticatedUser,
+        pageDashboardId: dashboardId,
+        onToolEvent: (event) => {
+          events.push(event);
+        },
         repository: new DrizzleAiDashboardToolsRepository(
           externalSourceAdapter,
         ),
@@ -106,35 +152,23 @@ integrationDescribe(
       )!;
       const componentPreview = (await previewComponent.invoke({
         component,
+        parameterBindings: { amount: "valor" },
+        previewValues: { amount: "1" },
       })) as { componentReceiptId: string };
-      const approved = await jsonRequest(
-        `/api/admin/ai/component-receipts/${componentPreview.componentReceiptId}/approve`,
-        { method: "POST", token: admin.token },
-      );
-      expect(approved.status).toBe(200);
-      const proposal = (await propose.invoke({
-        mode: "create",
-        name: "Dashboard de integração",
-        queryBindings: [{ queryUuid: queryId, parameters: {} }],
-        components: [component],
-        componentReceiptId: componentPreview.componentReceiptId,
-        destination: { kind: "new_dashboard" },
-        position: { placement: "end" },
-      })) as { proposalId: string; dashboardId: string; canCommit: boolean };
-      expect(proposal.canCommit).toBe(true);
-      receiptId = proposal.proposalId;
-      dashboardId = proposal.dashboardId;
-      dashboardFile = resolve(dashboardsDir, `${dashboardId}.json`);
-      createdDir =
-        (await access(dashboardsDir).then(
-          () => false,
-          () => true,
-        )) && (await mkdir(dashboardsDir, { recursive: true })) !== undefined;
+      componentReceiptId = componentPreview.componentReceiptId;
+      proposeComponent = async () =>
+        (await propose.invoke({
+          mode: "update",
+          dashboardId,
+          name: "Dashboard de integração",
+          components: [component],
+          componentReceiptId,
+          position: { placement: "end" },
+        })) as { proposalId: string; canCommit: boolean };
     });
 
     afterAll(async () => {
       if (dashboardFile) await rm(dashboardFile, { force: true });
-      if (createdDir) await rmdir(dashboardsDir).catch(() => undefined);
       if (dashboardId)
         await db
           .delete(dashboards)
@@ -147,13 +181,103 @@ integrationDescribe(
       await pool.end();
     });
 
-    it("prévia roda a query salva sem gravar nada em disco", async () => {
+    const componentRoute = (suffix: "preview" | "approve") =>
+      `/api/admin/ai/component-receipts/${componentReceiptId}/${suffix}`;
+
+    it("prévia do componente por valores repete a query sem a IA e respeita dono e filtros", async () => {
+      const ok = await jsonRequest(componentRoute("preview"), {
+        method: "POST",
+        token: admin.token,
+        body: {
+          contextValues: { valor: "7" },
+          parameterValues: { note: "x" },
+        },
+      });
+      expect(ok.status).toBe(200);
+      expect(await ok.json()).toMatchObject({
+        query: { rows: [{ value: "7", note: "x" }] },
+      });
+
+      const invalid = await jsonRequest(componentRoute("preview"), {
+        method: "POST",
+        token: admin.token,
+        body: { contextValues: { valor: "abc" } },
+      });
+      expect(invalid.status).toBe(200);
+      expect(
+        ((await invalid.json()) as { query: { error?: string } }).query.error,
+      ).toBeTruthy();
+
+      const unknown = await jsonRequest(componentRoute("preview"), {
+        method: "POST",
+        token: admin.token,
+        body: { contextValues: { fantasma: "1" } },
+      });
+      expect(unknown.status).toBe(400);
+
+      const stranger = await jsonRequest(componentRoute("preview"), {
+        method: "POST",
+        token: other.token,
+        body: { contextValues: { valor: "7" } },
+      });
+      expect(stranger.status).toBe(409);
+    });
+
+    it("aprovar guarda valores e ligações no Recibo de componente", async () => {
+      const res = await jsonRequest(componentRoute("approve"), {
+        method: "POST",
+        token: admin.token,
+        body: {
+          contextValues: { valor: "7" },
+          parameterValues: { note: "x" },
+        },
+      });
+      expect(res.status).toBe(200);
+      const [row] = await db
+        .select()
+        .from(aiComponentReceipts)
+        .where(eq(aiComponentReceipts.id, componentReceiptId));
+      expect(row).toMatchObject({
+        dashboardId,
+        parameterBindings: { amount: "valor" },
+        contextValues: { valor: "7" },
+        parameterValues: { note: "x" },
+      });
+      expect(row?.approvedAt).not.toBeNull();
+    });
+
+    it("a proposta abre a prévia final com os mesmos valores e resultado", async () => {
+      const proposal = await proposeComponent();
+      expect(proposal.canCommit).toBe(true);
+      receiptId = proposal.proposalId;
+      const preview = events.find(
+        (event) =>
+          event.type === "dashboard_preview" &&
+          event.proposalId === proposal.proposalId,
+      );
+      if (preview?.type !== "dashboard_preview") throw new Error("sem prévia");
+      expect(preview.contextValues).toEqual({ valor: "7" });
+      expect(preview.document.queryBindings).toEqual([
+        {
+          queryUuid: queryId,
+          parameters: {
+            amount: { source: "context", argument: "valor" },
+            note: { source: "manual", value: "x" },
+          },
+        },
+      ]);
+      expect(preview.queries[queryId]?.rows).toEqual([
+        { value: "7", note: "x" },
+      ]);
+    });
+
+    it("prévia roda a query salva com os mesmos valores sem gravar nada em disco", async () => {
       const res = await jsonRequest(
         `/api/admin/ai/dashboard-proposals/${receiptId}/preview`,
         {
           method: "POST",
           token: admin.token,
-          body: { componentIds: ["total"] },
+          body: { componentIds: ["total"], contextValues: { valor: "7" } },
         },
       );
       expect(res.status).toBe(200);
@@ -162,8 +286,8 @@ integrationDescribe(
         issues: string[];
       };
       expect(body.issues).toEqual([]);
-      expect(body.queries[queryId]?.rows).toEqual([{ value: "1" }]);
-      await expect(access(dashboardFile)).rejects.toThrow();
+      expect(body.queries[queryId]?.rows).toEqual([{ value: "7", note: "x" }]);
+      expect(await readFile(dashboardFile, "utf8")).toBe(baseline);
     });
 
     it("commit de outra sessão é recusado e nada é gravado", async () => {
@@ -172,32 +296,26 @@ integrationDescribe(
         { method: "POST", token: other.token, body: {} },
       );
       expect(res.status).toBe(409);
-      await expect(access(dashboardFile)).rejects.toThrow();
+      expect(await readFile(dashboardFile, "utf8")).toBe(baseline);
     });
 
-    it("commit grava o arquivo, registra o dashboard, consome o recibo e é idempotente", async () => {
+    it("commit grava o arquivo, consome o recibo e é idempotente", async () => {
       const res = await jsonRequest(
         `/api/admin/ai/dashboard-proposals/${receiptId}/commit`,
         { method: "POST", token: admin.token, body: {} },
       );
-      expect(res.status).toBe(201);
+      expect(res.status).toBe(200);
       expect(await res.json()).toMatchObject({
         id: dashboardId,
-        mode: "create",
+        mode: "update",
         alreadyApplied: false,
       });
       const written = JSON.parse(await readFile(dashboardFile, "utf8")) as {
         id: string;
+        queryBindings: { queryUuid: string }[];
       };
       expect(written.id).toBe(dashboardId);
-      expect(
-        (
-          await db
-            .select()
-            .from(dashboards)
-            .where(eq(dashboards.dashboardId, dashboardId))
-        )[0]?.filePath,
-      ).toBe(`dashboards/${dashboardId}.json`);
+      expect(written.queryBindings.map((b) => b.queryUuid)).toEqual([queryId]);
       expect(
         (
           await db

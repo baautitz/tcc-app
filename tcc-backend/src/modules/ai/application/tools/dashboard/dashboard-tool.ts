@@ -33,51 +33,83 @@ import {
 } from "../../../../dashboards/domain/dashboard-proposals.js";
 import type { AiToolProgressEvent } from "../ai-read-tools.js";
 import type {
+  AiComponentReceipt,
   AiDashboardToolsOptions,
   AiDashboardQueryPreview,
 } from "./dashboard-types.js";
 import { validateDashboardPreviewFields } from "../../../../dashboards/domain/dashboard-preview-validation.js";
+import {
+  describePreviewParameters,
+  runComponentPreview,
+  filterValuesSchema,
+  isBlank,
+  parameterBindingsSchema,
+  parameterNamesOf,
+  splitParameterValues,
+  type FilterValues,
+  type ParameterBindings,
+} from "./component-values.js";
 
 type DashboardRuntime = ToolRuntime & { toolCallId?: string };
 
 /** Segundo argumento que o LangChain passa ao handler da ferramenta. */
 type ToolCallRuntime = Record<string, any>;
 
-/** Documento mínimo só com o componente, para reusar a validação da prévia. */
-function isolatedDocument(component: z.infer<typeof aiComponentSchema>) {
-  return createDashboardDocument(
-    aiDashboardProposalInputSchema.parse({
-      mode: "create",
-      name: "Componente isolado",
-      components: [component],
-    }),
-    crypto.randomUUID(),
-  );
-}
-
 function refusal(code: string, message: string, instruction: string) {
   return { ok: false as const, code, message, instruction };
 }
 
-/** Parâmetros da query com os valores usados na prévia, para o cartão mostrar o resultado real. */
-function describePreviewParameters(
-  definitions: unknown,
-  values: Record<string, string | string[]>,
+/**
+ * Aplica ao documento os valores/ligações guardados no Recibo de componente:
+ * ligações a filtros viram `context`, parâmetros sem filtro viram `manual`.
+ * Só entram filtros que existem no documento; o resto é descartado.
+ */
+function applyReceiptValues(
+  document: ReturnType<typeof createDashboardDocument>,
+  queryUuid: string,
+  receipt: AiComponentReceipt,
 ) {
-  if (!Array.isArray(definitions)) return [];
-  return definitions.flatMap((definition) => {
-    if (!definition || typeof definition !== "object") return [];
-    const { name, label, required } = definition as Record<string, unknown>;
-    if (typeof name !== "string") return [];
-    return [
-      {
-        name,
-        label: typeof label === "string" ? label : name,
-        required: required !== false,
-        value: values[name] ?? null,
-      },
-    ];
-  });
+  const filterNames = new Set(
+    document.workspace.params.map((parameter) => parameter.name),
+  );
+  const parameters: Record<
+    string,
+    | { source: "context"; argument: string }
+    | { source: "manual"; value: string | string[] }
+  > = {};
+  for (const [parameter, filter] of Object.entries(
+    receipt.parameterBindings ?? {},
+  ))
+    if (filterNames.has(filter))
+      parameters[parameter] = { source: "context", argument: filter };
+  for (const [parameter, value] of Object.entries(
+    receipt.parameterValues ?? {},
+  ))
+    if (!parameters[parameter] && !isBlank(value))
+      parameters[parameter] = { source: "manual", value };
+  const contextValues: FilterValues = {};
+  for (const [filter, value] of Object.entries(receipt.contextValues ?? {}))
+    if (filterNames.has(filter) && !isBlank(value))
+      contextValues[filter] = value;
+  if (Object.keys(parameters).length === 0) return { document, contextValues };
+  const existing = document.queryBindings.find(
+    (binding) => binding.queryUuid === queryUuid,
+  );
+  const merged = {
+    queryUuid,
+    parameters: { ...existing?.parameters, ...parameters },
+  };
+  return {
+    document: {
+      ...document,
+      queryBindings: existing
+        ? document.queryBindings.map((binding) =>
+            binding === existing ? merged : binding,
+          )
+        : [...document.queryBindings, merged],
+    },
+    contextValues,
+  };
 }
 
 export class AiDashboardTools {
@@ -186,6 +218,7 @@ export class AiDashboardTools {
     input: {
       component: z.infer<typeof aiComponentSchema>;
       previewValues?: Record<string, string | string[]>;
+      parameterBindings?: ParameterBindings;
     },
     runtime: ToolCallRuntime,
   ) {
@@ -216,34 +249,46 @@ export class AiDashboardTools {
           "A query do componente não existe no catálogo salvo.",
           "Use um UUID de list_saved_queries; a query precisa estar salva (fase 2).",
         );
-      let preview: AiDashboardQueryPreview;
-      try {
-        preview = await this.options.repository.runPreview(
-          query,
-          input.previewValues ?? {},
+      const parameterNames = parameterNamesOf(query.parameters);
+      const activeDashboard = await this.options.repository.findDashboard(
+        this.options.pageDashboardId,
+      );
+      const filters = (activeDashboard?.document.workspace.params ?? []).map(
+        (parameter) => ({
+          name: parameter.name,
+          label: parameter.label,
+          type: parameter.type,
+          required: parameter.required,
+          options: parameter.options?.map((option) => ({
+            label: option.label,
+            value: option.value,
+          })),
+          lookup: parameter.lookup,
+        }),
+      );
+      const bindings = input.parameterBindings ?? {};
+      const invalidBindings = Object.entries(bindings).filter(
+        ([parameter, filter]) =>
+          !parameterNames.includes(parameter) ||
+          !filters.some((candidate) => candidate.name === filter),
+      );
+      if (invalidBindings.length > 0)
+        return refusal(
+          "PARAMETER_BINDING_INVALID",
+          `Ligação inválida: ${invalidBindings.map(([parameter, filter]) => `${parameter} -> ${filter}`).join(", ")}. O parâmetro precisa existir na query e o filtro no Dashboard ativo.`,
+          "Use nomes exatos de get_saved_query (parâmetros) e get_current_dashboard (filtros), ou omita parameterBindings.",
         );
-      } catch (error) {
-        preview = {
-          rows: [],
-          rowLimit: AI_QUERY_MAX_ROWS,
-          byteLimit: AI_QUERY_MAX_BYTES,
-          bytes: 0,
-          truncated: false,
-          truncationReason: null,
-          error:
-            error instanceof Error
-              ? error.message.slice(0, 400)
-              : "A consulta falhou durante a prévia.",
-        };
-      }
-      const issues = preview.error
-        ? [preview.error]
-        : validateDashboardPreviewFields(
-            isolatedDocument(component),
-            { [component.queryUuid]: preview },
-            undefined,
-            new Set(),
-          );
+      const { contextValues, parameterValues } = splitParameterValues(
+        parameterNames,
+        bindings,
+        input.previewValues ?? {},
+      );
+      const { preview, issues } = await runComponentPreview(
+        this.options.repository,
+        component,
+        query,
+        input.previewValues ?? {},
+      );
       if (issues.length > 0)
         return refusal(
           "COMPONENT_PREVIEW_INVALID",
@@ -259,7 +304,40 @@ export class AiDashboardTools {
         actorId: this.options.currentUser.id,
         component,
         expiresAt,
+        dashboardId: this.options.pageDashboardId,
+        parameterBindings: bindings,
       });
+      const lookups: Record<string, AiDashboardQueryPreview> = {};
+      const lookupIds = [
+        ...new Set(
+          filters.flatMap((filter) =>
+            filter.lookup ? [filter.lookup.queryUuid] : [],
+          ),
+        ),
+      ];
+      for (const lookup of await this.options.repository.findSavedQueries(
+        lookupIds,
+      )) {
+        try {
+          lookups[lookup.id] = await this.options.repository.runPreview(
+            lookup,
+            {},
+          );
+        } catch (error) {
+          lookups[lookup.id] = {
+            rows: [],
+            rowLimit: AI_QUERY_MAX_ROWS,
+            byteLimit: AI_QUERY_MAX_BYTES,
+            bytes: 0,
+            truncated: false,
+            truncationReason: null,
+            error:
+              error instanceof Error
+                ? error.message.slice(0, 400)
+                : "A consulta do filtro falhou.",
+          };
+        }
+      }
       await this.emit({
         type: "component_preview",
         toolCallId,
@@ -269,8 +347,14 @@ export class AiDashboardTools {
         query: preview,
         parameters: describePreviewParameters(
           query.parameters,
+          bindings,
           input.previewValues ?? {},
         ),
+        filters,
+        bindings,
+        contextValues,
+        parameterValues,
+        lookups,
       });
       ok = true;
       return {
@@ -298,7 +382,12 @@ export class AiDashboardTools {
     parsed: z.infer<typeof aiDashboardProposalInputSchema>,
     changedIds: string[],
   ): Promise<
-    { refused: ReturnType<typeof refusal> } | { approvedId: string | undefined }
+    | { refused: ReturnType<typeof refusal> }
+    | {
+        approvedId: string | undefined;
+        approvedQueryUuid?: string;
+        receipt?: AiComponentReceipt;
+      }
   > {
     const refuse = (code: string, message: string, instruction: string) => ({
       refused: refusal(code, message, instruction),
@@ -392,7 +481,11 @@ export class AiDashboardTools {
         `Os componentes novos ou alterados ${unapproved.map((id) => `'${id}'`).join(", ")} não têm Recibo aprovado; cada Recibo cobre um único componente.`,
         "Aprove cada componente novo ou alterado com preview_component e proponha um por vez; reenvie os demais exatamente como estão no dashboard.",
       );
-    return { approvedId: approved.data.id };
+    return {
+      approvedId: approved.data.id,
+      approvedQueryUuid: approved.data.queryUuid,
+      receipt,
+    };
   }
 
   private async proposeDashboard(
@@ -454,6 +547,17 @@ export class AiDashboardTools {
         }
         document = positioned.document;
       }
+      // Valores e ligações aprovados no cartão viram contextValues e queryBindings.
+      const contextValues: FilterValues = { ...parsed.contextValues };
+      if (phases.receipt && phases.approvedQueryUuid) {
+        const applied = applyReceiptValues(
+          document,
+          phases.approvedQueryUuid,
+          phases.receipt,
+        );
+        document = applied.document;
+        Object.assign(contextValues, applied.contextValues);
+      }
       dashboardDocumentSchema.parse(document);
       const proposedComponentIds = parsed.components.map(
         (component) => component.id,
@@ -507,8 +611,8 @@ export class AiDashboardTools {
           binding?.parameters ?? {},
         )) {
           if (source.source === "manual") values[parameterName] = source.value;
-          else if (Object.hasOwn(parsed.contextValues, source.argument))
-            values[parameterName] = parsed.contextValues[source.argument]!;
+          else if (Object.hasOwn(contextValues, source.argument))
+            values[parameterName] = contextValues[source.argument]!;
         }
         const pendingParameters = parameters.filter((parameter) => {
           if (!parameter.required) return false;
@@ -630,6 +734,7 @@ export class AiDashboardTools {
           document,
           previous?.document,
         ),
+        contextValues,
         canCommit: issues.length === 0,
         issues,
         requiresTruncationAcknowledgement: hasTruncatedPreview,
@@ -727,19 +832,12 @@ export class AiDashboardTools {
       tool((input, runtime) => this.previewComponent(input, runtime), {
         name: "preview_component",
         description:
-          "Fase 3: mostra o componente isolado (renderizado sozinho, com a amostra da query salva) num cartão com Aprovar e Pedir ajuste. Não persiste nada. Retorna componentReceiptId, que só vale depois de o administrador aprovar o cartão. Para um ajuste (tipo, título ou largura), chame de novo e aguarde nova aprovação. Após chamar, encerre a rodada.",
+          "Fase 3: mostra o componente isolado (renderizado sozinho, com a amostra da query salva) num cartão com Aprovar e Pedir ajuste. Não persiste nada. O cartão mostra os filtros do Dashboard ativo e o administrador pode refazer a prévia com outros valores. Se a query tem parâmetros que correspondem a filtros do dashboard, passe parameterBindings (objeto parâmetro_da_query -> filtro_do_dashboard, nomes exatos de get_saved_query e get_current_dashboard); parâmetro sem filtro correspondente fica com input próprio no cartão. Retorna componentReceiptId, que só vale depois de o administrador aprovar o cartão. Para um ajuste (tipo, título ou largura), chame de novo e aguarde nova aprovação. Após chamar, encerre a rodada.",
         schema: z
           .object({
             component: aiComponentSchema,
-            previewValues: z
-              .record(
-                z.string().max(80),
-                z.union([
-                  z.string().max(2048),
-                  z.array(z.string().max(2048)).max(50),
-                ]),
-              )
-              .optional(),
+            previewValues: filterValuesSchema.optional(),
+            parameterBindings: parameterBindingsSchema.optional(),
           })
           .strict(),
       }),

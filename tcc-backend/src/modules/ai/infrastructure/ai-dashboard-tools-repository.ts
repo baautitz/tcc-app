@@ -155,6 +155,8 @@ export class DrizzleAiDashboardToolsRepository implements AiDashboardToolsReposi
     actorId: string;
     component: unknown;
     expiresAt: Date;
+    dashboardId?: string;
+    parameterBindings?: Record<string, string>;
   }) {
     await db.transaction(async (tx) => {
       await deleteStaleReceipts(tx, aiComponentReceipts);
@@ -171,10 +173,26 @@ export class DrizzleAiDashboardToolsRepository implements AiDashboardToolsReposi
   }
 
   /** Chamado pelo botão Aprovar do cartão; só o dono, dentro do prazo e antes do uso. */
-  async approveComponentReceipt(id: string, actorId: string, now = new Date()) {
+  async approveComponentReceipt(
+    id: string,
+    actorId: string,
+    values?: {
+      contextValues: Record<string, string | string[]>;
+      parameterValues: Record<string, string | string[]>;
+    },
+    now = new Date(),
+  ) {
     const rows = await db
       .update(aiComponentReceipts)
-      .set({ approvedAt: now })
+      .set({
+        approvedAt: now,
+        ...(values
+          ? {
+              contextValues: values.contextValues,
+              parameterValues: values.parameterValues,
+            }
+          : {}),
+      })
       .where(
         and(
           eq(aiComponentReceipts.id, id),
