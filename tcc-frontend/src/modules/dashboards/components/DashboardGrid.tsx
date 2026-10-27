@@ -25,8 +25,11 @@ export function DashboardGrid({
   const { columns, cellSize, gap } = gridMetrics(width);
   const placements = useMemo(
     () =>
-      placeComponents(
-        components.map((item) => item.layoutProps),
+      expandPlacements(
+        placeComponents(
+          components.map((item) => item.layoutProps),
+          columns,
+        ),
         columns,
       ),
     [components, columns],
