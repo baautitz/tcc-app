@@ -3,7 +3,8 @@ import { LoaderCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
-import { DashboardGrid } from "@/modules/dashboards/components/DashboardGrid";
+import { useElementWidth } from "@/modules/dashboards/components/useElementWidth";
+import { previewHeight } from "@/modules/ai/model/preview-size";
 import { DashboardComponentView } from "@/modules/dashboards/components/DashboardComponentView";
 import { DashboardFilters } from "@/modules/dashboards/components/DashboardFilters";
 import type {
@@ -41,10 +42,6 @@ const typeLabels: Record<ComponentType, string> = {
 };
 
 /** Fase 3: o componente renderizado sozinho. Aprovar ou pedir ajuste não persistem nada. */
-/** Altura (em Células) do componente isolado: o indicador não ocupa a de um gráfico. */
-const previewRowSpan = (type: string) =>
-  type === "stat_card" ? 1 : type === "data_table" ? 6 : 5;
-
 export function ComponentPreviewCard({
   item,
   busy,
@@ -68,6 +65,7 @@ export function ComponentPreviewCard({
   const [colSpan, setColSpan] = useState(String(component.colSpan ?? 12));
 
   const [suggested, setSuggested] = useState(item.suggestedLayout);
+  const [previewRef, previewWidth] = useElementWidth<HTMLDivElement>();
 
   const viewComponent = useMemo<DashboardComponent>(() => {
     const {
@@ -83,13 +81,10 @@ export function ComponentPreviewCard({
       type: kind,
       title: componentTitle,
       queryUuid,
-      layoutProps: {
-        colSpan: span ?? 12,
-        rowSpan: suggested?.rowSpan ?? previewRowSpan(kind),
-      },
+      layoutProps: { colSpan: span ?? 12, rowSpan: 1 },
       props: { ...config, title: componentTitle, queryUuid },
     };
-  }, [component, suggested]);
+  }, [component]);
 
   // Valores aplicados (os que geraram o resultado exibido) e resultado atual.
   const [applied, setApplied] = useState<ComponentValues>({
@@ -246,28 +241,26 @@ export function ComponentPreviewCard({
         </div>
       )}
 
-      <DashboardGrid
-        components={[
-          {
-            ...viewComponent,
-            layoutProps: {
-              colSpan: 12,
-              rowSpan:
-                suggested?.rowSpan ?? previewRowSpan(viewComponent.type),
-            },
-          },
-        ]}
-        renderComponent={(previewComponent) => (
-          <DashboardComponentView
-            component={previewComponent}
-            state={
-              query.error
-                ? { loading: false, error: query.error }
-                : { loading: false, rows: query.rows }
-            }
-          />
-        )}
-      />
+      <div
+        ref={previewRef}
+        className="min-w-0 overflow-hidden *:h-full"
+        style={{
+          height: previewHeight(
+            previewWidth,
+            viewComponent.type,
+            suggested,
+          ),
+        }}
+      >
+        <DashboardComponentView
+          component={viewComponent}
+          state={
+            query.error
+              ? { loading: false, error: query.error }
+              : { loading: false, rows: query.rows }
+          }
+        />
+      </div>
 
       {adjusting && canAct && (
         <form
