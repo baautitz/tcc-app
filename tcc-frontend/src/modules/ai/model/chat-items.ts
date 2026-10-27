@@ -89,6 +89,12 @@ export type ComponentPreviewItem = {
   expiresAt: string;
   component: ProposedComponent;
   query: DashboardPreviewQuery;
+  parameters?: {
+    name: string;
+    label: string;
+    required: boolean;
+    value: string | string[] | null;
+  }[];
   status?: "approving" | "approved" | "adjusting" | "superseded";
   ownerMessageId?: string;
 };

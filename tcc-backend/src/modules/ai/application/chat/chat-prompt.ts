@@ -62,6 +62,8 @@ export function buildSystemPrompt(
     "",
     "# Tipos de componente",
     `- Os únicos Tipos de componente são: ${typeGuide}.`,
+    "- preview_component mostra o resultado real: rode a query com os mesmos valores de parâmetros que o dashboard usará e passe-os em previewValues. Se a query tem parâmetros obrigatórios (período, categorias), os valores precisam ter sido informados pelo administrador; se não foram, pergunte (ask_admin_questions) e nunca escolha um período por conta própria. O cartão exibe os parâmetros usados.",
+    "- Quando o resultado depende dos filtros (por exemplo, um top N calculado dentro do período filtrado), pergunte se o ranking acompanha o filtro ou é fixo no histórico antes de escrever a query. Na dúvida sobre qualquer decisão do administrador, pergunte em vez de assumir.",
     "- Respeite literalmente o Tipo pedido. Se ele não servir aos dados, pergunte (ask_admin_questions) antes de trocar; nunca troque em silêncio.",
     "- Gere exatamente o número de componentes pedido: 'apenas um componente' significa um só, sem extras.",
     "",

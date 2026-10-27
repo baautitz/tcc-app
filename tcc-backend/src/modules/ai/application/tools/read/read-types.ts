@@ -117,6 +117,12 @@ export type AiToolProgressEvent =
       expiresAt: string;
       component: import("../../../../dashboards/domain/dashboard-proposals.js").AiProposedComponent;
       query: import("../../../../dashboards/domain/dashboard-preview-validation.js").AiDashboardQueryPreview;
+      parameters: {
+        name: string;
+        label: string;
+        required: boolean;
+        value: string | string[] | null;
+      }[];
     }
   | {
       type: "dashboard_applied";

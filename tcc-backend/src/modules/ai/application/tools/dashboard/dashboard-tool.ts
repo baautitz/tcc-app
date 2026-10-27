@@ -59,6 +59,27 @@ function refusal(code: string, message: string, instruction: string) {
   return { ok: false as const, code, message, instruction };
 }
 
+/** Parâmetros da query com os valores usados na prévia, para o cartão mostrar o resultado real. */
+function describePreviewParameters(
+  definitions: unknown,
+  values: Record<string, string | string[]>,
+) {
+  if (!Array.isArray(definitions)) return [];
+  return definitions.flatMap((definition) => {
+    if (!definition || typeof definition !== "object") return [];
+    const { name, label, required } = definition as Record<string, unknown>;
+    if (typeof name !== "string") return [];
+    return [
+      {
+        name,
+        label: typeof label === "string" ? label : name,
+        required: required !== false,
+        value: values[name] ?? null,
+      },
+    ];
+  });
+}
+
 export class AiDashboardTools {
   constructor(private readonly options: AiDashboardToolsOptions) {
     if (!options.currentUser.isAdmin)
@@ -238,6 +259,10 @@ export class AiDashboardTools {
         expiresAt: expiresAt.toISOString(),
         component,
         query: preview,
+        parameters: describePreviewParameters(
+          query.parameters,
+          input.previewValues ?? {},
+        ),
       });
       ok = true;
       return {

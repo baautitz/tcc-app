@@ -88,6 +88,28 @@ export function ComponentPreviewCard({
         </p>
       </div>
 
+      {item.parameters && item.parameters.length > 0 && (
+        <dl className="grid gap-1 border bg-background p-2 text-xs">
+          <dt className="font-medium text-muted-foreground">
+            Parâmetros usados nesta prévia
+          </dt>
+          {item.parameters.map((parameter) => (
+            <dd key={parameter.name} className="flex flex-wrap gap-1">
+              <span className="font-medium">{parameter.label}:</span>
+              <span>
+                {parameter.value === null
+                  ? parameter.required
+                    ? "não informado"
+                    : "sem filtro (todos)"
+                  : Array.isArray(parameter.value)
+                    ? parameter.value.join(", ") || "sem filtro (todos)"
+                    : parameter.value}
+              </span>
+            </dd>
+          ))}
+        </dl>
+      )}
+
       <div className="@container grid grid-cols-12 gap-4">
         <DashboardComponentView
           component={{

@@ -512,6 +512,50 @@ describe("fases da IA: Recibo de componente, destino e posição", () => {
     ).toMatchObject({ receiptId: issued.id, component: approvedComponent });
   });
 
+  it("preview_component informa no cartão os parâmetros usados na prévia", async () => {
+    const events: AiToolProgressEvent[] = [];
+    const repository = makeRepository({
+      findSavedQueries: vi.fn(async () => [
+        {
+          ...savedQuery,
+          parameters: [
+            { name: "start_date", type: "date", label: "Data Inicial" },
+            { name: "categories", type: "multi_select", required: false },
+          ],
+        },
+      ]),
+    });
+    const tool = createAiDashboardTools({
+      currentUser: admin,
+      repository,
+      onToolEvent: (event) => {
+        events.push(event);
+      },
+    }).find((candidate) => candidate.name === "preview_component")!;
+    await invoke(tool, {
+      component: approvedComponent,
+      previewValues: { start_date: "2017-01-01" },
+    });
+    expect(
+      events.find((event) => event.type === "component_preview"),
+    ).toMatchObject({
+      parameters: [
+        {
+          name: "start_date",
+          label: "Data Inicial",
+          required: true,
+          value: "2017-01-01",
+        },
+        {
+          name: "categories",
+          label: "categories",
+          required: false,
+          value: null,
+        },
+      ],
+    });
+  });
+
   const dashboardId = "00000000-0000-4000-8000-000000000010";
   const existingDashboard = () =>
     dashboardDocumentSchema.parse({

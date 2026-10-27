@@ -60,6 +60,15 @@ describe("prompt do sistema da IA", () => {
   });
 });
 
+describe("preview com parâmetros", () => {
+  const prompt = buildSystemPrompt(undefined);
+  it("exige que o administrador informe os parâmetros e pergunta na dúvida", () => {
+    expect(prompt).toContain("nunca escolha um período por conta própria");
+    expect(prompt).toContain("O cartão exibe os parâmetros usados");
+    expect(prompt).toContain("acompanha o filtro ou é fixo");
+  });
+});
+
 describe("ask_admin_questions", () => {
   const [tool] = new AiQuestionnaireTools({
     currentUser: { isAdmin: true } as never,
