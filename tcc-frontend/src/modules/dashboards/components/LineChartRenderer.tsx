@@ -59,7 +59,7 @@ export const LineChartRenderer: Renderer = ({
                 type="monotone"
                 dataKey={serie.key}
                 name={serie.label}
-                stroke={`var(--chart-${(index % 5) + 1})`}
+                stroke={`var(--chart-${(index % 10) + 1})`}
                 strokeWidth={2}
                 dot={false}
                 connectNulls
