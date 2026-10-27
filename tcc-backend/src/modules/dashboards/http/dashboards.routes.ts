@@ -6,6 +6,7 @@ import {
 } from "../../../shared/middleware/auth.js";
 import {
   createAdminDashboard,
+  deleteAdminDashboard,
   getAdminDashboard,
   getDashboard,
   commitProposal,
@@ -41,6 +42,12 @@ dashboardRoutes.put(
   authentication,
   adminRequired,
   updateAdminDashboard,
+);
+dashboardRoutes.delete(
+  "/api/admin/dashboards/:id",
+  authentication,
+  adminRequired,
+  deleteAdminDashboard,
 );
 dashboardRoutes.get(
   "/api/admin/dashboards/:id/users",

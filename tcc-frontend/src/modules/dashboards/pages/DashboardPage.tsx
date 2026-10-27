@@ -5,6 +5,7 @@ import {
   RefreshCw,
   Settings,
   Table2,
+  Trash2,
   Users,
 } from "lucide-react";
 import { dashboardsApi } from "@/modules/dashboards/api/dashboards.api";
@@ -24,6 +25,17 @@ import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
 import { Skeleton } from "@/shared/ui/skeleton";
+import { toast } from "@/shared/ui/toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/shared/ui/alert-dialog";
 import { useRegisterCurrentViewRefresh } from "@/shared/context/CurrentViewRefreshContext";
 import {
   collectArguments,
@@ -47,9 +59,12 @@ import { DashboardUsersDialog } from "../components/DashboardUsersDialog";
 export function DashboardPage({
   dashboardId,
   onEditContext,
+  onDeleted,
 }: {
   dashboardId: string;
   onEditContext: () => void;
+  /** Chamado depois de o administrador apagar o dashboard. */
+  onDeleted?: () => void;
 }) {
   const { user } = useAuth();
   const [frameRef, frameWidth] = useElementWidth<HTMLDivElement>();
@@ -67,6 +82,25 @@ export function DashboardPage({
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState<string>();
   const [usersDialogOpen, setUsersDialogOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const deleteDashboard = async () => {
+    setDeleting(true);
+    try {
+      await dashboardsApi.deleteDashboard(dashboardId);
+      toast.success("Dashboard apagado.");
+      setDeleteOpen(false);
+      onDeleted?.();
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível apagar o dashboard.",
+      );
+    } finally {
+      setDeleting(false);
+    }
+  };
   const [dataRefreshVersion, setDataRefreshVersion] = useState(0);
   const querySequenceRef = useRef(0);
   const refreshData = useCallback(() => {
@@ -312,6 +346,16 @@ export function DashboardPage({
                   <Users />
                   <span className="sr-only">Gerenciar usuários</span>
                 </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setDeleteOpen(true)}
+                  aria-label="Apagar dashboard"
+                  title="Apagar o dashboard"
+                >
+                  <Trash2 />
+                  <span className="sr-only">Apagar dashboard</span>
+                </Button>
               </>
             )}
             <Button
@@ -377,6 +421,31 @@ export function DashboardPage({
             </Card>
           }
         />
+        <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Apagar este dashboard?</AlertDialogTitle>
+              <AlertDialogDescription>
+                O dashboard “{dashboard.name}” e o acesso dos usuários a ele
+                serão removidos. As queries e as fontes de dados não são
+                afetadas. Esta ação não pode ser desfeita.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                variant="destructive"
+                disabled={deleting}
+                onClick={(event) => {
+                  event.preventDefault();
+                  void deleteDashboard();
+                }}
+              >
+                {deleting ? "Apagando…" : "Apagar dashboard"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
         <DashboardUsersDialog
           dashboardId={dashboardId}
           open={usersDialogOpen}

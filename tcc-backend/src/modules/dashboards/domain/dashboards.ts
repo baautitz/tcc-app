@@ -102,6 +102,31 @@ export async function writeDashboardDocumentAtomically(
   };
 }
 
+/** Apaga o arquivo do dashboard e devolve o rollback para uma falha no commit do banco. */
+export async function removeDashboardFile(
+  filePath: string,
+): Promise<() => Promise<void>> {
+  const resolvedPath = resolve(filePath);
+  if (!isEditableDashboardFilePath(resolvedPath)) {
+    throw new Error(
+      "O dashboard só pode ser removido dentro da pasta dashboards da aplicação.",
+    );
+  }
+  let previous: Buffer | undefined;
+  try {
+    previous = await readFile(resolvedPath);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+  await unlinkIfExists(resolvedPath);
+  return async () => {
+    if (!previous) return;
+    const rollbackPath = `${resolvedPath}.${randomUUID()}.rollback`;
+    await writeFile(rollbackPath, previous, { flag: "wx" });
+    await rename(rollbackPath, resolvedPath);
+  };
+}
+
 function isPathInside(directory: string, filePath: string): boolean {
   const relativePath = relative(resolve(directory), resolve(filePath));
   return (

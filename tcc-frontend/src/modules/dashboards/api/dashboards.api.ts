@@ -24,6 +24,10 @@ export class DashboardsApi {
       method: "POST",
       body: JSON.stringify(body),
     });
+  deleteDashboard = (id: string) =>
+    this.http.request<void>(`/api/admin/dashboards/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    });
   dashboardContext = (id: string) =>
     this.http.request<{ document: DashboardDocument; revision: string }>(
       `/api/admin/dashboards/${encodeURIComponent(id)}`,

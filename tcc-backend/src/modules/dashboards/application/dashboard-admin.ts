@@ -18,6 +18,7 @@ import {
   DashboardFileCompensationError,
   isEditableDashboardFilePath,
   withDashboardFileCompensation,
+  removeDashboardFile,
   writeDashboardDocumentAtomically,
 } from "../domain/dashboards.js";
 import {
@@ -41,7 +42,10 @@ export class DashboardAdminService {
       | "getRegisteredDashboardFiles"
       | "getDashboardFileById"
     >,
-    private readonly files: Pick<DashboardFilesRepository, "lockByDashboardId">,
+    private readonly files: Pick<
+      DashboardFilesRepository,
+      "lockByDashboardId" | "deleteByDashboardId"
+    >,
     private readonly access: DashboardAccessRepository,
   ) {}
 
@@ -153,6 +157,41 @@ export class DashboardAdminService {
       );
     }
     rollbackFile = undefined;
+  }
+
+  /** Apaga o dashboard (registro, acessos e arquivo); a IA não faz isto. */
+  async deleteDashboard(dashboardId: string): Promise<void> {
+    let rollbackFile: (() => Promise<void>) | undefined;
+    try {
+      await withDashboardFileCompensation(
+        () =>
+          withDashboardFilesLock(async (tx) => {
+            const target = await this.files.lockByDashboardId(tx, dashboardId);
+            if (!target) throw new ApiError(404, "Dashboard não encontrado.");
+            const filePath = resolve(process.cwd(), target.filePath);
+            if (!isEditableDashboardFilePath(filePath))
+              throw new ApiError(
+                400,
+                "O dashboard só pode ser removido dentro da pasta dashboards da aplicação.",
+              );
+            await this.files.deleteByDashboardId(tx, dashboardId);
+            rollbackFile = await removeDashboardFile(filePath);
+          }),
+        () => rollbackFile,
+      );
+    } catch (error) {
+      if (error instanceof DashboardFileCompensationError) {
+        console.error("[dashboard] file compensation failed after delete", {
+          operationError: error.operationError,
+          compensationError: error.compensationError,
+        });
+        throw new ApiError(
+          500,
+          "A remoção falhou e a restauração do arquivo também falhou. O dashboard precisa de reconciliação administrativa.",
+        );
+      }
+      throw error;
+    }
   }
 
   async getAdminDashboard(dashboardId: string) {

@@ -65,6 +65,7 @@ function DashboardRoute() {
     <DashboardPage
       dashboardId={id}
       onEditContext={() => navigate(`/admin/dashboards/${id}/context`)}
+      onDeleted={() => navigate("/", { replace: true })}
     />
   ) : (
     <Navigate to="/" replace />

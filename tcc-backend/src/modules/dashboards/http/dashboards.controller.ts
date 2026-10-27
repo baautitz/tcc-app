@@ -112,6 +112,11 @@ export async function updateAdminDashboard(context: AppContext) {
   });
 }
 
+export async function deleteAdminDashboard(context: AppContext) {
+  await dashboardAdminService.deleteDashboard(dashboardIdParam(context));
+  return context.body(null, 204);
+}
+
 export async function getDashboardUsers(context: AppContext) {
   return context.json(
     await dashboardAdminService.getDashboardUsers(dashboardIdParam(context)),

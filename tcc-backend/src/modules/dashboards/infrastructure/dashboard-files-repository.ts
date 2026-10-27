@@ -14,6 +14,8 @@ export interface DashboardFilesRepository {
     tx: DbExecutor,
     receiptId: string,
   ): Promise<typeof dashboardProposalReceipts.$inferSelect | undefined>;
+  /** Remove o registro; o acesso dos usuários cai junto (cascata). */
+  deleteByDashboardId(tx: DbExecutor, dashboardId: string): Promise<void>;
   registerFile(
     tx: DbExecutor,
     dashboardId: string,
@@ -36,6 +38,9 @@ export class DrizzleDashboardFilesRepository implements DashboardFilesRepository
         .for("update")
         .limit(1)
     )[0];
+  }
+  async deleteByDashboardId(tx: DbExecutor, dashboardId: string) {
+    await tx.delete(dashboards).where(eq(dashboards.dashboardId, dashboardId));
   }
   async lockReceipt(tx: DbExecutor, receiptId: string) {
     return (
