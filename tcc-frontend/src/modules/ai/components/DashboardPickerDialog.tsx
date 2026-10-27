@@ -26,10 +26,16 @@ export function DashboardPickerDialog({
   const [dashboards, setDashboards] = useState<DashboardSummary[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Ao reabrir, volta ao estado de carregamento antes do novo fetch (sem efeito).
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setLoading(true);
+  }
+
   useEffect(() => {
     if (!open) return;
     let active = true;
-    setLoading(true);
     dashboardsApi
       .dashboards()
       .then((list) => {
