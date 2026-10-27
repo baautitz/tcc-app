@@ -221,6 +221,24 @@ export const dashboardProposalReceipts = pgTable(
   ],
 );
 
+export const aiComponentReceipts = pgTable(
+  "ai_component_receipts",
+  {
+    id: uuid("id").primaryKey(),
+    actorId: uuid("actor_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    component: jsonb("component").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    createdAt,
+  },
+  (table) => [
+    index("ai_component_receipts_expires_at_idx").on(table.expiresAt),
+  ],
+);
+
 export const aiContextProposals = pgTable(
   "ai_context_proposals",
   {

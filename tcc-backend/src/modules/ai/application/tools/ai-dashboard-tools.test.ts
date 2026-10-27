@@ -9,12 +9,33 @@ import {
 
 const createAiDashboardTools = (
   options: ConstructorParameters<typeof AiDashboardTools>[0],
-) => new AiDashboardTools(options).tools();
+) => new AiDashboardTools({ now: () => now, ...options }).tools();
+import type { StructuredToolInterface } from "@langchain/core/tools";
 import type { AiToolProgressEvent } from "./ai-read-tools.js";
 
 const actorId = "00000000-0000-4000-8000-000000000001";
 const queryId = "00000000-0000-4000-8000-000000000002";
 const sourceId = "00000000-0000-4000-8000-000000000003";
+const componentReceiptId = "00000000-0000-4000-8000-0000000000a1";
+const approvedComponent = {
+  id: "monthly-chart",
+  component: "bar_chart",
+  title: "Faturamento por mês",
+  queryUuid: queryId,
+  colSpan: 12,
+  nameKey: "month_label",
+  valueKey: "amount",
+};
+const now = Date.parse("2026-10-26T12:00:00.000Z");
+const validReceipt = {
+  id: componentReceiptId,
+  actorId,
+  component: approvedComponent,
+  expiresAt: new Date(now + 60_000),
+  approvedAt: new Date(now - 1_000),
+  consumedAt: null,
+};
+
 const admin: AuthenticatedUser = {
   id: actorId,
   name: "Admin",
@@ -50,6 +71,9 @@ function makeRepository(overrides: Partial<AiDashboardToolsRepository> = {}) {
       truncationReason: null,
     })),
     issueReceipt: vi.fn(async () => undefined),
+    issueComponentReceipt: vi.fn(async () => undefined),
+    findComponentReceipt: vi.fn(async () => validReceipt),
+    consumeComponentReceipt: vi.fn(async () => true),
     ...overrides,
   };
   return repository;
@@ -75,6 +99,9 @@ function validProposal() {
       },
     ],
     contextValues: {},
+    componentReceiptId,
+    destination: { kind: "new_dashboard" },
+    position: { placement: "end" },
   };
 }
 
@@ -271,6 +298,10 @@ describe("propostas de dashboard da IA", () => {
     const receiptId = "00000000-0000-4000-8000-000000000099";
     const repository = makeRepository({
       findSavedQueries: vi.fn(async () => []),
+      findComponentReceipt: vi.fn(async () => ({
+        ...validReceipt,
+        component: { ...approvedComponent, queryUuid: receiptId },
+      })),
     });
     const tools = createAiDashboardTools({ currentUser: admin, repository });
     const tool = tools.find(
@@ -291,5 +322,194 @@ describe("propostas de dashboard da IA", () => {
         repository: makeRepository(),
       }),
     ).toThrow("administradores");
+  });
+});
+
+describe("fases da IA: Recibo de componente, destino e posição", () => {
+  const proposeTool = (
+    repository: AiDashboardToolsRepository,
+    extra: Partial<ConstructorParameters<typeof AiDashboardTools>[0]> = {},
+  ) =>
+    createAiDashboardTools({ currentUser: admin, repository, ...extra }).find(
+      (candidate) => candidate.name === "create_or_update_dashboard",
+    )!;
+  const invoke = (tool: StructuredToolInterface, input: unknown) =>
+    tool.invoke(input as never, { toolCallId: "call-x" } as never);
+
+  it("recusa sem Recibo de componente", async () => {
+    const repository = makeRepository();
+    const { componentReceiptId: _omit, ...proposal } = validProposal();
+    const output = await invoke(proposeTool(repository), proposal);
+    expect(output).toMatchObject({
+      ok: false,
+      code: "COMPONENT_RECEIPT_REQUIRED",
+    });
+    expect(repository.issueReceipt).not.toHaveBeenCalled();
+  });
+
+  it("recusa sem destino declarado", async () => {
+    const repository = makeRepository();
+    const { destination: _omit, ...proposal } = validProposal();
+    const output = await invoke(proposeTool(repository), proposal);
+    expect(output).toMatchObject({ ok: false, code: "DESTINATION_REQUIRED" });
+    expect(repository.consumeComponentReceipt).not.toHaveBeenCalled();
+  });
+
+  it("recusa sem posição declarada", async () => {
+    const repository = makeRepository();
+    const { position: _omit, ...proposal } = validProposal();
+    const output = await invoke(proposeTool(repository), proposal);
+    expect(output).toMatchObject({ ok: false, code: "POSITION_REQUIRED" });
+    expect(repository.issueReceipt).not.toHaveBeenCalled();
+  });
+
+  it("no contexto de um dashboard o destino vale pelo contexto, mas a posição não", async () => {
+    const dashboardId = "00000000-0000-4000-8000-000000000010";
+    const current = dashboardDocumentSchema.parse({
+      id: dashboardId,
+      name: "Atual",
+      workspace: { params: [] },
+      queryBindings: [],
+      ui: { layout: { gap: 16 }, components: [] },
+    });
+    const repository = makeRepository({
+      findDashboard: vi.fn(async () => ({
+        document: current,
+        fingerprint: "r1",
+      })),
+    });
+    const { destination: _d, position: _p, ...base } = validProposal();
+    const update = { ...base, mode: "update", dashboardId };
+    const tool = proposeTool(repository, { pageDashboardId: dashboardId });
+    expect(await invoke(tool, update)).toMatchObject({
+      ok: false,
+      code: "POSITION_REQUIRED",
+    });
+    const output = await invoke(tool, {
+      ...update,
+      position: { placement: "start" },
+    });
+    expect(output).toMatchObject({ canCommit: true, dashboardId });
+  });
+
+  it("recusa Recibo de outro Ator", async () => {
+    const repository = makeRepository({
+      findComponentReceipt: vi.fn(async () => ({
+        ...validReceipt,
+        actorId: "00000000-0000-4000-8000-0000000000ff",
+      })),
+    });
+    const output = await invoke(proposeTool(repository), validProposal());
+    expect(output).toMatchObject({
+      ok: false,
+      code: "COMPONENT_RECEIPT_INVALID",
+    });
+    expect(repository.issueReceipt).not.toHaveBeenCalled();
+  });
+
+  it("recusa Recibo já usado, não aprovado, expirado ou de outro componente", async () => {
+    for (const patch of [
+      { consumedAt: new Date(now - 5) },
+      { approvedAt: null },
+      { expiresAt: new Date(now - 1) },
+      { component: { ...approvedComponent, component: "pie_chart" } },
+    ]) {
+      const repository = makeRepository({
+        findComponentReceipt: vi.fn(async () => ({
+          ...validReceipt,
+          ...patch,
+        })),
+      });
+      const output = await invoke(proposeTool(repository), validProposal());
+      expect(output).toMatchObject({
+        ok: false,
+        code: "COMPONENT_RECEIPT_INVALID",
+      });
+      expect(repository.issueReceipt).not.toHaveBeenCalled();
+    }
+  });
+
+  it("recusa Recibo reutilizado quando o consumo atômico falha", async () => {
+    const repository = makeRepository({
+      consumeComponentReceipt: vi.fn(async () => false),
+    });
+    const output = await invoke(proposeTool(repository), validProposal());
+    expect(output).toMatchObject({
+      ok: false,
+      code: "COMPONENT_RECEIPT_INVALID",
+    });
+    expect(repository.issueReceipt).not.toHaveBeenCalled();
+  });
+
+  it("caminho feliz: consome o Recibo uma vez e emite a proposta na posição pedida", async () => {
+    const dashboardId = "00000000-0000-4000-8000-000000000010";
+    const existing = dashboardDocumentSchema.parse({
+      id: dashboardId,
+      name: "Atual",
+      workspace: { params: [] },
+      queryBindings: [],
+      ui: {
+        layout: { gap: 16 },
+        components: ["a", "b"].map((id) => ({
+          id,
+          component: "stat_card",
+          layoutProps: { colSpan: 6, rowSpan: 1 },
+          props: { title: id, queryUuid: queryId, field: "amount" },
+        })),
+      },
+    });
+    const events: AiToolProgressEvent[] = [];
+    const repository = makeRepository({
+      findDashboard: vi.fn(async () => ({
+        document: existing,
+        fingerprint: "r1",
+      })),
+    });
+    const tool = proposeTool(repository, {
+      onToolEvent: (event) => {
+        events.push(event);
+      },
+    });
+    const { destination: _d, ...base } = validProposal();
+    const output = await invoke(tool, {
+      ...base,
+      mode: "update",
+      dashboardId,
+      destination: { kind: "existing_dashboard", dashboardId },
+      position: { placement: "before", relativeToComponentId: "b" },
+    });
+    expect(output).toMatchObject({ canCommit: true });
+    const preview = eventFrom(events, "dashboard_preview");
+    expect(preview.document.ui.components.map((c) => c.id)).toEqual([
+      "a",
+      "monthly-chart",
+      "b",
+    ]);
+    expect(repository.consumeComponentReceipt).toHaveBeenCalledOnce();
+    expect(repository.consumeComponentReceipt).toHaveBeenCalledWith(
+      componentReceiptId,
+      actorId,
+      new Date(now),
+    );
+    expect(repository.issueReceipt).toHaveBeenCalledOnce();
+  });
+
+  it("preview_component emite o cartão e cria Recibo ainda não aprovado, ligado ao Ator", async () => {
+    const events: AiToolProgressEvent[] = [];
+    const repository = makeRepository();
+    const tool = createAiDashboardTools({
+      currentUser: admin,
+      repository,
+      onToolEvent: (event) => {
+        events.push(event);
+      },
+    }).find((candidate) => candidate.name === "preview_component")!;
+    await invoke(tool, { component: approvedComponent });
+    const issued = vi.mocked(repository.issueComponentReceipt).mock
+      .calls[0]![0];
+    expect(issued).toMatchObject({ actorId, component: approvedComponent });
+    expect(
+      events.find((event) => event.type === "component_preview"),
+    ).toMatchObject({ receiptId: issued.id, component: approvedComponent });
   });
 });

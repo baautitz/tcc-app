@@ -15,6 +15,9 @@ POST /api/admin/ai/context-proposals/:proposalId/approve
 POST /api/admin/ai/context-proposals/:proposalId/dismiss
 POST /api/admin/ai/context-proposals/:proposalId/dismiss
 POST /api/admin/ai/context-proposals/:proposalId/dismiss
+POST /api/admin/ai/component-receipts/:receiptId/approve
+POST /api/admin/ai/component-receipts/:receiptId/approve
+POST /api/admin/ai/component-receipts/:receiptId/approve
 POST /api/auth/login
 POST /api/auth/logout
 GET /api/auth/me

@@ -6,6 +6,7 @@ import {
 } from "../../../shared/middleware/auth.js";
 import {
   aiChat,
+  approveComponentReceipt,
   approveProposal,
   dismissProposal,
   getContextProposalById,
@@ -37,4 +38,10 @@ aiAdminRoutes.post(
   authentication,
   adminRequired,
   dismissProposal,
+);
+aiAdminRoutes.post(
+  "/api/admin/ai/component-receipts/:receiptId/approve",
+  authentication,
+  adminRequired,
+  approveComponentReceipt,
 );

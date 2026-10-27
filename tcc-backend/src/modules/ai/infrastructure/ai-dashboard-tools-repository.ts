@@ -1,8 +1,9 @@
 import type { ExternalSourcePort } from "../../data-sources/domain/external-source.js";
-import { asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../../shared/db/client.js";
 import {
+  aiComponentReceipts,
   dashboardProposalReceipts,
   dataSources,
   savedQueries,
@@ -130,6 +131,67 @@ export class DrizzleAiDashboardToolsRepository implements AiDashboardToolsReposi
       },
     );
     return result;
+  }
+
+  async issueComponentReceipt(input: {
+    id: string;
+    actorId: string;
+    component: unknown;
+    expiresAt: Date;
+  }) {
+    await db.transaction(async (tx) => {
+      await tx.execute(sql`DELETE FROM ai_component_receipts
+          WHERE id IN (
+            SELECT id FROM ai_component_receipts
+            WHERE expires_at <= now()
+              OR (consumed_at IS NOT NULL AND consumed_at < now() - interval '1 day')
+            ORDER BY expires_at ASC
+            LIMIT 200
+          )`);
+      await tx.insert(aiComponentReceipts).values(input);
+    });
+  }
+
+  async findComponentReceipt(id: string) {
+    const [row] = await db
+      .select()
+      .from(aiComponentReceipts)
+      .where(eq(aiComponentReceipts.id, id));
+    return row;
+  }
+
+  /** Chamado pelo botão Aprovar do cartão; só o dono, dentro do prazo e antes do uso. */
+  async approveComponentReceipt(id: string, actorId: string, now = new Date()) {
+    const rows = await db
+      .update(aiComponentReceipts)
+      .set({ approvedAt: now })
+      .where(
+        and(
+          eq(aiComponentReceipts.id, id),
+          eq(aiComponentReceipts.actorId, actorId),
+          isNull(aiComponentReceipts.consumedAt),
+          gt(aiComponentReceipts.expiresAt, now),
+        ),
+      )
+      .returning({ id: aiComponentReceipts.id });
+    return rows.length === 1;
+  }
+
+  async consumeComponentReceipt(id: string, actorId: string, now: Date) {
+    const rows = await db
+      .update(aiComponentReceipts)
+      .set({ consumedAt: now })
+      .where(
+        and(
+          eq(aiComponentReceipts.id, id),
+          eq(aiComponentReceipts.actorId, actorId),
+          isNotNull(aiComponentReceipts.approvedAt),
+          isNull(aiComponentReceipts.consumedAt),
+          gt(aiComponentReceipts.expiresAt, now),
+        ),
+      )
+      .returning({ id: aiComponentReceipts.id });
+    return rows.length === 1;
   }
 
   async issueReceipt(

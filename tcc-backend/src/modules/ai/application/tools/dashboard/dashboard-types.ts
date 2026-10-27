@@ -29,7 +29,30 @@ export interface AiDashboardToolsOptions {
   now?: () => number;
 }
 
+/** Recibo de componente: prova a aprovação do componente isolado (fase 3). */
+export interface AiComponentReceipt {
+  id: string;
+  actorId: string;
+  component: unknown;
+  expiresAt: Date;
+  approvedAt: Date | null;
+  consumedAt: Date | null;
+}
+
 export interface AiDashboardToolsRepository {
+  issueComponentReceipt(input: {
+    id: string;
+    actorId: string;
+    component: unknown;
+    expiresAt: Date;
+  }): Promise<void>;
+  findComponentReceipt(id: string): Promise<AiComponentReceipt | undefined>;
+  /** Uso único: true somente se o recibo era do Ator, aprovado, não usado e dentro do prazo. */
+  consumeComponentReceipt(
+    id: string,
+    actorId: string,
+    now: Date,
+  ): Promise<boolean>;
   listSavedQueries(): Promise<AiDashboardQuery[]>;
   findSavedQueries(ids: string[]): Promise<AiDashboardQueryDefinition[]>;
   findDashboard(

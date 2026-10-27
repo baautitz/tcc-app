@@ -111,6 +111,14 @@ export type AiToolProgressEvent =
       >;
     }
   | {
+      type: "component_preview";
+      toolCallId: string;
+      receiptId: string;
+      expiresAt: string;
+      component: import("../../../../dashboards/domain/dashboard-proposals.js").AiProposedComponent;
+      query: import("../../../../dashboards/domain/dashboard-preview-validation.js").AiDashboardQueryPreview;
+    }
+  | {
       type: "dashboard_applied";
       dashboardId: string;
       dashboardName: string;

@@ -27,6 +27,32 @@ describe("prompt do sistema da IA", () => {
     expect(prompt).toMatch(/não crie Proposta de contexto/i);
   });
 
+  it("descreve as 5 fases e que o backend as impõe", () => {
+    expect(prompt).toMatch(/# Fases do dashboard/);
+    for (const phase of [
+      /1\. Entendimento/,
+      /2\. Query/,
+      /3\. Componente isolado/,
+      /4\. Posição/,
+      /5\. Proposta de dashboard/,
+    ])
+      expect(prompt).toMatch(phase);
+    expect(prompt).toMatch(/preview_component/);
+    expect(prompt).toMatch(/Aprovar/);
+    expect(prompt).toMatch(/Pedir ajuste/);
+    expect(prompt).toMatch(/o backend recusa/i);
+  });
+
+  it("permite pular as fases 1, 2 e 4, nunca a 3, e nunca assumir o fim", () => {
+    expect(prompt).toMatch(/fases 1, 2 e 4 podem ser puladas/);
+    expect(prompt).toMatch(/fase 3 nunca é pulada/);
+    expect(prompt).toMatch(/nunca assuma o fim/i);
+  });
+
+  it("no contexto de um dashboard o destino vale, mas a posição não", () => {
+    expect(prompt).toMatch(/contexto de navegação.*destino.*posição/i);
+  });
+
   it("limita ask_admin_questions a uma chamada por fase e 4 perguntas", () => {
     expect(prompt).toMatch(/uma chamada por fase/);
     expect(prompt).toMatch(/no máximo 4 perguntas/);

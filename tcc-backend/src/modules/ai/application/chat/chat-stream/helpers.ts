@@ -141,6 +141,8 @@ export function structuredResponseFallback(
       return event.canCommit
         ? `A proposta do dashboard “${event.document.name}” está pronta para revisão. Ela ainda não foi salva; clique em “${event.mode === "create" ? "Criar dashboard" : "Aplicar alterações"}” no cartão para confirmar.`
         : `A proposta do dashboard “${event.document.name}” foi gerada, mas ainda tem ${event.issues.length} pendência(s) e não pode ser aplicada. Revise os problemas no cartão; nada foi salvo.`;
+    case "component_preview":
+      return `O componente “${event.component.title}” está isolado no cartão. Nada foi salvo; aprove ou peça ajuste no cartão para eu continuar.`;
     case "dashboard_applied":
       return `O patch no dashboard “${event.dashboardName}” foi aplicado e salvo.`;
     case "context_proposal":
