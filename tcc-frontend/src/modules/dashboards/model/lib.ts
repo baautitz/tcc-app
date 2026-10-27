@@ -14,21 +14,21 @@ export function componentChangeClasses(status?: DashboardComponentChange) {
   switch (status) {
     case "added":
       return {
-        card: "border-emerald-600/45 bg-emerald-500/5 dark:border-emerald-400/40 dark:bg-emerald-400/5",
+        card: "border-emerald-600/45 bg-card bg-linear-to-b from-emerald-500/5 to-emerald-500/5 dark:border-emerald-400/40 dark:from-emerald-400/5 dark:to-emerald-400/5",
         badge:
           "border-emerald-600/40 bg-emerald-500/10 text-emerald-800 dark:border-emerald-400/40 dark:text-emerald-300",
         label: "Novo",
       };
     case "modified":
       return {
-        card: "border-amber-600/45 bg-amber-500/5 dark:border-amber-400/40 dark:bg-amber-400/5",
+        card: "border-amber-600/45 bg-card bg-linear-to-b from-amber-500/5 to-amber-500/5 dark:border-amber-400/40 dark:from-amber-400/5 dark:to-amber-400/5",
         badge:
           "border-amber-600/40 bg-amber-500/10 text-amber-800 dark:border-amber-400/40 dark:text-amber-300",
         label: "Modificado",
       };
     case "unchanged":
       return {
-        card: "border-border/70 bg-muted/10",
+        card: "border-border/70 bg-card bg-linear-to-b from-muted/10 to-muted/10",
         badge: "border-border bg-muted text-muted-foreground",
         label: "Sem alteração",
       };
