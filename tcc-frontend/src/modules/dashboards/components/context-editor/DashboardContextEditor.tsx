@@ -8,6 +8,8 @@ import {
   dashboardValidationIssues,
 } from "@/modules/dashboards/model/validate";
 import { JsonEditorDialog } from "./JsonEditorDialog";
+import { moveItem } from "./moveItem";
+import { SortableItem, SortableList, useItemKeys } from "./SortableList";
 import {
   ManualOptionsEditor,
   QueryParameterEditor,
@@ -97,6 +99,10 @@ export function DashboardContextEditor({
   }, [dashboardId]);
 
   const contextArguments = dashboard?.workspace.params ?? [];
+  const [argumentKeys, setArgumentKeys] = useItemKeys(contextArguments.length);
+  const [componentKeys, setComponentKeys] = useItemKeys(
+    dashboard?.ui.components.length ?? 0,
+  );
   const linkedQueryIds = useMemo(() => {
     if (!dashboard) return [];
     const ids = new Set<string>();
@@ -152,7 +158,34 @@ export function DashboardContextEditor({
       };
     });
 
-  const removeArgument = (index: number) =>
+  const moveArgument = (from: number, to: number) => {
+    setArgumentKeys((keys) => moveItem(keys, from, to));
+    updateDashboard((current) => ({
+      ...current,
+      workspace: {
+        ...current.workspace,
+        params: moveItem(current.workspace.params, from, to),
+      },
+    }));
+  };
+
+  const moveComponent = (from: number, to: number) => {
+    setComponentKeys((keys) => moveItem(keys, from, to));
+    updateDashboard((current) => ({
+      ...current,
+      ui: {
+        ...current.ui,
+        components: moveItem(current.ui.components, from, to),
+      },
+    }));
+  };
+
+  const removeArgument = (index: number) => {
+    setArgumentKeys((keys) => keys.filter((_, i) => i !== index));
+    removeArgumentFromDashboard(index);
+  };
+
+  const removeArgumentFromDashboard = (index: number) =>
     updateDashboard((current) => {
       const removed = current.workspace.params[index];
       return {
@@ -515,215 +548,218 @@ export function DashboardContextEditor({
               </div>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
-              {dashboard.workspace.params.map((argument, index) => (
-                <div
-                  key={`${argument.name}-${index}`}
-                  className="grid gap-3 rounded-md border p-3 md:grid-cols-[1fr_1fr_1fr_auto_auto] md:items-end"
-                >
-                  <Label className="flex flex-col items-stretch gap-2 text-xs">
-                    Nome do argumento
-                    <Input
-                      value={argument.name}
-                      onChange={(event) =>
-                        updateArgument(index, { name: event.target.value })
-                      }
-                    />
-                  </Label>
-                  <Label className="flex flex-col items-stretch gap-2 text-xs">
-                    Rótulo
-                    <Input
-                      value={argument.label}
-                      onChange={(event) =>
-                        updateArgument(index, { label: event.target.value })
-                      }
-                    />
-                  </Label>
-                  <Label className="flex flex-col items-stretch gap-2 text-xs">
-                    Tipo
-                    <Select
-                      items={parameterTypes.map((type) => ({
-                        value: type.value,
-                        label: type.label,
-                      }))}
-                      value={argument.type}
-                      onValueChange={(value) =>
-                        value &&
-                        updateArgument(index, {
-                          type: value as QueryParameter["type"],
-                          ...(value !== "multi_select"
-                            ? { options: undefined }
-                            : {}),
-                        })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {parameterTypes.map((type) => (
-                          <SelectItem key={type.value} value={type.value}>
-                            {type.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </Label>
-                  <Label className="flex items-center gap-2 text-xs">
-                    <Checkbox
-                      checked={argument.required}
-                      onCheckedChange={(checked) =>
-                        updateArgument(index, { required: checked })
-                      }
-                    />{" "}
-                    Obrigatório
-                  </Label>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="text-destructive"
-                    onClick={() => removeArgument(index)}
-                    aria-label="Remover argumento"
+              <SortableList keys={argumentKeys} onMove={moveArgument}>
+                {dashboard.workspace.params.map((argument, index) => (
+                  <SortableItem
+                    key={argumentKeys[index]}
+                    id={argumentKeys[index]!}
+                    className="grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto_auto] md:items-end"
                   >
-                    <Trash2 />
-                  </Button>
-                  <div className="md:col-span-4">
-                    <div className="flex flex-col gap-3">
-                      <Label className="flex items-center gap-2 text-xs">
-                        <Checkbox
-                          checked={Boolean(argument.lookup)}
-                          disabled={!queries.length && !argument.lookup}
-                          onCheckedChange={(checked) =>
-                            updateArgument(
-                              index,
-                              checked
-                                ? {
+                    <Label className="flex flex-col items-stretch gap-2 text-xs">
+                      Nome do argumento
+                      <Input
+                        value={argument.name}
+                        onChange={(event) =>
+                          updateArgument(index, { name: event.target.value })
+                        }
+                      />
+                    </Label>
+                    <Label className="flex flex-col items-stretch gap-2 text-xs">
+                      Rótulo
+                      <Input
+                        value={argument.label}
+                        onChange={(event) =>
+                          updateArgument(index, { label: event.target.value })
+                        }
+                      />
+                    </Label>
+                    <Label className="flex flex-col items-stretch gap-2 text-xs">
+                      Tipo
+                      <Select
+                        items={parameterTypes.map((type) => ({
+                          value: type.value,
+                          label: type.label,
+                        }))}
+                        value={argument.type}
+                        onValueChange={(value) =>
+                          value &&
+                          updateArgument(index, {
+                            type: value as QueryParameter["type"],
+                            ...(value !== "multi_select"
+                              ? { options: undefined }
+                              : {}),
+                          })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {parameterTypes.map((type) => (
+                            <SelectItem key={type.value} value={type.value}>
+                              {type.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Label>
+                    <Label className="flex items-center gap-2 text-xs">
+                      <Checkbox
+                        checked={argument.required}
+                        onCheckedChange={(checked) =>
+                          updateArgument(index, { required: checked })
+                        }
+                      />{" "}
+                      Obrigatório
+                    </Label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="text-destructive"
+                      onClick={() => removeArgument(index)}
+                      aria-label="Remover argumento"
+                    >
+                      <Trash2 />
+                    </Button>
+                    <div className="md:col-span-4">
+                      <div className="flex flex-col gap-3">
+                        <Label className="flex items-center gap-2 text-xs">
+                          <Checkbox
+                            checked={Boolean(argument.lookup)}
+                            disabled={!queries.length && !argument.lookup}
+                            onCheckedChange={(checked) =>
+                              updateArgument(
+                                index,
+                                checked
+                                  ? {
+                                      lookup: {
+                                        queryUuid: "",
+                                        valueField: "value",
+                                        labelField: "label",
+                                      },
+                                      options: undefined,
+                                    }
+                                  : { lookup: undefined, options: [] },
+                              )
+                            }
+                          />
+                          Query de opções
+                        </Label>
+                        {argument.lookup ? (
+                          <div className="grid gap-2 md:grid-cols-3">
+                            <Label className="flex flex-col items-stretch gap-2 text-xs">
+                              Selecionar query de opções
+                              <Select
+                                items={querySelectItems(
+                                  queries,
+                                  argument.lookup.queryUuid,
+                                  "__no_lookup__",
+                                  "Selecione uma query",
+                                )}
+                                value={
+                                  argument.lookup.queryUuid || "__no_lookup__"
+                                }
+                                onValueChange={(value) =>
+                                  updateArgument(index, {
                                     lookup: {
-                                      queryUuid: "",
-                                      valueField: "value",
-                                      labelField: "label",
+                                      ...argument.lookup!,
+                                      queryUuid:
+                                        value === "__no_lookup__"
+                                          ? ""
+                                          : (value ?? ""),
                                     },
-                                    options: undefined,
-                                  }
-                                : { lookup: undefined, options: [] },
-                            )
-                          }
-                        />
-                        Query de opções
-                      </Label>
-                      {argument.lookup ? (
-                        <div className="grid gap-2 md:grid-cols-3">
-                          <Label className="flex flex-col items-stretch gap-2 text-xs">
-                            Selecionar query de opções
-                            <Select
-                              items={querySelectItems(
-                                queries,
-                                argument.lookup.queryUuid,
-                                "__no_lookup__",
-                                "Selecione uma query",
-                              )}
-                              value={
-                                argument.lookup.queryUuid || "__no_lookup__"
-                              }
-                              onValueChange={(value) =>
-                                updateArgument(index, {
-                                  lookup: {
-                                    ...argument.lookup!,
-                                    queryUuid:
-                                      value === "__no_lookup__"
-                                        ? ""
-                                        : (value ?? ""),
-                                  },
-                                })
-                              }
-                            >
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="__no_lookup__">
-                                  Selecione uma query
-                                </SelectItem>
-                                {argument.lookup.queryUuid &&
-                                  !queries.some(
-                                    (query) =>
-                                      query.id === argument.lookup?.queryUuid,
-                                  ) && (
-                                    <SelectItem
-                                      value={argument.lookup.queryUuid}
-                                    >
-                                      Query não encontrada
-                                    </SelectItem>
-                                  )}
-                                {queries.map((query) => (
-                                  <SelectItem key={query.id} value={query.id}>
-                                    {query.name}
+                                  })
+                                }
+                              >
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="__no_lookup__">
+                                    Selecione uma query
                                   </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </Label>
-                          <Label className="flex flex-col items-stretch gap-2 text-xs">
-                            Campo do valor
-                            <Input
-                              value={argument.lookup.valueField}
-                              onChange={(event) =>
-                                updateArgument(index, {
-                                  lookup: {
-                                    ...argument.lookup!,
-                                    valueField: event.target.value,
-                                  },
-                                })
-                              }
-                            />
-                          </Label>
-                          <Label className="flex flex-col items-stretch gap-2 text-xs">
-                            Campo do rótulo
-                            <Input
-                              value={argument.lookup.labelField}
-                              onChange={(event) =>
-                                updateArgument(index, {
-                                  lookup: {
-                                    ...argument.lookup!,
-                                    labelField: event.target.value,
-                                  },
-                                })
-                              }
-                            />
-                          </Label>
-                          {argument.lookup.queryUuid &&
-                            !queries.some(
-                              (query) =>
-                                query.id === argument.lookup?.queryUuid,
-                            ) && (
+                                  {argument.lookup.queryUuid &&
+                                    !queries.some(
+                                      (query) =>
+                                        query.id === argument.lookup?.queryUuid,
+                                    ) && (
+                                      <SelectItem
+                                        value={argument.lookup.queryUuid}
+                                      >
+                                        Query não encontrada
+                                      </SelectItem>
+                                    )}
+                                  {queries.map((query) => (
+                                    <SelectItem key={query.id} value={query.id}>
+                                      {query.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </Label>
+                            <Label className="flex flex-col items-stretch gap-2 text-xs">
+                              Campo do valor
+                              <Input
+                                value={argument.lookup.valueField}
+                                onChange={(event) =>
+                                  updateArgument(index, {
+                                    lookup: {
+                                      ...argument.lookup!,
+                                      valueField: event.target.value,
+                                    },
+                                  })
+                                }
+                              />
+                            </Label>
+                            <Label className="flex flex-col items-stretch gap-2 text-xs">
+                              Campo do rótulo
+                              <Input
+                                value={argument.lookup.labelField}
+                                onChange={(event) =>
+                                  updateArgument(index, {
+                                    lookup: {
+                                      ...argument.lookup!,
+                                      labelField: event.target.value,
+                                    },
+                                  })
+                                }
+                              />
+                            </Label>
+                            {argument.lookup.queryUuid &&
+                              !queries.some(
+                                (query) =>
+                                  query.id === argument.lookup?.queryUuid,
+                              ) && (
+                                <p className="text-xs text-destructive md:col-span-3">
+                                  A query de opções não existe no catálogo.
+                                  Selecione uma query salva.
+                                </p>
+                              )}
+                            {!argument.lookup.queryUuid && (
                               <p className="text-xs text-destructive md:col-span-3">
-                                A query de opções não existe no catálogo.
-                                Selecione uma query salva.
+                                Selecione uma query de opções.
                               </p>
                             )}
-                          {!argument.lookup.queryUuid && (
-                            <p className="text-xs text-destructive md:col-span-3">
-                              Selecione uma query de opções.
-                            </p>
-                          )}
-                        </div>
-                      ) : argument.type === "multi_select" ? (
-                        <ManualOptionsEditor
-                          options={argument.options ?? []}
-                          onChange={(options) =>
-                            updateArgument(index, { options })
-                          }
-                        />
-                      ) : (
-                        <p className="text-xs text-muted-foreground">
-                          Sem query, o valor será informado diretamente no
-                          dashboard.
-                        </p>
-                      )}
+                          </div>
+                        ) : argument.type === "multi_select" ? (
+                          <ManualOptionsEditor
+                            options={argument.options ?? []}
+                            onChange={(options) =>
+                              updateArgument(index, { options })
+                            }
+                          />
+                        ) : (
+                          <p className="text-xs text-muted-foreground">
+                            Sem query, o valor será informado diretamente no
+                            dashboard.
+                          </p>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </div>
-              ))}
+                  </SortableItem>
+                ))}
+              </SortableList>
               {!dashboard.workspace.params.length && (
                 <p className="text-sm text-muted-foreground">
                   Sem argumentos de contexto.
@@ -747,165 +783,171 @@ export function DashboardContextEditor({
               </div>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
-              {dashboard.ui.components.map((component, index) => (
-                <div
-                  key={`${component.id}-${index}`}
-                  className="grid gap-3 rounded-md border p-3 md:grid-cols-[1fr_1fr_1.5fr_1fr_auto] md:items-end"
-                >
-                  <Label className="flex flex-col items-stretch gap-2 text-xs">
-                    ID
-                    <Input
-                      value={component.id}
-                      onChange={(event) =>
-                        updateComponent(index, (current) => ({
-                          ...current,
-                          id: event.target.value,
-                        }))
-                      }
-                    />
-                  </Label>
-                  <Label className="flex flex-col items-stretch gap-2 text-xs">
-                    Tipo
-                    <Select
-                      items={componentTypes.map((type) => ({
-                        value: type.value,
-                        label: type.label,
-                      }))}
-                      value={component.component}
-                      onValueChange={(value) =>
-                        value &&
-                        updateComponent(index, (current) => ({
-                          ...current,
-                          component:
-                            value as DashboardDocumentComponent["component"],
-                        }))
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {componentTypes.map((type) => (
-                          <SelectItem key={type.value} value={type.value}>
-                            {type.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </Label>
-                  <Label className="flex flex-col items-stretch gap-2 text-xs">
-                    Título
-                    <Input
-                      value={String(component.props.title ?? "")}
-                      onChange={(event) =>
-                        updateComponent(index, (current) => ({
-                          ...current,
-                          props: {
-                            ...current.props,
-                            title: event.target.value,
-                          },
-                        }))
-                      }
-                    />
-                  </Label>
-                  <Label className="flex flex-col items-stretch gap-2 text-xs">
-                    Query
-                    <Select
-                      items={querySelectItems(
-                        queries,
-                        componentQuery(component),
-                        "__no_query__",
-                        "Selecione uma query",
-                      )}
-                      value={componentQuery(component) || "__no_query__"}
-                      onValueChange={(value) =>
-                        updateComponent(index, (current) => ({
-                          ...current,
-                          props: {
-                            ...current.props,
-                            queryUuid:
-                              value === "__no_query__" ? "" : (value ?? ""),
-                          },
-                        }))
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__no_query__">
-                          Selecione uma query
-                        </SelectItem>
-                        {componentQuery(component) &&
-                          !queries.some(
-                            (query) => query.id === componentQuery(component),
-                          ) && (
-                            <SelectItem value={componentQuery(component)}>
-                              Query não encontrada
-                            </SelectItem>
-                          )}
-                        {queries.map((query) => (
-                          <SelectItem key={query.id} value={query.id}>
-                            {query.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </Label>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="text-destructive"
-                    onClick={() =>
-                      updateDashboard((current) => ({
-                        ...current,
-                        ui: {
-                          ...current.ui,
-                          components: current.ui.components.filter(
-                            (_, itemIndex) => itemIndex !== index,
-                          ),
-                        },
-                      }))
-                    }
-                    aria-label="Remover componente"
+              <SortableList keys={componentKeys} onMove={moveComponent}>
+                {dashboard.ui.components.map((component, index) => (
+                  <SortableItem
+                    key={componentKeys[index]}
+                    id={componentKeys[index]!}
+                    className="grid gap-3 md:grid-cols-[1fr_1fr_1.5fr_1fr_auto] md:items-end"
                   >
-                    <Trash2 />
-                  </Button>
-                  <Label className="flex flex-col items-stretch gap-2 text-xs md:col-span-2">
-                    Colunas (1 a 12)
-                    <Input
-                      type="number"
-                      min={1}
-                      max={12}
-                      value={component.layoutProps.colSpan}
-                      onChange={(event) =>
-                        updateComponent(index, (current) => ({
+                    <Label className="flex flex-col items-stretch gap-2 text-xs">
+                      ID
+                      <Input
+                        value={component.id}
+                        onChange={(event) =>
+                          updateComponent(index, (current) => ({
+                            ...current,
+                            id: event.target.value,
+                          }))
+                        }
+                      />
+                    </Label>
+                    <Label className="flex flex-col items-stretch gap-2 text-xs">
+                      Tipo
+                      <Select
+                        items={componentTypes.map((type) => ({
+                          value: type.value,
+                          label: type.label,
+                        }))}
+                        value={component.component}
+                        onValueChange={(value) =>
+                          value &&
+                          updateComponent(index, (current) => ({
+                            ...current,
+                            component:
+                              value as DashboardDocumentComponent["component"],
+                          }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {componentTypes.map((type) => (
+                            <SelectItem key={type.value} value={type.value}>
+                              {type.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Label>
+                    <Label className="flex flex-col items-stretch gap-2 text-xs">
+                      Título
+                      <Input
+                        value={String(component.props.title ?? "")}
+                        onChange={(event) =>
+                          updateComponent(index, (current) => ({
+                            ...current,
+                            props: {
+                              ...current.props,
+                              title: event.target.value,
+                            },
+                          }))
+                        }
+                      />
+                    </Label>
+                    <Label className="flex flex-col items-stretch gap-2 text-xs">
+                      Query
+                      <Select
+                        items={querySelectItems(
+                          queries,
+                          componentQuery(component),
+                          "__no_query__",
+                          "Selecione uma query",
+                        )}
+                        value={componentQuery(component) || "__no_query__"}
+                        onValueChange={(value) =>
+                          updateComponent(index, (current) => ({
+                            ...current,
+                            props: {
+                              ...current.props,
+                              queryUuid:
+                                value === "__no_query__" ? "" : (value ?? ""),
+                            },
+                          }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__no_query__">
+                            Selecione uma query
+                          </SelectItem>
+                          {componentQuery(component) &&
+                            !queries.some(
+                              (query) => query.id === componentQuery(component),
+                            ) && (
+                              <SelectItem value={componentQuery(component)}>
+                                Query não encontrada
+                              </SelectItem>
+                            )}
+                          {queries.map((query) => (
+                            <SelectItem key={query.id} value={query.id}>
+                              {query.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="text-destructive"
+                      onClick={() => {
+                        setComponentKeys((keys) =>
+                          keys.filter((_, itemIndex) => itemIndex !== index),
+                        );
+                        updateDashboard((current) => ({
                           ...current,
-                          layoutProps: {
-                            ...current.layoutProps,
-                            colSpan: event.target.valueAsNumber || 12,
+                          ui: {
+                            ...current.ui,
+                            components: current.ui.components.filter(
+                              (_, itemIndex) => itemIndex !== index,
+                            ),
                           },
-                        }))
-                      }
-                    />
-                  </Label>
-                  {componentQuery(component) &&
-                    !queries.some(
-                      (query) => query.id === componentQuery(component),
-                    ) && (
+                        }));
+                      }}
+                      aria-label="Remover componente"
+                    >
+                      <Trash2 />
+                    </Button>
+                    <Label className="flex flex-col items-stretch gap-2 text-xs md:col-span-2">
+                      Colunas (1 a 12)
+                      <Input
+                        type="number"
+                        min={1}
+                        max={12}
+                        value={component.layoutProps.colSpan}
+                        onChange={(event) =>
+                          updateComponent(index, (current) => ({
+                            ...current,
+                            layoutProps: {
+                              ...current.layoutProps,
+                              colSpan: event.target.valueAsNumber || 12,
+                            },
+                          }))
+                        }
+                      />
+                    </Label>
+                    {componentQuery(component) &&
+                      !queries.some(
+                        (query) => query.id === componentQuery(component),
+                      ) && (
+                        <p className="text-xs text-destructive md:col-span-3">
+                          A query selecionada não existe no catálogo. Selecione
+                          uma query salva.
+                        </p>
+                      )}
+                    {!componentQuery(component) && (
                       <p className="text-xs text-destructive md:col-span-3">
-                        A query selecionada não existe no catálogo. Selecione
-                        uma query salva.
+                        Selecione uma query para este componente.
                       </p>
                     )}
-                  {!componentQuery(component) && (
-                    <p className="text-xs text-destructive md:col-span-3">
-                      Selecione uma query para este componente.
-                    </p>
-                  )}
-                </div>
-              ))}
+                  </SortableItem>
+                ))}
+              </SortableList>
               {!dashboard.ui.components.length && (
                 <p className="text-sm text-muted-foreground">
                   Este dashboard ainda não tem componentes.
