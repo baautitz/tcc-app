@@ -232,16 +232,18 @@ export const queryBindingSchema = z
   })
   .strict();
 
+export const dashboardComponentTypes = [
+  "stat_card",
+  "bar_chart",
+  "line_chart",
+  "pie_chart",
+  "data_table",
+] as const;
+
 const dashboardDocumentComponentSchema = z
   .object({
     id: z.string().trim().min(1).max(160),
-    component: z.enum([
-      "stat_card",
-      "bar_chart",
-      "line_chart",
-      "pie_chart",
-      "data_table",
-    ]),
+    component: z.enum(dashboardComponentTypes),
     layoutProps: z
       .object({
         colSpan: z.number().int().min(1).max(12).default(12),
@@ -329,13 +331,7 @@ export const queryInputBindingSchema = queryBindingSchema;
 const componentSchema = z
   .object({
     id: z.string().trim().min(1).max(160),
-    type: z.enum([
-      "stat_card",
-      "bar_chart",
-      "line_chart",
-      "pie_chart",
-      "data_table",
-    ]),
+    type: z.enum(dashboardComponentTypes),
     title: z.string().trim().min(1).max(160),
     queryUuid: z.string().uuid(),
     layoutProps: z

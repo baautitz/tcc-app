@@ -3,6 +3,7 @@ import { sha256Hex, stableJson } from "../../../shared/lib/hash.js";
 import { z } from "zod";
 import {
   dashboardArgumentSchema,
+  dashboardComponentTypes,
   dashboardDocumentSchema,
   queryBindingSchema,
 } from "../../../shared/lib/contracts.js";
@@ -44,6 +45,15 @@ const aiComponentSchema = z.discriminatedUnion("component", [
   z
     .object({
       ...componentBase,
+      component: z.literal("line_chart"),
+      nameKey: z.string().trim().min(1).max(160),
+      valueKey: z.string().trim().min(1).max(160),
+      seriesKey: z.string().trim().min(1).max(160).optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ...componentBase,
       component: z.literal("pie_chart"),
       nameKey: z.string().trim().min(1).max(160),
       valueKey: z.string().trim().min(1).max(160),
@@ -60,6 +70,17 @@ const aiComponentSchema = z.discriminatedUnion("component", [
     })
     .strict(),
 ]);
+
+// Falha na compilação se um Tipo de componente do contrato não tiver schema de proposta (ADR 0001).
+type MissingAiComponentTypes = Exclude<
+  (typeof dashboardComponentTypes)[number],
+  z.infer<typeof aiComponentSchema>["component"]
+>;
+export const aiComponentTypesAreComplete: [MissingAiComponentTypes] extends [
+  never,
+]
+  ? true
+  : never = true;
 
 export const aiDashboardProposalInputSchema = z
   .object({

@@ -145,3 +145,22 @@ export function colClass(component: DashboardComponent): string {
     "col-span-12"
   );
 }
+
+export function pivotSeries(
+  rows: Record<string, unknown>[],
+  nameKey: string,
+  valueKey: string,
+  seriesKey: string,
+): { data: Record<string, unknown>[]; series: string[] } {
+  const series: string[] = [];
+  const byName = new Map<string, Record<string, unknown>>();
+  for (const row of rows) {
+    const serie = String(row[seriesKey] ?? "");
+    if (!series.includes(serie)) series.push(serie);
+    const name = String(row[nameKey]);
+    const point = byName.get(name) ?? { [nameKey]: row[nameKey] };
+    point[serie] = row[valueKey];
+    byName.set(name, point);
+  }
+  return { data: [...byName.values()], series };
+}
