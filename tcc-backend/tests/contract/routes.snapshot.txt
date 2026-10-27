@@ -52,6 +52,9 @@ GET /api/admin/dashboards/:id
 PUT /api/admin/dashboards/:id
 PUT /api/admin/dashboards/:id
 PUT /api/admin/dashboards/:id
+DELETE /api/admin/dashboards/:id
+DELETE /api/admin/dashboards/:id
+DELETE /api/admin/dashboards/:id
 GET /api/admin/dashboards/:id/users
 GET /api/admin/dashboards/:id/users
 GET /api/admin/dashboards/:id/users
