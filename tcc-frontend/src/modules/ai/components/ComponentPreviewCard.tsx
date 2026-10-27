@@ -43,7 +43,7 @@ const typeLabels: Record<ComponentType, string> = {
 /** Fase 3: o componente renderizado sozinho. Aprovar ou pedir ajuste não persistem nada. */
 /** Altura (em Células) do componente isolado: o indicador não ocupa a de um gráfico. */
 const previewRowSpan = (type: string) =>
-  type === "stat_card" ? 2 : type === "data_table" ? 6 : 5;
+  type === "stat_card" ? 1 : type === "data_table" ? 6 : 5;
 
 export function ComponentPreviewCard({
   item,
