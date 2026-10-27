@@ -38,8 +38,8 @@ export const PieChartRenderer: Renderer = ({
         component={component}
         changeStatus={changeStatus}
       />
-      <CardContent className="min-h-0 flex-1">
-        <div className="grid h-full grid-rows-[minmax(0,1fr)_auto] gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(9rem,0.8fr)] sm:grid-rows-[minmax(0,1fr)]">
+      <CardContent className="@container min-h-0 flex-1 overflow-auto">
+        <div className="grid h-full grid-rows-[minmax(10rem,1fr)_auto] gap-4 @sm:grid-cols-[minmax(0,1fr)_minmax(9rem,0.8fr)] @sm:grid-rows-[minmax(0,1fr)]">
           <ChartArea>
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
