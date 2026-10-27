@@ -17,6 +17,13 @@ describe("prompt do sistema da IA", () => {
     expect(prompt).toMatch(/nunca troque em silêncio/i);
   });
 
+  it("orienta a Composição: tamanho pelos dados e princípios de Gestalt", () => {
+    expect(prompt).toMatch(/tabela com muitas colunas/i);
+    expect(prompt).toMatch(/proximidade/i);
+    expect(prompt).toMatch(/fileira fecha 12/i);
+    expect(prompt).toMatch(/tamanho que o administrador definiu/i);
+  });
+
   it("exige o número exato de componentes pedido", () => {
     expect(prompt).toMatch(/exatamente o número de componentes pedido/);
   });

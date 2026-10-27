@@ -1,3 +1,4 @@
+import { layoutOverrideSchema } from "../domain/dashboard-composition.js";
 import { z } from "zod";
 import {
   dashboardCreateSchema,
@@ -65,6 +66,7 @@ export async function commitProposal(context: AppContext) {
     z
       .object({
         acknowledgeTruncation: z.boolean().default(false),
+        layout: layoutOverrideSchema.optional(),
       })
       .strict(),
   );

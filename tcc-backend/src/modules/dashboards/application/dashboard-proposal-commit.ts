@@ -29,6 +29,10 @@ import {
 } from "../../../shared/security/query-security.js";
 
 import { querySourceTargetHash } from "../../queries/domain/query-lifecycle.js";
+import {
+  applyLayoutOverride,
+  type LayoutOverride,
+} from "../domain/dashboard-composition.js";
 import { validateDashboardPreviewFields } from "../domain/dashboard-preview-validation.js";
 import {
   dashboardDocumentFingerprint,
@@ -278,7 +282,11 @@ export class DashboardProposalService {
   async commitDashboardProposal(
     currentUser: AuthenticatedUser,
     receiptId: string,
-    confirmation: { acknowledgeTruncation: boolean },
+    confirmation: {
+      acknowledgeTruncation: boolean;
+      /** Layout ajustado no preview: só ordem e tamanhos (ver ADR 0004). */
+      layout?: LayoutOverride;
+    },
   ) {
     let rollbackFile: (() => Promise<void>) | undefined;
     try {
@@ -489,9 +497,27 @@ export class DashboardProposalService {
           );
         }
 
+        // O Recibo travou o conteúdo; o layout ajustado é validado à parte.
+        let documentToWrite = document;
+        if (confirmation.layout) {
+          try {
+            documentToWrite = applyLayoutOverride(
+              document,
+              confirmation.layout,
+            );
+            dashboardDocumentSchema.parse(documentToWrite);
+          } catch (error) {
+            throw new ApiError(
+              400,
+              error instanceof Error
+                ? error.message
+                : "O layout ajustado é inválido.",
+            );
+          }
+        }
         rollbackFile = await writeDashboardDocumentAtomically(
           filePath,
-          document,
+          documentToWrite,
         );
         if (receipt.mode === "create") {
           const storedPath = filePath.slice(process.cwd().length + 1);

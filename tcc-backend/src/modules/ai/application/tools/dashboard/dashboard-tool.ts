@@ -50,6 +50,7 @@ import {
   type FilterValues,
   type ParameterBindings,
 } from "./component-values.js";
+import { composeDashboard } from "./composition.js";
 
 type DashboardRuntime = ToolRuntime & { toolCallId?: string };
 
@@ -596,14 +597,15 @@ export class AiDashboardTools {
         throw new Error(
           "Uma ou mais referências não correspondem a queries salvas que o administrador pode executar.",
         );
-      const definition = dashboardSyncService.buildDefinition(
-        document,
-        definitions.map((query): DashboardQueryMetadata => ({
+      const queryMetadata = definitions.map(
+        (query): DashboardQueryMetadata => ({
           id: query.id,
           parameters: query.parameters,
-        })),
-        { validateCatalog: true },
+        }),
       );
+      dashboardSyncService.buildDefinition(document, queryMetadata, {
+        validateCatalog: true,
+      });
 
       const bindingByQueryId = new Map(
         document.queryBindings.map((binding) => [binding.queryUuid, binding]),
@@ -680,6 +682,22 @@ export class AiDashboardTools {
           };
         }
       }
+
+      // Tamanho vem da amostra; o que o administrador definiu é preservado.
+      const explicitIds = new Set([
+        ...(previous?.document.ui.components ?? []).map((c) => c.id),
+        ...parsed.components
+          .filter((c) => c.colSpan !== undefined || c.rowSpan !== undefined)
+          .map((c) => c.id),
+      ]);
+      const composed = composeDashboard(document, validationRows, explicitIds);
+      document = composed.document;
+      const compositionIssues = composed.issues;
+      const definition = dashboardSyncService.buildDefinition(
+        document,
+        queryMetadata,
+        { validateCatalog: true },
+      );
 
       const previewRows: Record<string, AiDashboardQueryPreview> = {};
       for (const queryId of previewScope.queryIds) {
@@ -801,9 +819,12 @@ export class AiDashboardTools {
         expiresAt: expiresAt.toISOString(),
         canCommit: issues.length === 0,
         issues,
+        compositionIssues: compositionIssues.map((issue) => issue.message),
         instruction: issues.length
           ? "A prévia encontrou erros ou componentes vazios. Explique os problemas ao administrador, ajuste as queries ou aliases e gere uma nova proposta; não há recibo para confirmação."
-          : Object.values(validationRows).some((query) => query.previewPending)
+          : compositionIssues.length > 0
+            ? `A Composição tem problemas de organização (Gestalt): ${compositionIssues.map((issue) => issue.message).join(" ")} Corrija os colSpan/rowSpan ou a ordem e gere uma nova proposta antes de pedir a confirmação.`
+            : Object.values(validationRows).some((query) => query.previewPending)
             ? "Uma ou mais amostras não foram executadas porque faltaram valores de filtros obrigatórios. Explique quais filtros precisam ser preenchidos ao abrir o dashboard. A configuração continua válida porque os parâmetros estão mapeados; aguarde o clique explícito do administrador para salvar. Nunca afirme que foi salvo antes da confirmação."
             : parsed.removeComponentIds.length > 0
               ? "A remoção está apenas proposta, ainda não foi aplicada. Diga ao administrador que a proposta está pronta e peça que clique em 'Aplicar alterações' no cartão para confirmar. Nunca diga que o componente já foi removido."

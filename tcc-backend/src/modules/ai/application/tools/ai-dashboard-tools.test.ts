@@ -835,3 +835,52 @@ describe("fases da IA: Recibo de componente, destino e posição", () => {
     expect(repository.issueReceipt).not.toHaveBeenCalled();
   });
 });
+
+describe("Composição: tamanho derivado da amostra", () => {
+  const manyMonths = Array.from({ length: 15 }, (_, index) => ({
+    month_label: `Mês ${index + 1}`,
+    amount: "10",
+  }));
+  const run = async (colSpan: number | undefined) => {
+    const { colSpan: _omit, ...withoutSize } = approvedComponent;
+    const component = colSpan ? { ...withoutSize, colSpan } : withoutSize;
+    const events: AiToolProgressEvent[] = [];
+    const repository = makeRepository({
+      findComponentReceipt: vi.fn(async () => ({
+        ...validReceipt,
+        component,
+      })),
+      runPreview: vi.fn(async () => ({
+        rows: manyMonths,
+        rowLimit: 50,
+        byteLimit: 48_000,
+        bytes: 48,
+        truncated: false,
+        truncationReason: null,
+      })),
+    });
+    const tool = createAiDashboardTools({
+      currentUser: admin,
+      repository,
+      onToolEvent: (event) => {
+        events.push(event);
+      },
+    }).find((candidate) => candidate.name === "create_or_update_dashboard")!;
+    await tool.invoke(
+      { ...validProposal(), components: [component] } as never,
+      { toolCallId: "call-x" } as never,
+    );
+    return eventFrom(events, "dashboard_preview").document.ui.components[0]!;
+  };
+
+  it("alarga o gráfico quando o tamanho não foi informado e há muitas categorias", async () => {
+    const component = await run(undefined);
+    expect(component.layoutProps.colSpan).toBe(8);
+  });
+
+  it("preserva o tamanho que o administrador definiu", async () => {
+    const component = await run(4);
+    expect(component.layoutProps.colSpan).toBe(4);
+  });
+});
+
