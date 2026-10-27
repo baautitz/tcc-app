@@ -91,20 +91,35 @@ integrationDescribe(
           externalSourceAdapter,
         ),
       }).tools();
-      const propose = tools.find((t) => t.name === "create_or_update_dashboard")!;
+      const propose = tools.find(
+        (t) => t.name === "create_or_update_dashboard",
+      )!;
+      const component = {
+        id: "total",
+        component: "stat_card",
+        title: "Total",
+        queryUuid: queryId,
+        field: "value",
+      };
+      const previewComponent = tools.find(
+        (t) => t.name === "preview_component",
+      )!;
+      const componentPreview = (await previewComponent.invoke({
+        component,
+      })) as { componentReceiptId: string };
+      const approved = await jsonRequest(
+        `/api/admin/ai/component-receipts/${componentPreview.componentReceiptId}/approve`,
+        { method: "POST", token: admin.token },
+      );
+      expect(approved.status).toBe(200);
       const proposal = (await propose.invoke({
         mode: "create",
         name: "Dashboard de integração",
         queryBindings: [{ queryUuid: queryId, parameters: {} }],
-        components: [
-          {
-            id: "total",
-            component: "stat_card",
-            title: "Total",
-            queryUuid: queryId,
-            field: "value",
-          },
-        ],
+        components: [component],
+        componentReceiptId: componentPreview.componentReceiptId,
+        destination: { kind: "new_dashboard" },
+        position: { placement: "end" },
       })) as { proposalId: string; dashboardId: string; canCommit: boolean };
       expect(proposal.canCommit).toBe(true);
       receiptId = proposal.proposalId;
