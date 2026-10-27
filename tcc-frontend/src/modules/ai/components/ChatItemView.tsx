@@ -51,6 +51,7 @@ export function ChatItemView({
   onSubmitQuestionnaire,
   onApproveComponent,
   onAdjustComponent,
+  onOpenDashboardPicker,
 }: {
   item: ChatItem;
   busy: boolean;
@@ -71,7 +72,28 @@ export function ChatItemView({
     item: ComponentPreviewItem,
     adjustment: ComponentAdjustment,
   ) => void;
+  onOpenDashboardPicker: () => void;
 }) {
+  if (item.kind === "dashboard_required") {
+    return (
+      <section className="mx-3 flex min-w-0 flex-col gap-2 border border-primary/30 bg-primary/5 p-3 text-sm sm:mx-4">
+        <p className="font-medium">Escolha o dashboard</p>
+        <p className="text-xs text-muted-foreground">
+          Para gerar um componente, a conversa precisa de um dashboard ativo.
+        </p>
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full sm:w-fit"
+          disabled={busy}
+          onClick={onOpenDashboardPicker}
+        >
+          Selecionar dashboard
+        </Button>
+      </section>
+    );
+  }
+
   if (item.kind === "component_preview") {
     return (
       <ComponentPreviewCard

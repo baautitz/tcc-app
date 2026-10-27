@@ -18,6 +18,7 @@ import {
   newId,
   mergePendingContextProposals,
 } from "@/modules/ai/model/chat-items";
+import { DashboardPickerDialog } from "@/modules/ai/components/DashboardPickerDialog";
 import { ChatWindow } from "@/modules/ai/components/ChatWindow";
 import { useChatSession } from "@/modules/ai/hooks/useChatSession";
 import { useChatResize } from "@/modules/ai/hooks/useChatResize";
@@ -48,6 +49,7 @@ export function AiChatDock({
     continueAfterQuerySaved,
     approveComponent,
     adjustComponent,
+    selectDashboard,
   } = useChatSend(session, location.pathname);
   const dashboardSavePendingRef = useRef(new Set<string>());
 
@@ -215,6 +217,7 @@ export function AiChatDock({
       onSubmitQuestionnaire={submitQuestionnaire}
       onApproveComponent={approveComponent}
       onAdjustComponent={adjustComponent}
+      onOpenDashboardPicker={() => session.setDashboardPickerOpen(true)}
     />
   );
 
@@ -248,6 +251,12 @@ export function AiChatDock({
         />
       )}
       {chatContent}
+      <DashboardPickerDialog
+        open={session.dashboardPickerOpen}
+        busy={busy}
+        onOpenChange={session.setDashboardPickerOpen}
+        onSelect={selectDashboard}
+      />
     </aside>
   );
 }

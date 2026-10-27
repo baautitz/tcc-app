@@ -48,6 +48,7 @@ export function ChatWindow({
   onSubmitQuestionnaire,
   onApproveComponent,
   onAdjustComponent,
+  onOpenDashboardPicker,
 }: {
   items: ChatItem[];
   busy: boolean;
@@ -82,6 +83,7 @@ export function ChatWindow({
     item: ComponentPreviewItem,
     adjustment: ComponentAdjustment,
   ) => void;
+  onOpenDashboardPicker: () => void;
 }) {
   const latestMessage = [...items]
     .reverse()
@@ -198,6 +200,7 @@ export function ChatWindow({
                           onSubmitQuestionnaire={onSubmitQuestionnaire}
                           onApproveComponent={onApproveComponent}
                           onAdjustComponent={onAdjustComponent}
+                          onOpenDashboardPicker={onOpenDashboardPicker}
                         />
                       </MessageScrollerItem>
                     );

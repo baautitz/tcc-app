@@ -508,4 +508,34 @@ describe("protocolo SSE v1 do chat", () => {
       }),
     ).toThrow(/componente isolado/);
   });
+
+  it("interpreta o evento dashboard_required e rejeita o malformado", () => {
+    const start = wireEvent("start", {
+      version: 1,
+      type: "start",
+      requestId: "r1",
+      messageId: "m1",
+    });
+    const ok = new SseV1Parser().push(
+      start +
+        wireEvent("dashboard_required", {
+          version: 1,
+          type: "dashboard_required",
+          toolCallId: "t1",
+        }),
+    );
+    expect(ok[1]).toMatchObject({
+      type: "dashboard_required",
+      toolCallId: "t1",
+    });
+    expect(() =>
+      new SseV1Parser().push(
+        start +
+          wireEvent("dashboard_required", {
+            version: 1,
+            type: "dashboard_required",
+          }),
+      ),
+    ).toThrow(/dashboard/i);
+  });
 });

@@ -52,6 +52,10 @@ export type ErrorMessage = {
   assistantId: string;
   retryable: boolean;
 };
+export type DashboardRequiredItem = {
+  id: string;
+  kind: "dashboard_required";
+};
 export type QueryPreviewItem = QueryPreview & {
   id: string;
   kind: "query_preview";
@@ -135,7 +139,8 @@ export type ChatItem =
   | QueryPreviewItem
   | DashboardPreviewItem
   | ComponentPreviewItem
-  | QuestionnaireChatItem;
+  | QuestionnaireChatItem
+  | DashboardRequiredItem;
 export type ChatActionCardItem =
   | ProposalMessage
   | ContextProposalMessage

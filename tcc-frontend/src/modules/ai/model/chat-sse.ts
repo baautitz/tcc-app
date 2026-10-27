@@ -99,6 +99,7 @@ export type ChatEvent =
       dashboardName: string;
       mode: "create" | "update";
     }
+  | { version: 1; type: "dashboard_required"; toolCallId: string }
   | {
       version: 1;
       type: "questionnaire";
@@ -419,6 +420,10 @@ function decodeEvent(eventName: string, data: string): ChatEvent | undefined {
       )
         return normalizedPayload as ChatEvent;
       throw new Error("A confirmação do patch no dashboard está malformada.");
+    case "dashboard_required":
+      if (typeof payload.toolCallId === "string")
+        return normalizedPayload as ChatEvent;
+      throw new Error("O pedido de seleção de dashboard está malformado.");
     case "questionnaire": {
       const questionnaire = payload.questionnaire;
       const validQuestions =
