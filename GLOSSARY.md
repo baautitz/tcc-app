@@ -40,6 +40,14 @@ _Avoid_: Consulta, relatório
 Painel descrito por um arquivo JSON, versionado por revisão. A tabela `dashboards` é só o índice (identificador e caminho do arquivo); o conteúdo vive no arquivo.
 _Avoid_: Painel, relatório
 
+**Componente**:
+Elemento visual de um Dashboard, alimentado por uma Query e de um Tipo de componente.
+_Avoid_: Widget, gráfico (quando se fala de qualquer tipo)
+
+**Tipo de componente**:
+Forma de exibir os dados de um Componente. Existem cinco: cartão de indicador, gráfico de barras, gráfico de linhas, gráfico de pizza e tabela. O Tipo pedido pelo administrador é respeitado literalmente; se não servir aos dados, a IA pergunta antes de trocar.
+_Avoid_: Formato, visual
+
 **Contexto**:
 Descrição semântica de uma tabela ou coluna de uma fonte de dados, lida pela IA para escrever queries. Só muda depois que um humano aprova uma Proposta de contexto.
 _Avoid_: Metadados, documentação da tabela
@@ -59,11 +67,14 @@ Alteração de Contexto sugerida pela IA, que só entra na fonte de dados após 
 _Avoid_: Proposta (sozinho)
 
 **Recibo**:
-Token de uso único, com prazo, que prova que uma ação foi pré-validada. Existem dois tipos: Recibo de teste e Recibo de proposta.
+Token de uso único, com prazo, que prova que uma ação foi pré-validada. Existem três tipos: Recibo de teste, Recibo de componente e Recibo de proposta.
 _Avoid_: Ticket, comprovante
 
 **Recibo de teste**:
 Recibo que prova que uma query salva foi testada; vale por 10 minutos.
+
+**Recibo de componente**:
+Recibo que prova que o administrador aprovou um Componente isolado, antes de definir o dashboard de destino e a posição. Não persiste nada; só libera a Proposta de dashboard.
 
 **Recibo de proposta**:
 Recibo que prova que uma Proposta de dashboard foi validada para o commit; liga a proposta ao ator, aos documentos e à expiração.
