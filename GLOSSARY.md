@@ -49,7 +49,7 @@ Forma de exibir os dados de um Componente. Existem cinco: cartão de indicador, 
 _Avoid_: Formato, visual
 
 **Grade**:
-Estrutura virtual de Células quadradas em que os Componentes de um Dashboard se encaixam. O número de colunas não é definido pelo Dashboard: é o que couber na largura disponível, até 12, e por isso é o mesmo conceito em desktop e mobile. Cada Componente ocupa de 1 a 12 Células de largura e de 1 a 12 de altura; se a Grade tiver menos colunas, ocupa todas. A posição é derivada da ordem na lista, nunca antes do Componente anterior na ordem de leitura (esquerda para direita, de cima para baixo). Quem empilha em quem resulta da largura disponível.
+Estrutura virtual de Células quadradas em que os Componentes de um Dashboard se encaixam. O número de colunas não é definido pelo Dashboard: é o que couber na largura disponível, até 12, e por isso é o mesmo conceito em desktop e mobile. Cada Componente declara um tamanho mínimo de 1 a 12 Células de largura e de 1 a 12 de altura; se a Grade tiver menos colunas, ocupa todas. Depois de posicionados, os Componentes crescem para ocupar as Células vazias vizinhas, então a Grade não deixa buracos. A posição é derivada da ordem na lista, nunca antes do Componente anterior na ordem de leitura (esquerda para direita, de cima para baixo). Quem empilha em quem resulta da largura disponível.
 _Avoid_: Layout, malha
 
 **Célula**:

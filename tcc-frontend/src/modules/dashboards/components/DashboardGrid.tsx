@@ -1,6 +1,9 @@
 import { useMemo, type ReactNode } from "react";
 import { gridMetrics } from "@/modules/dashboards/model/grid";
-import { placeComponents } from "@/modules/dashboards/model/grid-placement";
+import {
+  expandPlacements,
+  placeComponents,
+} from "@/modules/dashboards/model/grid-placement";
 import { useElementWidth } from "./useElementWidth";
 import type { DashboardComponent } from "@/modules/dashboards/model/types";
 

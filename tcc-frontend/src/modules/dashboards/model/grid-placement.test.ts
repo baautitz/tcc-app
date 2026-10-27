@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { placeComponents } from "./grid-placement";
+import { expandPlacements, placeComponents } from "./grid-placement";
 
 const item = (colSpan: number, rowSpan: number) => ({ colSpan, rowSpan });
 
@@ -43,6 +43,62 @@ describe("placeComponents", () => {
     expect(placeComponents([item(8, 5), item(6, 3)], 3)).toEqual([
       { col: 1, row: 1, colSpan: 3, rowSpan: 5 },
       { col: 1, row: 6, colSpan: 3, rowSpan: 3 },
+    ]);
+  });
+});
+
+const place = (col: number, row: number, colSpan: number, rowSpan: number) => ({
+  col,
+  row,
+  colSpan,
+  rowSpan,
+});
+
+describe("expandPlacements", () => {
+  it("expande o último componente da fileira até a borda da Grade", () => {
+    expect(
+      expandPlacements(
+        [place(1, 1, 2, 2), place(3, 1, 2, 2), place(5, 1, 4, 2)],
+        12,
+      ),
+    ).toEqual([place(1, 1, 2, 2), place(3, 1, 2, 2), place(5, 1, 8, 2)]);
+  });
+
+  it("dá prioridade ao componente que vem antes na lista", () => {
+    expect(
+      expandPlacements([place(1, 1, 2, 2), place(9, 1, 4, 2)], 12),
+    ).toEqual([place(1, 1, 8, 2), place(9, 1, 4, 2)]);
+  });
+
+  it("cresce para baixo até a base do layout, sem criar linhas novas", () => {
+    expect(
+      expandPlacements([place(1, 1, 6, 2), place(7, 1, 6, 4)], 12),
+    ).toEqual([place(1, 1, 6, 4), place(7, 1, 6, 4)]);
+  });
+
+  it("não cresce se um vizinho ocupa parte do caminho", () => {
+    // B (colunas 5-12, linhas 1-2) impede A de crescer à direita; só desce.
+    expect(
+      expandPlacements(
+        [place(1, 1, 4, 6), place(5, 1, 8, 2), place(5, 3, 8, 2)],
+        12,
+      ),
+    ).toEqual([place(1, 1, 4, 6), place(5, 1, 8, 2), place(5, 3, 8, 4)]);
+  });
+
+  it("fecha o buraco que sobrava depois do encaixe em ordem de leitura", () => {
+    const placed = placeComponents(
+      [
+        { colSpan: 8, rowSpan: 2 },
+        { colSpan: 8, rowSpan: 2 },
+        { colSpan: 4, rowSpan: 2 },
+      ],
+      12,
+    );
+    expect(expandPlacements(placed, 12)).toEqual([
+      place(1, 1, 12, 2),
+      place(1, 3, 8, 2),
+      place(9, 3, 4, 2),
     ]);
   });
 });
