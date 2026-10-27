@@ -1,8 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle, RefreshCw, Settings, Table2, Users } from "lucide-react";
+import {
+  AlertCircle,
+  LayoutGrid,
+  RefreshCw,
+  Settings,
+  Table2,
+  Users,
+} from "lucide-react";
 import { dashboardsApi } from "@/modules/dashboards/api/dashboards.api";
 import { queriesApi } from "@/modules/queries/api/queries.api";
-import type { Dashboard } from "@/modules/dashboards/model/types";
+import { applyLayoutToDocument } from "@/modules/dashboards/model/grid-edit";
+import type {
+  Dashboard,
+  DashboardComponent,
+  DashboardDocument,
+} from "@/modules/dashboards/model/types";
 import { useAuth } from "@/modules/identity/hooks/AuthContext";
 import { Alert, AlertDescription, AlertTitle } from "@/shared/ui/alert";
 import { Badge } from "@/shared/ui/badge";
@@ -26,7 +38,11 @@ import { DashboardComponentView } from "../components/DashboardComponentView";
 import { DashboardFilters } from "../components/DashboardFilters";
 import { DashboardGrid } from "../components/DashboardGrid";
 import { useElementWidth } from "../components/useElementWidth";
-import { gridMetrics, gridWidth } from "@/modules/dashboards/model/grid";
+import {
+  gridMetrics,
+  gridWidth,
+  MAX_COLUMNS,
+} from "@/modules/dashboards/model/grid";
 import { DashboardUsersDialog } from "../components/DashboardUsersDialog";
 
 export function DashboardPage({
@@ -44,6 +60,13 @@ export function DashboardPage({
     loadDashboardFilters(dashboardId),
   );
   const [error, setError] = useState<string>();
+  const [editing, setEditing] = useState<{
+    draft: DashboardComponent[];
+    document: DashboardDocument;
+    revision: string;
+  } | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [editError, setEditError] = useState<string>();
   const [usersDialogOpen, setUsersDialogOpen] = useState(false);
   const [dataRefreshVersion, setDataRefreshVersion] = useState(0);
   const querySequenceRef = useRef(0);
@@ -64,6 +87,8 @@ export function DashboardPage({
     setData({});
     setFilters(loadDashboardFilters(dashboardId));
     setError(undefined);
+    setEditing(null);
+    setEditError(undefined);
   }
 
   useEffect(() => {
@@ -176,6 +201,37 @@ export function DashboardPage({
       </div>
     );
   const parameters = collectArguments(dashboard);
+  const canEditLayout = gridMetrics(frameWidth).columns >= MAX_COLUMNS;
+  const startEditing = () => {
+    setEditError(undefined);
+    dashboardsApi
+      .dashboardContext(dashboardId)
+      .then(({ document, revision }) =>
+        setEditing({
+          draft: dashboard.definition.components,
+          document,
+          revision,
+        }),
+      )
+      .catch((reason: Error) => setEditError(reason.message));
+  };
+  const saveLayout = () => {
+    if (!editing) return;
+    setSaving(true);
+    setEditError(undefined);
+    dashboardsApi
+      .updateDashboardContext(
+        dashboardId,
+        applyLayoutToDocument(editing.document, editing.draft),
+        editing.revision,
+      )
+      .then(() => {
+        setEditing(null);
+        refreshData();
+      })
+      .catch((reason: Error) => setEditError(reason.message))
+      .finally(() => setSaving(false));
+  };
   const hasStaleDataErrors = Object.values(data).some(
     (state) => state.error && state.rows !== undefined,
   );
@@ -198,8 +254,40 @@ export function DashboardPage({
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            {user?.isAdmin && (
+            {user?.isAdmin && editing && (
               <>
+                <Button
+                  variant="outline"
+                  disabled={saving}
+                  onClick={() => {
+                    setEditing(null);
+                    setEditError(undefined);
+                  }}
+                >
+                  Cancelar
+                </Button>
+                <Button disabled={saving} onClick={saveLayout}>
+                  Salvar layout
+                </Button>
+              </>
+            )}
+            {user?.isAdmin && !editing && (
+              <>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={startEditing}
+                  disabled={!canEditLayout}
+                  aria-label="Editar layout do dashboard"
+                  title={
+                    canEditLayout
+                      ? "Editar o layout (arrastar e redimensionar)"
+                      : "Aumente a largura da janela para editar o layout"
+                  }
+                >
+                  <LayoutGrid />
+                  <span className="sr-only">Editar layout</span>
+                </Button>
                 <Button
                   variant="outline"
                   size="icon"
@@ -256,8 +344,18 @@ export function DashboardPage({
             </AlertDescription>
           </Alert>
         )}
+        {editError && (
+          <Alert variant="destructive">
+            <AlertCircle />
+            <AlertTitle>Não foi possível editar o layout</AlertTitle>
+            <AlertDescription>{editError}</AlertDescription>
+          </Alert>
+        )}
         <DashboardGrid
-          components={dashboard.definition.components}
+          components={editing ? editing.draft : dashboard.definition.components}
+          onEdit={
+            editing ? (draft) => setEditing({ ...editing, draft }) : undefined
+          }
           renderComponent={(component) => (
             <DashboardComponentView
               component={component}
