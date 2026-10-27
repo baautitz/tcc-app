@@ -2,6 +2,7 @@ import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { Card, CardContent } from "@/shared/ui/card";
 import { formatValue } from "@/shared/lib/utils";
 import { colors } from "@/modules/dashboards/model/lib";
+import { chartTooltipProps } from "./chartTooltip";
 import { chartEmptyMessage, chartRowsFor } from "./ChartRows";
 import { ComponentError, ComponentPreviewHeader } from "./ComponentFrame";
 import type { Renderer } from "./renderers";
@@ -50,7 +51,7 @@ export const PieChartRenderer: Renderer = ({
                   />
                 ))}
               </Pie>
-              <Tooltip />
+              <Tooltip {...chartTooltipProps} />
             </PieChart>
           </ResponsiveContainer>
           <div className="flex flex-col gap-2">

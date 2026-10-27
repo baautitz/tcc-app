@@ -7,6 +7,7 @@ import {
   YAxis,
 } from "recharts";
 import { Card, CardContent } from "@/shared/ui/card";
+import { chartTooltipProps } from "./chartTooltip";
 import { chartEmptyMessage, chartRowsFor } from "./ChartRows";
 import { ComponentError, ComponentPreviewHeader } from "./ComponentFrame";
 import type { Renderer } from "./renderers";
@@ -42,7 +43,7 @@ export const BarChartRenderer: Renderer = ({
               fontSize={11}
             />
             <YAxis tickLine={false} axisLine={false} fontSize={11} />
-            <Tooltip />
+            <Tooltip {...chartTooltipProps} />
             <Bar dataKey={valueKey} fill="var(--chart-1)" radius={0} />
           </BarChart>
         </ResponsiveContainer>

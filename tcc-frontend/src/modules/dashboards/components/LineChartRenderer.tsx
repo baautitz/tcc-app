@@ -13,6 +13,7 @@ import {
   propertyString,
 } from "@/modules/dashboards/model/lib";
 import { Card, CardContent } from "@/shared/ui/card";
+import { chartTooltipProps } from "./chartTooltip";
 import { chartEmptyMessage, chartRowsFor } from "./ChartRows";
 import { ComponentError, ComponentPreviewHeader } from "./ComponentFrame";
 import type { Renderer } from "./renderers";
@@ -63,7 +64,7 @@ export const LineChartRenderer: Renderer = ({
               fontSize={11}
             />
             <YAxis tickLine={false} axisLine={false} fontSize={11} />
-            <Tooltip />
+            <Tooltip {...chartTooltipProps} />
             {seriesKey && <Legend />}
             {series.map((serie, index) => (
               <Line
