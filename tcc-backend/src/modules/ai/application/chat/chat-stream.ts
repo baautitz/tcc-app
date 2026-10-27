@@ -101,7 +101,8 @@ export function runChatStream(options: {
         event.type === "component_preview" ||
         event.type === "dashboard_applied" ||
         event.type === "context_proposal" ||
-        event.type === "questionnaire"
+        event.type === "questionnaire" ||
+        event.type === "dashboard_required"
       )
         pendingModelText = [];
       if (
@@ -110,7 +111,8 @@ export function runChatStream(options: {
         event.type === "component_preview" ||
         event.type === "dashboard_applied" ||
         event.type === "context_proposal" ||
-        event.type === "questionnaire"
+        event.type === "questionnaire" ||
+        event.type === "dashboard_required"
       ) {
         hasStructuredResponse = true;
         latestStructuredEvent = event;

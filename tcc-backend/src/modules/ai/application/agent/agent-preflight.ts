@@ -493,6 +493,8 @@ export function hasActionCardResult(messages: readonly unknown[]): boolean {
         return typeof result?.proposalId === "string";
       case "test_query":
         return result?.ok === true;
+      case "preview_component":
+        return result?.code === "DASHBOARD_REQUIRED";
       case "ask_admin_questions":
       case "propose_context_update":
         return true;

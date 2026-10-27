@@ -53,6 +53,17 @@ describe("prompt do sistema da IA", () => {
     expect(prompt).toMatch(/contexto de navegação.*destino.*posição/i);
   });
 
+  it("exige Dashboard ativo na fase 3 e o usa no lugar da pergunta de destino", () => {
+    expect(prompt).toMatch(/Dashboard ativo: a fase 3 exige um/);
+    expect(prompt).toMatch(/DASHBOARD_REQUIRED/);
+    expect(prompt).toMatch(/seletor de dashboard/);
+    expect(prompt).toMatch(/sem repetir o pedido/);
+    expect(prompt).toMatch(
+      /destino é o Dashboard ativo.*não pergunte o destino/,
+    );
+    expect(prompt).toMatch(/posição continua exigindo resposta/);
+  });
+
   it("limita ask_admin_questions a uma chamada por fase e 4 perguntas", () => {
     expect(prompt).toMatch(/uma chamada por fase/);
     expect(prompt).toMatch(/no máximo 4 perguntas/);

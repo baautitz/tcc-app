@@ -199,6 +199,14 @@ export class AiDashboardTools {
     });
     let ok = false;
     try {
+      if (!this.options.pageDashboardId) {
+        await this.emit({ type: "dashboard_required", toolCallId });
+        return refusal(
+          "DASHBOARD_REQUIRED",
+          "Não há Dashboard ativo: a conversa não está em um dashboard nem o administrador escolheu um.",
+          "A interface abriu um seletor de dashboard. Encerre a rodada sem repetir o pedido nem perguntar o dashboard; quando o administrador escolher, a conversa continua com o Dashboard ativo no contexto e você chama preview_component de novo.",
+        );
+      }
       const [query] = await this.options.repository.findSavedQueries([
         component.queryUuid,
       ]);
@@ -316,6 +324,20 @@ export class AiDashboardTools {
         "COMPONENT_RECEIPT_REQUIRED",
         "Falta o Recibo de componente: o administrador ainda não aprovou o componente isolado.",
         "Chame preview_component e aguarde o administrador aprovar o cartão antes de propor o dashboard.",
+      );
+    const active = this.options.pageDashboardId;
+    if (
+      active &&
+      (parsed.mode !== "update" ||
+        parsed.dashboardId !== active ||
+        (parsed.destination?.kind === "existing_dashboard" &&
+          parsed.destination.dashboardId !== undefined &&
+          parsed.destination.dashboardId !== active))
+    )
+      return refuse(
+        "DESTINATION_MISMATCH",
+        "O destino não bate com o Dashboard ativo da conversa.",
+        "O componente entra no Dashboard ativo: use mode=update com o dashboardId dele (e destination existing_dashboard com o mesmo id, ou omita destination).",
       );
     const pageDestination =
       parsed.mode === "update" &&

@@ -124,6 +124,7 @@ export type AiToolProgressEvent =
         value: string | string[] | null;
       }[];
     }
+  | { type: "dashboard_required"; toolCallId: string }
   | {
       type: "dashboard_applied";
       dashboardId: string;

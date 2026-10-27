@@ -39,6 +39,10 @@ export type AiSseEvent =
       { type: "dashboard_applied" }
     >)
   | ({ version: 1 } & Extract<AiToolProgressEvent, { type: "questionnaire" }>)
+  | ({ version: 1 } & Extract<
+      AiToolProgressEvent,
+      { type: "dashboard_required" }
+    >)
   | {
       version: 1;
       type: "context_proposal";

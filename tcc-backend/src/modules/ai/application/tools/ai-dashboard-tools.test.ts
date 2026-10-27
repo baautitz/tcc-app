@@ -498,6 +498,7 @@ describe("fases da IA: Recibo de componente, destino e posição", () => {
     const repository = makeRepository();
     const tool = createAiDashboardTools({
       currentUser: admin,
+      pageDashboardId: "00000000-0000-4000-8000-000000000010",
       repository,
       onToolEvent: (event) => {
         events.push(event);
@@ -527,6 +528,7 @@ describe("fases da IA: Recibo de componente, destino e posição", () => {
     });
     const tool = createAiDashboardTools({
       currentUser: admin,
+      pageDashboardId: "00000000-0000-4000-8000-000000000010",
       repository,
       onToolEvent: (event) => {
         events.push(event);
@@ -703,6 +705,7 @@ describe("fases da IA: Recibo de componente, destino e posição", () => {
     });
     const tool = createAiDashboardTools({
       currentUser: admin,
+      pageDashboardId: "00000000-0000-4000-8000-000000000010",
       repository,
     }).find((candidate) => candidate.name === "preview_component")!;
     const output = await invoke(tool, { component: approvedComponent });
@@ -711,5 +714,53 @@ describe("fases da IA: Recibo de componente, destino e posição", () => {
       code: "COMPONENT_PREVIEW_INVALID",
     });
     expect(repository.issueComponentReceipt).not.toHaveBeenCalled();
+  });
+
+  it("preview_component sem Dashboard ativo recusa com DASHBOARD_REQUIRED e emite o evento do modal", async () => {
+    const events: AiToolProgressEvent[] = [];
+    const repository = makeRepository();
+    const tool = createAiDashboardTools({
+      currentUser: admin,
+      repository,
+      onToolEvent: (event) => {
+        events.push(event);
+      },
+    }).find((candidate) => candidate.name === "preview_component")!;
+    const output = await invoke(tool, { component: approvedComponent });
+    expect(output).toMatchObject({ ok: false, code: "DASHBOARD_REQUIRED" });
+    expect(events.find((e) => e.type === "dashboard_required")).toBeDefined();
+    expect(repository.issueComponentReceipt).not.toHaveBeenCalled();
+  });
+
+  it("preview_component com Dashboard ativo segue e não emite o evento do modal", async () => {
+    const events: AiToolProgressEvent[] = [];
+    const tool = createAiDashboardTools({
+      currentUser: admin,
+      repository: makeRepository(),
+      pageDashboardId: "00000000-0000-4000-8000-000000000010",
+      onToolEvent: (event) => {
+        events.push(event);
+      },
+    }).find((candidate) => candidate.name === "preview_component")!;
+    const output = await invoke(tool, { component: approvedComponent });
+    expect(output).toHaveProperty("componentReceiptId");
+    expect(events.some((e) => e.type === "dashboard_required")).toBe(false);
+  });
+
+  it("create_or_update_dashboard recusa destino diferente do Dashboard ativo", async () => {
+    const tool = createAiDashboardTools({
+      currentUser: admin,
+      repository: makeRepository(),
+      pageDashboardId: "00000000-0000-4000-8000-000000000010",
+    }).find((candidate) => candidate.name === "create_or_update_dashboard")!;
+    const output = await invoke(tool, {
+      mode: "create",
+      name: "Outro",
+      components: [approvedComponent],
+      componentReceiptId,
+      destination: { kind: "new_dashboard" },
+      position: { placement: "end" },
+    });
+    expect(output).toMatchObject({ ok: false, code: "DESTINATION_MISMATCH" });
   });
 });
