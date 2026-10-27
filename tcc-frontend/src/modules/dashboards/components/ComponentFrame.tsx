@@ -83,7 +83,7 @@ export function ComponentError({
 /** Área de gráfico que preenche a altura que o Componente ocupa na Grade. */
 export function ChartArea({ children }: { children: React.ReactNode }) {
   return (
-    <div className="relative min-h-0 flex-1">
+    <div className="relative h-full min-h-0 flex-1">
       <div className="absolute inset-0">{children}</div>
     </div>
   );

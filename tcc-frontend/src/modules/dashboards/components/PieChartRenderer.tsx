@@ -39,7 +39,7 @@ export const PieChartRenderer: Renderer = ({
         changeStatus={changeStatus}
       />
       <CardContent className="min-h-0 flex-1">
-        <div className="grid h-full items-center gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(9rem,0.8fr)]">
+        <div className="grid h-full grid-rows-[minmax(0,1fr)_auto] gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(9rem,0.8fr)] sm:grid-rows-[minmax(0,1fr)]">
           <ChartArea>
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -47,7 +47,7 @@ export const PieChartRenderer: Renderer = ({
                   data={chartRows}
                   dataKey={valueKey}
                   nameKey={nameKey}
-                  outerRadius={96}
+                  outerRadius="80%"
                 >
                   {chartRows.map((row, index) => (
                     <Cell
@@ -60,7 +60,7 @@ export const PieChartRenderer: Renderer = ({
               </PieChart>
             </ResponsiveContainer>
           </ChartArea>
-          <div className="flex flex-col gap-2">
+          <div className="flex min-h-0 flex-col gap-2 self-center overflow-auto">
             <p className="text-xs font-medium">Ranking por vendas</p>
             {rankedRows.map(({ row, rank }) => (
               <div
