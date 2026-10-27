@@ -568,9 +568,13 @@ export class AiDashboardTools {
       const proposedComponentIds = parsed.components.map(
         (component) => component.id,
       );
+      // Sem componentes novos/alterados (remoção ou reordenação), a prévia
+      // mostra o dashboard resultante; a validação segue só no que mudou.
       const previewScope = dashboardProposalPreviewScope(
         document,
-        proposedComponentIds,
+        proposedComponentIds.length === 0 && mode === "update"
+          ? document.ui.components.map((component) => component.id)
+          : proposedComponentIds,
       );
       const validationScope = dashboardProposalPreviewScope(
         document,
@@ -605,8 +609,10 @@ export class AiDashboardTools {
         document.queryBindings.map((binding) => [binding.queryUuid, binding]),
       );
       const validationRows: Record<string, AiDashboardQueryPreview> = {};
-      for (const query of definitions.filter((item) =>
-        validationScope.queryIds.has(item.id),
+      for (const query of definitions.filter(
+        (item) =>
+          validationScope.queryIds.has(item.id) ||
+          previewScope.queryIds.has(item.id),
       )) {
         const values: Record<string, string | string[]> = {};
         const binding = bindingByQueryId.get(query.id);
