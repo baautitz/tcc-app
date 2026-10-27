@@ -362,41 +362,65 @@ describe("fases da IA: Recibo de componente, destino e posição", () => {
     expect(repository.issueReceipt).not.toHaveBeenCalled();
   });
 
-  it("recusa sem posição declarada", async () => {
-    const repository = makeRepository();
-    const { position: _omit, ...proposal } = validProposal();
-    const output = await invoke(proposeTool(repository), proposal);
-    expect(output).toMatchObject({ ok: false, code: "POSITION_REQUIRED" });
-    expect(repository.issueReceipt).not.toHaveBeenCalled();
-  });
-
-  it("no contexto de um dashboard o destino vale pelo contexto, mas a posição não", async () => {
-    const dashboardId = "00000000-0000-4000-8000-000000000010";
-    const current = dashboardDocumentSchema.parse({
+  const dashboardWithComponents = (dashboardId: string) =>
+    dashboardDocumentSchema.parse({
       id: dashboardId,
       name: "Atual",
       workspace: { params: [] },
       queryBindings: [],
-      ui: { components: [] },
+      ui: {
+        components: [
+          {
+            id: "existing",
+            component: "stat_card",
+            layoutProps: { colSpan: 3, rowSpan: 2 },
+            props: { title: "Atual", queryUuid: queryId, field: "amount" },
+          },
+        ],
+      },
     });
+
+  it("recusa sem posição quando o dashboard já tem componentes", async () => {
+    const dashboardId = "00000000-0000-4000-8000-000000000010";
     const repository = makeRepository({
       findDashboard: vi.fn(async () => ({
-        document: current,
+        document: dashboardWithComponents(dashboardId),
         fingerprint: "r1",
       })),
     });
     const { destination: _d, position: _p, ...base } = validProposal();
-    const update = { ...base, mode: "update", dashboardId };
     const tool = proposeTool(repository, { pageDashboardId: dashboardId });
+    const update = { ...base, mode: "update", dashboardId };
     expect(await invoke(tool, update)).toMatchObject({
       ok: false,
       code: "POSITION_REQUIRED",
     });
-    const output = await invoke(tool, {
-      ...update,
-      position: { placement: "start" },
+    expect(
+      await invoke(tool, { ...update, position: { placement: "start" } }),
+    ).toMatchObject({ canCommit: true, dashboardId });
+  });
+
+  it("não pergunta a posição num dashboard vazio: só há um lugar", async () => {
+    const dashboardId = "00000000-0000-4000-8000-000000000010";
+    const repository = makeRepository({
+      findDashboard: vi.fn(async () => ({
+        document: emptyDashboard(dashboardId),
+        fingerprint: "r1",
+      })),
     });
-    expect(output).toMatchObject({ canCommit: true, dashboardId });
+    const { destination: _d, position: _p, ...base } = validProposal();
+    const tool = proposeTool(repository, { pageDashboardId: dashboardId });
+    expect(
+      await invoke(tool, { ...base, mode: "update", dashboardId }),
+    ).toMatchObject({ canCommit: true, dashboardId });
+  });
+
+  it("não pergunta a posição num dashboard novo", async () => {
+    const repository = makeRepository();
+    const { position: _omit, ...proposal } = validProposal();
+    expect(await invoke(proposeTool(repository), proposal)).toMatchObject({
+      canCommit: true,
+    });
   });
 
   it("recusa Recibo de outro Ator", async () => {

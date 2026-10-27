@@ -21,6 +21,7 @@ import {
   aiComponentSchema,
   aiDashboardProposalInputSchema,
   applyComponentPosition,
+  type ComponentPosition,
   COMPONENT_RECEIPT_TTL_MS,
   createDashboardDocument,
   dashboardDocumentFingerprint,
@@ -379,6 +380,7 @@ export class AiDashboardTools {
   private async checkPhases(
     parsed: z.infer<typeof aiDashboardProposalInputSchema>,
     changedIds: string[],
+    position: ComponentPosition | undefined,
   ): Promise<
     | { refused: ReturnType<typeof refusal> }
     | {
@@ -436,7 +438,7 @@ export class AiDashboardTools {
         "Falta o dashboard de destino.",
         "Pergunte ao administrador em qual dashboard (novo ou existente) o componente entra; não assuma.",
       );
-    if (!parsed.position)
+    if (!position)
       return refuse(
         "POSITION_REQUIRED",
         "Falta a posição do componente dentro do dashboard.",
@@ -541,13 +543,19 @@ export class AiDashboardTools {
       const changedIds = parsed.components
         .map((component) => component.id)
         .filter((id) => changes[id] !== "unchanged");
-      const phases = await this.checkPhases(parsed, changedIds);
+      // Dashboard vazio (ou novo) só tem um lugar: não há o que perguntar.
+      const position: ComponentPosition | undefined =
+        parsed.position ??
+        ((previous?.document.ui.components.length ?? 0) === 0
+          ? { placement: "end" }
+          : undefined);
+      const phases = await this.checkPhases(parsed, changedIds, position);
       if ("refused" in phases) return phases.refused;
-      if (phases.approvedId && parsed.position) {
+      if (phases.approvedId && position) {
         const positioned = applyComponentPosition(
           document,
           phases.approvedId,
-          parsed.position,
+          position,
         );
         if (!positioned.ok) {
           const { ok: _ok, ...details } = positioned;

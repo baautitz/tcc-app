@@ -24,6 +24,10 @@ describe("prompt do sistema da IA", () => {
     expect(prompt).toMatch(/tamanho que o administrador definiu/i);
   });
 
+  it("não manda perguntar a posição num dashboard vazio", () => {
+    expect(prompt).toMatch(/dashboard está vazio ou é novo, não pergunte a posição/);
+  });
+
   it("exige o número exato de componentes pedido", () => {
     expect(prompt).toMatch(/exatamente o número de componentes pedido/);
   });
