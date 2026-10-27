@@ -41,6 +41,10 @@ const typeLabels: Record<ComponentType, string> = {
 };
 
 /** Fase 3: o componente renderizado sozinho. Aprovar ou pedir ajuste não persistem nada. */
+/** Altura (em Células) do componente isolado: o indicador não ocupa a de um gráfico. */
+const previewRowSpan = (type: string) =>
+  type === "stat_card" ? 2 : type === "data_table" ? 6 : 5;
+
 export function ComponentPreviewCard({
   item,
   busy,
@@ -77,7 +81,7 @@ export function ComponentPreviewCard({
       type: kind,
       title: componentTitle,
       queryUuid,
-      layoutProps: { colSpan: span ?? 12, rowSpan: 5 },
+      layoutProps: { colSpan: span ?? 12, rowSpan: previewRowSpan(kind) },
       props: { ...config, title: componentTitle, queryUuid },
     };
   }, [component]);
@@ -236,7 +240,13 @@ export function ComponentPreviewCard({
 
       <DashboardGrid
         components={[
-          { ...viewComponent, layoutProps: { colSpan: 12, rowSpan: 5 } },
+          {
+            ...viewComponent,
+            layoutProps: {
+              colSpan: 12,
+              rowSpan: previewRowSpan(viewComponent.type),
+            },
+          },
         ]}
         renderComponent={(previewComponent) => (
           <DashboardComponentView
