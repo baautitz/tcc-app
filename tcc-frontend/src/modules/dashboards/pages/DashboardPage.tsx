@@ -14,6 +14,10 @@ import {
   collectArguments,
   queryArguments,
 } from "@/modules/dashboards/model/lib";
+import {
+  loadDashboardFilters,
+  saveDashboardFilters,
+} from "@/modules/dashboards/model/filter-storage";
 import type {
   FilterValues,
   QueryState,
@@ -33,7 +37,9 @@ export function DashboardPage({
   const { user } = useAuth();
   const [dashboard, setDashboard] = useState<Dashboard>();
   const [data, setData] = useState<Record<string, QueryState>>({});
-  const [filters, setFilters] = useState<FilterValues>({});
+  const [filters, setFilters] = useState<FilterValues>(() =>
+    loadDashboardFilters(dashboardId),
+  );
   const [error, setError] = useState<string>();
   const [usersDialogOpen, setUsersDialogOpen] = useState(false);
   const [dataRefreshVersion, setDataRefreshVersion] = useState(0);
@@ -53,7 +59,7 @@ export function DashboardPage({
     setSyncedDashboardId(dashboardId);
     setDashboard(undefined);
     setData({});
-    setFilters({});
+    setFilters(loadDashboardFilters(dashboardId));
     setError(undefined);
   }
 
@@ -228,7 +234,10 @@ export function DashboardPage({
         parameters={parameters}
         lookupData={data}
         appliedFilters={filters}
-        onApply={setFilters}
+        onApply={(values) => {
+          saveDashboardFilters(dashboardId, values);
+          setFilters(values);
+        }}
       />
       {hasStaleDataErrors && (
         <Alert>
