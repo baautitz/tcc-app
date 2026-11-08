@@ -143,8 +143,9 @@ export class AiConfigService {
           }
         : {}),
       configuration: { baseURL: configuration.baseURL },
-      // Some OpenAI-compatible providers reject stream_options.
-      streamUsage: false,
+      // Some OpenAI-compatible providers reject stream_options. A MiniMax aceita e
+      // devolve a contagem de tokens (inclusive de raciocínio), usada na telemetria.
+      streamUsage: isMiniMax,
     });
   }
 }

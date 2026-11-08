@@ -13,6 +13,15 @@ import {
 } from "../agent/ai-agent.js";
 import type { AuthenticatedUser } from "../../../identity/domain/auth-user.js";
 import type { AiToolProgressEvent } from "../tools/ai-read-tools.js";
+import {
+  noopTelemetry,
+  type TelemetryPort,
+} from "../../../../shared/telemetry/telemetry-port.js";
+import {
+  PARTICIPANT_HEADER,
+  resolveParticipant,
+} from "../../../../shared/telemetry/participant.js";
+import { AiTurnTelemetry } from "./ai-turn-telemetry.js";
 import { buildSystemPrompt } from "./chat-prompt.js";
 import { chatRequestSchema, type AiChatRequest } from "./chat-schemas.js";
 import {
@@ -48,6 +57,9 @@ export interface AiChatServiceDependencies {
   getConfiguration?: () => ResolvedAiConfiguration;
   env?: Environment;
   now?: () => number;
+  telemetry?: TelemetryPort;
+  /** Participante padrão quando o header X-Participant-Id não vem (ex.: TELEMETRY_PARTICIPANT). */
+  participantFallback?: string;
 }
 
 type ChatContext = Context<{ Variables: { currentUser: AuthenticatedUser } }>;
@@ -57,6 +69,8 @@ export class AiChatService {
   private readonly createTools: AiToolsFactory;
   private readonly getConfiguration: () => ResolvedAiConfiguration;
   private readonly now: () => number;
+  private readonly telemetry: TelemetryPort;
+  private readonly participantFallback?: string;
 
   constructor(dependencies: AiChatServiceDependencies = {}) {
     this.createAgent =
@@ -66,9 +80,12 @@ export class AiChatService {
       dependencies.getConfiguration ??
       (() => aiConfigService.resolve(dependencies.env ?? getEnvironment()));
     this.now = dependencies.now ?? Date.now;
+    this.telemetry = dependencies.telemetry ?? noopTelemetry;
+    this.participantFallback = dependencies.participantFallback;
   }
 
   async handle(context: ChatContext) {
+    const receivedAt = this.now();
     const { createAgent, createTools, getConfiguration, now } = this;
 
     if (!context.get("currentUser").isAdmin) {
@@ -131,6 +148,17 @@ export class AiChatService {
     const requestId = crypto.randomUUID();
     const messageId = crypto.randomUUID();
     const currentUser = context.get("currentUser");
+    const turnTelemetry = new AiTurnTelemetry(this.telemetry, {
+      turnId: requestId,
+      threadId: parsedBody.threadId,
+      model: configuration.model,
+      participant: resolveParticipant(
+        context.req.header(PARTICIPANT_HEADER),
+        this.participantFallback,
+      ),
+      now,
+      startMs: receivedAt,
+    });
     const hooks: ChatStreamHooks = {
       enqueueToolEvent: () => undefined,
       resetAiResponseBuffer: () => undefined,
@@ -164,6 +192,7 @@ export class AiChatService {
       });
     } catch {
       console.error("[AI chat] agent initialization failed");
+      turnTelemetry.finish("erro");
       return context.json(
         {
           error: "Não foi possível inicializar o serviço de IA.",
@@ -182,6 +211,7 @@ export class AiChatService {
       requestId,
       messageId,
       hooks,
+      turnTelemetry,
     });
   }
 }

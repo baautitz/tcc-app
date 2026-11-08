@@ -19,6 +19,7 @@ import type {
   AiSseEvent,
   ChatStreamHooks,
 } from "./chat-stream/types.js";
+import type { AiTurnResult, AiTurnTelemetry } from "./ai-turn-telemetry.js";
 import { buildVisibleChunks } from "./chat-stream/visible-chunks.js";
 
 // O contador de tempo da interface só avança quando chega um evento de progresso.
@@ -48,6 +49,7 @@ export function runChatStream(options: {
   requestId: string;
   messageId: string;
   hooks: ChatStreamHooks;
+  turnTelemetry?: AiTurnTelemetry;
 }) {
   const {
     context,
@@ -58,6 +60,7 @@ export function runChatStream(options: {
     requestId,
     messageId,
     hooks,
+    turnTelemetry,
   } = options;
   return streamSSE(context, async (stream) => {
     const startedAt = now();
@@ -186,6 +189,11 @@ export function runChatStream(options: {
     if (requestSignal.aborted) abort();
     else requestSignal.addEventListener("abort", abort, { once: true });
 
+    let turnResult: AiTurnResult = "ok";
+    const writeToken = (delta: string) => {
+      turnTelemetry?.onVisibleToken();
+      return writeSse({ version: 1, type: "token", messageId, delta });
+    };
     let finishReason: string | null = null;
     let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
     let resolveTimeout!: () => void;
@@ -218,10 +226,14 @@ export function runChatStream(options: {
             {
               streamMode: "messages",
               signal: abortController.signal,
+              ...(turnTelemetry?.callbacks.length
+                ? { callbacks: turnTelemetry.callbacks }
+                : {}),
             },
           );
 
           for await (const [chunk, metadata] of tokenStream) {
+            turnTelemetry?.onStreamMessage(chunk);
             if (structuredStopRequested) return "structured_complete";
             if (abortController.signal.aborted) return "client_abort";
             // LangChain createAgent currently emits model chunks from
@@ -235,6 +247,7 @@ export function runChatStream(options: {
               continue;
             const delta = extractText(chunk.content);
             if (delta) {
+              turnTelemetry?.onModelText(delta);
               pendingModelText.push(delta);
               progressPhase = "preparing_response";
               progressToolName = undefined;
@@ -246,12 +259,7 @@ export function runChatStream(options: {
           const visibleChunks = buildVisibleChunks(pendingModelText);
           for (const visibleDelta of visibleChunks) {
             hasVisibleResponse = true;
-            await writeSse({
-              version: 1,
-              type: "token",
-              messageId,
-              delta: visibleDelta,
-            });
+            await writeToken(visibleDelta);
           }
           if (structuredStopRequested) return "structured_complete";
           return abortController.signal.aborted ? "client_abort" : "done";
@@ -277,8 +285,12 @@ export function runChatStream(options: {
         clientAbort,
         structuredCompletion,
       ]);
-      if (outcome === "client_abort" || clientDisconnected) return;
+      if (outcome === "client_abort" || clientDisconnected) {
+        turnResult = "cancelado";
+        return;
+      }
       if (outcome === "timeout") {
+        turnResult = "erro";
         console.error("[AI chat] provider stream timed out", {
           requestId,
           elapsedMs: now() - startedAt,
@@ -297,6 +309,7 @@ export function runChatStream(options: {
         return;
       }
       if (outcome === "provider_error") {
+        turnResult = "erro";
         console.error("[AI chat] provider stream failed", {
           requestId,
           elapsedMs: now() - startedAt,
@@ -318,15 +331,11 @@ export function runChatStream(options: {
         const fallback = structuredResponseFallback(latestStructuredEvent);
         if (fallback) {
           hasVisibleResponse = true;
-          await writeSse({
-            version: 1,
-            type: "token",
-            messageId,
-            delta: fallback,
-          });
+          await writeToken(fallback);
         }
       }
       if (!hasVisibleResponse) {
+        turnResult = "erro";
         const failedQueryTest =
           lastToolName === "test_query" && lastToolResultOk === false;
         console.error("[AI chat] provider returned an empty response", {
@@ -362,6 +371,7 @@ export function runChatStream(options: {
         return;
       }
     } catch (reason) {
+      turnResult = clientDisconnected ? "cancelado" : "erro";
       if (!clientDisconnected && !stream.aborted) {
         console.error("[AI chat] SSE handler failed", {
           requestId,
@@ -389,6 +399,7 @@ export function runChatStream(options: {
       if (progressInterval !== undefined) clearInterval(progressInterval);
       if (timeoutHandle !== undefined) clearTimeout(timeoutHandle);
       requestSignal.removeEventListener("abort", abort);
+      turnTelemetry?.finish(turnResult);
     }
 
     if (

@@ -1,8 +1,10 @@
 import { z } from "zod";
+import { getEnvironment } from "../../../shared/config/config.js";
 import { AiChatService } from "../application/chat/ai-chat.js";
 import {
   aiChatToolsFactory,
   aiDashboardToolsRepository,
+  telemetry,
 } from "../../../container.js";
 import { contextProposalService } from "../application/context-proposals.js";
 import { throwApiError } from "../../../shared/lib/domain-error.js";
@@ -13,6 +15,8 @@ import type { AppContext } from "../../../shared/middleware/auth.js";
 
 const aiChatService = new AiChatService({
   createTools: (options) => aiChatToolsFactory.create(options),
+  telemetry,
+  participantFallback: getEnvironment().TELEMETRY_PARTICIPANT,
 });
 
 export const aiChat = (context: AppContext) => aiChatService.handle(context);
