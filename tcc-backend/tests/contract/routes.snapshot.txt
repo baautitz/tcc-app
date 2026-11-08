@@ -1,4 +1,6 @@
 ALL /*
+ALL /api/dashboards/:id
+ALL /query/:uuid
 GET /api/health
 POST /api/admin/ai/chat
 POST /api/admin/ai/chat
