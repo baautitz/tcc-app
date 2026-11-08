@@ -43,6 +43,36 @@ function outputReportsFailure(output: unknown): boolean {
   }
 }
 
+/**
+ * `chat-stream` aborta o agente (AbortError) logo depois de uma ferramenta devolver
+ * `ok: true` com cartão de aprovação (query_preview, component_preview, formulário).
+ * O LangChain reporta isso em `handleToolError`, mas a chamada foi bem-sucedida.
+ */
+function isStructuredStopAbort(error: unknown): boolean {
+  return (
+    !!error &&
+    typeof error === "object" &&
+    (error as Error).name === "AbortError"
+  );
+}
+
+/** Texto da recusa (mensagem do Zod), cortado para não inflar o arquivo. */
+function rejectionText(content: unknown): string | null {
+  const text =
+    typeof content === "string"
+      ? content
+      : Array.isArray(content)
+        ? content
+            .map((part) =>
+              part && typeof part === "object" && "text" in part
+                ? String((part as { text: unknown }).text)
+                : "",
+            )
+            .join("")
+        : "";
+  return text ? text.slice(0, 600) : null;
+}
+
 function sqlFromToolInput(input: string): string | undefined {
   try {
     const parsed: unknown = JSON.parse(input);
@@ -208,6 +238,9 @@ export class AiTurnTelemetry {
       ok,
       not_executed: true,
       rejected_by_schema: schemaRejected,
+      ...(schemaRejected
+        ? { rejection_message: rejectionText(message.content) }
+        : {}),
     });
     span.end();
     this.toolCalls += 1;
@@ -346,10 +379,19 @@ export class AiTurnTelemetry {
         span?.end();
       }
 
-      override handleToolError(_error: unknown, runId: string) {
+      override handleToolError(error: unknown, runId: string) {
         const span = turn.open.get(runId);
         turn.open.delete(runId);
-        turn.recordToolOutcome(turn.toolNameOfSpan(span), false, false);
+        const toolName = turn.toolNameOfSpan(span);
+        if (isStructuredStopAbort(error)) {
+          // O resultado da ferramenta foi ok e o stream foi interrompido de propósito
+          // para o administrador aprovar o cartão: não é falha da ferramenta.
+          turn.recordToolOutcome(toolName, true, true);
+          span?.setAttributes({ ok: true, paused_for_user: true });
+          span?.end();
+          return;
+        }
+        turn.recordToolOutcome(toolName, false, false);
         span?.setAttributes({ ok: false });
         span?.end({ error: "tool_error" });
       }

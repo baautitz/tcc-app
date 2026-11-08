@@ -207,7 +207,83 @@ describe("AiTurnTelemetry (callbacks do LangChain)", () => {
       type: "tool",
       name: "create_or_update_dashboard",
       status: "error",
+      content: "Received tool input did not match expected schema",
     });
+    turn.finish("ok");
+    const spans = exporter.getFinishedSpans();
+    expect(
+      spans.find((s) => s.name === "ai.turn")!.attributes
+        .schema_valid_first_try,
+    ).toBe(false);
+    expect(
+      spans.find((s) => s.name === "ai.tool.create_or_update_dashboard")!
+        .attributes.rejection_message,
+    ).toContain("did not match expected schema");
+  });
+  it("não conta como recusa a pausa do turno para aprovação (AbortError após resultado ok)", async () => {
+    const exporter = new InMemorySpanExporter();
+    const turn = new AiTurnTelemetry(new OtelTelemetry(exporter), {
+      turnId: "t",
+      model: "m",
+      now: Date.now,
+    });
+    const handler = turn.callbacks[0] as unknown as Record<
+      string,
+      (...args: unknown[]) => Promise<void> | void
+    >;
+    for (const [run, name, call] of [
+      ["r1", "test_query", "c1"],
+      ["r2", "preview_component", "c2"],
+    ] as const) {
+      await handler.handleToolStart!(
+        { id: ["t"] },
+        "{}",
+        run,
+        undefined,
+        undefined,
+        undefined,
+        name,
+        call,
+      );
+      await handler.handleToolError!(
+        new DOMException("This operation was aborted", "AbortError"),
+        run,
+      );
+    }
+    turn.finish("ok");
+
+    const spans = exporter.getFinishedSpans();
+    const root = spans.find((s) => s.name === "ai.turn")!;
+    expect(root.attributes).toMatchObject({
+      schema_valid_first_try: true,
+      test_query_failures: 0,
+    });
+    const tool = spans.find((s) => s.name === "ai.tool.preview_component")!;
+    expect(tool.attributes).toMatchObject({ ok: true, paused_for_user: true });
+  });
+
+  it("exceção comum da ferramenta continua contando como falha", async () => {
+    const exporter = new InMemorySpanExporter();
+    const turn = new AiTurnTelemetry(new OtelTelemetry(exporter), {
+      turnId: "t",
+      model: "m",
+      now: Date.now,
+    });
+    const handler = turn.callbacks[0] as unknown as Record<
+      string,
+      (...args: unknown[]) => Promise<void> | void
+    >;
+    await handler.handleToolStart!(
+      { id: ["t"] },
+      "{}",
+      "r1",
+      undefined,
+      undefined,
+      undefined,
+      "preview_component",
+      "c1",
+    );
+    await handler.handleToolError!(new Error("falhou"), "r1");
     turn.finish("ok");
     expect(
       exporter.getFinishedSpans().find((s) => s.name === "ai.turn")!.attributes
