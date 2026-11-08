@@ -6,6 +6,17 @@ export class AiReasoningFilter {
   private pending = "";
   private insideThinkBlock = false;
   private finished = false;
+  private blockStartedAt = 0;
+  private readonly clock: () => number;
+
+  /** Telemetria: tempo e tamanho do raciocínio, somados sobre todos os blocos. */
+  thinkingMs = 0;
+  thinkingChars = 0;
+  thinkingBlocks = 0;
+
+  constructor(options: { clock?: () => number } = {}) {
+    this.clock = options.clock ?? Date.now;
+  }
 
   push(chunk: string): string {
     if (this.finished || !chunk) return "";
@@ -18,13 +29,16 @@ export class AiReasoningFilter {
       if (this.insideThinkBlock) {
         const closeIndex = normalized.indexOf(CLOSE_THINK_TAG);
         if (closeIndex < 0) {
-          this.pending = this.keepPossibleTagPrefix(this.pending, [
+          const remainder = this.keepPossibleTagPrefix(this.pending, [
             CLOSE_THINK_TAG,
           ]);
+          this.thinkingChars += this.pending.length - remainder.length;
+          this.pending = remainder;
           break;
         }
+        this.thinkingChars += closeIndex;
+        this.endThinkBlock();
         this.pending = this.pending.slice(closeIndex + CLOSE_THINK_TAG.length);
-        this.insideThinkBlock = false;
         continue;
       }
 
@@ -51,7 +65,11 @@ export class AiReasoningFilter {
       const isOpenTag = nextTagIndex === openIndex;
       const tag = isOpenTag ? OPEN_THINK_TAG : CLOSE_THINK_TAG;
       this.pending = this.pending.slice(nextTagIndex + tag.length);
-      if (isOpenTag) this.insideThinkBlock = true;
+      if (isOpenTag) {
+        this.insideThinkBlock = true;
+        this.thinkingBlocks += 1;
+        this.blockStartedAt = this.clock();
+      }
     }
 
     return visible;
@@ -62,6 +80,7 @@ export class AiReasoningFilter {
     this.finished = true;
 
     if (this.insideThinkBlock) {
+      this.endThinkBlock();
       this.pending = "";
       return "";
     }
@@ -76,6 +95,11 @@ export class AiReasoningFilter {
     );
     this.pending = "";
     return visible;
+  }
+
+  private endThinkBlock() {
+    this.thinkingMs += this.clock() - this.blockStartedAt;
+    this.insideThinkBlock = false;
   }
 
   private keepPossibleTagPrefix(value: string, tags: string[]): string {
