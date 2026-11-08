@@ -7,3 +7,4 @@ coverage/
 olist/data/*
 !olist/data/.gitkeep
 /tcc-backend/telemetry/
+/tcc-backend/avaliacao/resultados/
