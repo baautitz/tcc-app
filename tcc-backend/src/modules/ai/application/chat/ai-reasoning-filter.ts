@@ -13,6 +13,12 @@ export class AiReasoningFilter {
   thinkingMs = 0;
   thinkingChars = 0;
   thinkingBlocks = 0;
+  private readonly blockTexts: string[] = [];
+
+  /** Texto dos blocos <think>, separados por uma linha em branco. */
+  get thinkingText(): string {
+    return this.blockTexts.filter(Boolean).join("\n\n");
+  }
 
   constructor(options: { clock?: () => number } = {}) {
     this.clock = options.clock ?? Date.now;
@@ -33,10 +39,14 @@ export class AiReasoningFilter {
             CLOSE_THINK_TAG,
           ]);
           this.thinkingChars += this.pending.length - remainder.length;
+          this.appendThinking(
+            this.pending.slice(0, this.pending.length - remainder.length),
+          );
           this.pending = remainder;
           break;
         }
         this.thinkingChars += closeIndex;
+        this.appendThinking(this.pending.slice(0, closeIndex));
         this.endThinkBlock();
         this.pending = this.pending.slice(closeIndex + CLOSE_THINK_TAG.length);
         continue;
@@ -68,6 +78,7 @@ export class AiReasoningFilter {
       if (isOpenTag) {
         this.insideThinkBlock = true;
         this.thinkingBlocks += 1;
+        this.blockTexts.push("");
         this.blockStartedAt = this.clock();
       }
     }
@@ -95,6 +106,10 @@ export class AiReasoningFilter {
     );
     this.pending = "";
     return visible;
+  }
+
+  private appendThinking(text: string) {
+    this.blockTexts[this.blockTexts.length - 1] += text;
   }
 
   private endThinkBlock() {

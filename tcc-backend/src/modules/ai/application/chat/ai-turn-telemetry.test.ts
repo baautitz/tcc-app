@@ -73,6 +73,9 @@ describe("telemetria do turno do chat", () => {
       participant: "P03",
       result: "ok",
       thinking_chars: 8,
+      thinking_text: "pensando",
+      response_text: "Olá",
+      user_message: "oi",
       thinking_blocks: 1,
       tool_calls_count: 0,
       test_query_failures: 0,
@@ -113,6 +116,7 @@ describe("AiReasoningFilter (medidas)", () => {
     expect(filter.thinkingBlocks).toBe(2);
     expect(filter.thinkingChars).toBe(6);
     expect(filter.thinkingMs).toBe(150 + 50);
+    expect(filter.thinkingText).toBe("abcde\n\nx");
   });
 });
 

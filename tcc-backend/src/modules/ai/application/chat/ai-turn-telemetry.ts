@@ -115,6 +115,8 @@ export class AiTurnTelemetry {
   private thinkingMs = 0;
   private thinkingChars = 0;
   private thinkingBlocks = 0;
+  private readonly thinkingTexts: string[] = [];
+  private responseText = "";
   private reasoning: AiReasoningFilter | undefined;
   private tokens: TokenUsage | null = null;
   private finished = false;
@@ -129,6 +131,7 @@ export class AiTurnTelemetry {
       turnId: string;
       threadId?: string;
       model: string;
+      userMessage?: string;
       participant?: string;
       now: () => number;
       startMs?: number;
@@ -154,8 +157,9 @@ export class AiTurnTelemetry {
   }
 
   /** Primeiro trecho visível (depois do filtro de raciocínio) enviado ao cliente. */
-  onVisibleToken() {
+  onVisibleToken(delta = "") {
     this.ttftVisibleMs ??= this.options.now() - this.startMs;
+    this.responseText += delta;
   }
 
   /**
@@ -223,6 +227,9 @@ export class AiTurnTelemetry {
       T_thinking_ms: this.thinkingBlocks > 0 ? this.thinkingMs : 0,
       thinking_chars: this.thinkingChars,
       thinking_blocks: this.thinkingBlocks,
+      user_message: this.options.userMessage ?? null,
+      response_text: this.responseText,
+      thinking_text: this.thinkingTexts.filter(Boolean).join("\n\n"),
       llm_calls_count: this.llmCalls,
       tool_calls_count: this.toolCalls,
       test_query_failures: this.testQueryFailures,
@@ -244,6 +251,7 @@ export class AiTurnTelemetry {
     this.thinkingMs += filter.thinkingMs;
     this.thinkingChars += filter.thinkingChars;
     this.thinkingBlocks += filter.thinkingBlocks;
+    this.thinkingTexts.push(filter.thinkingText);
     this.reasoning = undefined;
   }
 

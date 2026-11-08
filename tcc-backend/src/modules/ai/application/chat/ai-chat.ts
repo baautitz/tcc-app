@@ -21,6 +21,7 @@ import {
   PARTICIPANT_HEADER,
   resolveParticipant,
 } from "../../../../shared/telemetry/participant.js";
+import { extractText } from "./chat-intents.js";
 import { AiTurnTelemetry } from "./ai-turn-telemetry.js";
 import { buildSystemPrompt } from "./chat-prompt.js";
 import { chatRequestSchema, type AiChatRequest } from "./chat-schemas.js";
@@ -152,6 +153,7 @@ export class AiChatService {
       turnId: requestId,
       threadId: parsedBody.threadId,
       model: configuration.model,
+      userMessage: extractText(parsedBody.messages.at(-1)?.content),
       participant: resolveParticipant(
         context.req.header(PARTICIPANT_HEADER),
         this.participantFallback,

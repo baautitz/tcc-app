@@ -191,7 +191,7 @@ export function runChatStream(options: {
 
     let turnResult: AiTurnResult = "ok";
     const writeToken = (delta: string) => {
-      turnTelemetry?.onVisibleToken();
+      turnTelemetry?.onVisibleToken(delta);
       return writeSse({ version: 1, type: "token", messageId, delta });
     };
     let finishReason: string | null = null;
