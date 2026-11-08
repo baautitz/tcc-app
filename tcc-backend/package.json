@@ -41,6 +41,7 @@
     "@types/pg-cursor": "^2.7.2",
     "dependency-cruiser": "18.7.2",
     "drizzle-kit": "^0.31.4",
+    "libpg-query": "18.2.2",
     "prettier": "3.9.10",
     "tsx": "^4.20.6",
     "typescript": "^7.0.2",
