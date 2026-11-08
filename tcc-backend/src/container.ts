@@ -1,4 +1,6 @@
 // Composição: monta adapters e services e injeta as portas entre módulos.
+import { getEnvironment } from "./shared/config/config.js";
+import { createTelemetry } from "./shared/telemetry/otel-telemetry.js";
 import { DrizzleAiContextProposalRepository } from "./modules/ai/infrastructure/ai-context-proposals-repository.js";
 import { DrizzleAiDashboardToolsRepository } from "./modules/ai/infrastructure/ai-dashboard-tools-repository.js";
 import { DrizzleAiReadToolsRepository } from "./modules/ai/infrastructure/ai-read-tools-repository.js";
@@ -17,6 +19,10 @@ import { savedQueriesAdapter } from "./modules/queries/infrastructure/saved-quer
 import { savedQueriesRepository } from "./modules/queries/infrastructure/saved-queries-repository.js";
 
 export { dashboardRegistry };
+
+export const telemetry = createTelemetry({
+  file: getEnvironment().TELEMETRY_FILE,
+});
 
 export const queryService = new QueryService(
   savedQueriesRepository,

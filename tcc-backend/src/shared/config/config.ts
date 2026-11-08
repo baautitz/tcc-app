@@ -18,6 +18,10 @@ const environmentSchema = z.object({
   AI_API_KEY: z.string().optional(),
   AI_MODEL: z.string().optional(),
   AI_REQUEST_TIMEOUT_MS: z.string().optional(),
+  // Telemetria de medição (tempo, tokens): sem TELEMETRY_FILE nada é gravado.
+  TELEMETRY_FILE: z.string().optional(),
+  // Identificador opaco da sessão de teste (ex.: P01); nunca nome nem e-mail.
+  TELEMETRY_PARTICIPANT: z.string().optional(),
 });
 
 export type Environment = z.infer<typeof environmentSchema>;
