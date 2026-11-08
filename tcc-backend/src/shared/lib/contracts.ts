@@ -228,7 +228,7 @@ export const queryParameterSourceSchema = z.discriminatedUnion("source", [
 export const queryBindingSchema = z
   .object({
     queryUuid: z.string().uuid(),
-    parameters: z.record(queryParameterSourceSchema),
+    parameters: z.record(z.string(), queryParameterSourceSchema),
   })
   .strict();
 
@@ -276,7 +276,7 @@ const dashboardDocumentComponentSchema = z
         rowSpan: z.number().int().min(1).max(maxDashboardRows).default(1),
       })
       .default({ colSpan: 12, rowSpan: 1 }),
-    props: z.record(z.unknown()),
+    props: z.record(z.string(), z.unknown()),
   })
   .passthrough();
 
@@ -370,7 +370,7 @@ const componentSchema = z
         rowSpan: z.number().int().min(1).max(maxDashboardRows).default(1),
       })
       .default({ colSpan: 12, rowSpan: 1 }),
-    props: z.record(z.unknown()).default({}),
+    props: z.record(z.string(), z.unknown()).default({}),
   })
   .passthrough();
 

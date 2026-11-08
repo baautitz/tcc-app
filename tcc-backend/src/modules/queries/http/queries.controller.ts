@@ -48,7 +48,7 @@ export async function testSavedQuery(context: AppContext) {
     context,
     z.object({
       parameters: z
-        .record(z.union([z.string(), z.array(z.string())]))
+        .record(z.string(), z.union([z.string(), z.array(z.string())]))
         .default({}),
     }),
   );
