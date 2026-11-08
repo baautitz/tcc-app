@@ -11,7 +11,15 @@
     "tipo_esperado": "stat_card",
     "justificativa_tipo": "knaflic2015 p. 40 (\"When you have just a number or two that you want to communicate: use the numbers directly\")",
     "tokens_sql_gold": 6,
-    "dificuldade": "easy"
+    "dificuldade": "easy",
+    "dificuldade_spider": {
+      "nivel": "easy",
+      "componentes": {
+        "comp1": 0,
+        "comp2": 0,
+        "outros": 0
+      }
+    }
   },
   {
     "id": "kpi-02",
@@ -25,7 +33,15 @@
     "tipo_esperado": "stat_card",
     "justificativa_tipo": "knaflic2015 p. 40 (\"When you have just a number or two that you want to communicate: use the numbers directly\")",
     "tokens_sql_gold": 6,
-    "dificuldade": "easy"
+    "dificuldade": "easy",
+    "dificuldade_spider": {
+      "nivel": "easy",
+      "componentes": {
+        "comp1": 0,
+        "comp2": 0,
+        "outros": 0
+      }
+    }
   },
   {
     "id": "kpi-03",
@@ -39,7 +55,15 @@
     "tipo_esperado": "stat_card",
     "justificativa_tipo": "knaflic2015 p. 40 (\"When you have just a number or two that you want to communicate: use the numbers directly\")",
     "tokens_sql_gold": 7,
-    "dificuldade": "easy"
+    "dificuldade": "easy",
+    "dificuldade_spider": {
+      "nivel": "easy",
+      "componentes": {
+        "comp1": 0,
+        "comp2": 0,
+        "outros": 0
+      }
+    }
   },
   {
     "id": "kpi-04",
@@ -53,7 +77,15 @@
     "tipo_esperado": "stat_card",
     "justificativa_tipo": "knaflic2015 p. 40 (\"When you have just a number or two that you want to communicate: use the numbers directly\")",
     "tokens_sql_gold": 15,
-    "dificuldade": "easy"
+    "dificuldade": "easy",
+    "dificuldade_spider": {
+      "nivel": "easy",
+      "componentes": {
+        "comp1": 1,
+        "comp2": 0,
+        "outros": 0
+      }
+    }
   },
   {
     "id": "kpi-05",
@@ -67,7 +99,15 @@
     "tipo_esperado": "stat_card",
     "justificativa_tipo": "knaflic2015 p. 40 (\"When you have just a number or two that you want to communicate: use the numbers directly\")",
     "tokens_sql_gold": 7,
-    "dificuldade": "easy"
+    "dificuldade": "easy",
+    "dificuldade_spider": {
+      "nivel": "easy",
+      "componentes": {
+        "comp1": 0,
+        "comp2": 0,
+        "outros": 0
+      }
+    }
   },
   {
     "id": "kpi-06",
@@ -81,7 +121,15 @@
     "tipo_esperado": "stat_card",
     "justificativa_tipo": "knaflic2015 p. 40 (\"When you have just a number or two that you want to communicate: use the numbers directly\")",
     "tokens_sql_gold": 40,
-    "dificuldade": "easy"
+    "dificuldade": "easy",
+    "dificuldade_spider": {
+      "nivel": "hard",
+      "componentes": {
+        "comp1": 0,
+        "comp2": 1,
+        "outros": 0
+      }
+    }
   },
   {
     "id": "kpi-07",
@@ -95,7 +143,15 @@
     "tipo_esperado": "stat_card",
     "justificativa_tipo": "knaflic2015 p. 40 (\"When you have just a number or two that you want to communicate: use the numbers directly\")",
     "tokens_sql_gold": 44,
-    "dificuldade": "easy"
+    "dificuldade": "easy",
+    "dificuldade_spider": {
+      "nivel": "extra",
+      "componentes": {
+        "comp1": 5,
+        "comp2": 0,
+        "outros": 1
+      }
+    }
   },
   {
     "id": "tmp-01",
@@ -110,7 +166,15 @@
     "tipo_esperado": "line_chart",
     "justificativa_tipo": "knaflic2015 p. 45 (linhas para dados contínuos, frequentemente tempo: dias, meses, trimestres, anos)",
     "tokens_sql_gold": 25,
-    "dificuldade": "easy"
+    "dificuldade": "easy",
+    "dificuldade_spider": {
+      "nivel": "hard",
+      "componentes": {
+        "comp1": 3,
+        "comp2": 0,
+        "outros": 2
+      }
+    }
   },
   {
     "id": "tmp-02",
@@ -125,7 +189,15 @@
     "tipo_esperado": "line_chart",
     "justificativa_tipo": "knaflic2015 p. 45 (linhas para dados contínuos, frequentemente tempo: dias, meses, trimestres, anos)",
     "tokens_sql_gold": 33,
-    "dificuldade": "easy"
+    "dificuldade": "easy",
+    "dificuldade_spider": {
+      "nivel": "extra",
+      "componentes": {
+        "comp1": 4,
+        "comp2": 0,
+        "outros": 2
+      }
+    }
   },
   {
     "id": "tmp-03",
@@ -140,7 +212,15 @@
     "tipo_esperado": "line_chart",
     "justificativa_tipo": "knaflic2015 p. 45 (linhas para dados contínuos, frequentemente tempo: dias, meses, trimestres, anos)",
     "tokens_sql_gold": 29,
-    "dificuldade": "easy"
+    "dificuldade": "easy",
+    "dificuldade_spider": {
+      "nivel": "hard",
+      "componentes": {
+        "comp1": 3,
+        "comp2": 0,
+        "outros": 2
+      }
+    }
   },
   {
     "id": "tmp-04",
@@ -155,7 +235,15 @@
     "tipo_esperado": "line_chart",
     "justificativa_tipo": "knaflic2015 p. 45 (linhas para dados contínuos, frequentemente tempo: dias, meses, trimestres, anos)",
     "tokens_sql_gold": 26,
-    "dificuldade": "easy"
+    "dificuldade": "easy",
+    "dificuldade_spider": {
+      "nivel": "hard",
+      "componentes": {
+        "comp1": 3,
+        "comp2": 0,
+        "outros": 2
+      }
+    }
   },
   {
     "id": "tmp-05",
@@ -170,7 +258,15 @@
     "tipo_esperado": "line_chart",
     "justificativa_tipo": "knaflic2015 p. 45 (linhas para dados contínuos, frequentemente tempo: dias, meses, trimestres, anos)",
     "tokens_sql_gold": 31,
-    "dificuldade": "easy"
+    "dificuldade": "easy",
+    "dificuldade_spider": {
+      "nivel": "extra",
+      "componentes": {
+        "comp1": 4,
+        "comp2": 0,
+        "outros": 2
+      }
+    }
   },
   {
     "id": "tmp-06",
@@ -185,7 +281,15 @@
     "tipo_esperado": "line_chart",
     "justificativa_tipo": "knaflic2015 p. 45 (linhas para dados contínuos, frequentemente tempo: dias, meses, trimestres, anos)",
     "tokens_sql_gold": 72,
-    "dificuldade": "easy"
+    "dificuldade": "easy",
+    "dificuldade_spider": {
+      "nivel": "extra",
+      "componentes": {
+        "comp1": 2,
+        "comp2": 2,
+        "outros": 1
+      }
+    }
   },
   {
     "id": "tmp-07",
@@ -201,7 +305,15 @@
     "tipo_esperado": "line_chart",
     "justificativa_tipo": "knaflic2015 p. 45 (linhas para dados contínuos, frequentemente tempo: dias, meses, trimestres, anos)",
     "tokens_sql_gold": 54,
-    "dificuldade": "easy"
+    "dificuldade": "easy",
+    "dificuldade_spider": {
+      "nivel": "extra",
+      "componentes": {
+        "comp1": 1,
+        "comp2": 1,
+        "outros": 1
+      }
+    }
   },
   {
     "id": "jun-01",
@@ -216,7 +328,15 @@
     "tipo_esperado": "bar_chart",
     "justificativa_tipo": "knaflic2015 p. 50 (barras facilitam comparar qual categoria é a maior e a menor) e p. 57 (barra horizontal para dados categóricos)",
     "tokens_sql_gold": 34,
-    "dificuldade": "easy"
+    "dificuldade": "easy",
+    "dificuldade_spider": {
+      "nivel": "extra",
+      "componentes": {
+        "comp1": 5,
+        "comp2": 0,
+        "outros": 2
+      }
+    }
   },
   {
     "id": "jun-02",
@@ -231,7 +351,15 @@
     "tipo_esperado": "bar_chart",
     "justificativa_tipo": "knaflic2015 p. 50 (barras facilitam comparar qual categoria é a maior e a menor) e p. 57 (barra horizontal para dados categóricos)",
     "tokens_sql_gold": 31,
-    "dificuldade": "easy"
+    "dificuldade": "easy",
+    "dificuldade_spider": {
+      "nivel": "extra",
+      "componentes": {
+        "comp1": 4,
+        "comp2": 0,
+        "outros": 2
+      }
+    }
   },
   {
     "id": "jun-03",
@@ -246,7 +374,15 @@
     "tipo_esperado": "bar_chart",
     "justificativa_tipo": "knaflic2015 p. 50 (barras facilitam comparar qual categoria é a maior e a menor) e p. 57 (barra horizontal para dados categóricos)",
     "tokens_sql_gold": 41,
-    "dificuldade": "easy"
+    "dificuldade": "easy",
+    "dificuldade_spider": {
+      "nivel": "extra",
+      "componentes": {
+        "comp1": 6,
+        "comp2": 0,
+        "outros": 2
+      }
+    }
   },
   {
     "id": "jun-04",
@@ -261,7 +397,15 @@
     "tipo_esperado": "pie_chart",
     "justificativa_tipo": "decisão do autor: o pedido solicita pizza explicitamente e o prompt do sistema manda respeitar o Tipo pedido; knaflic2015 p. 61 desaconselha pizza",
     "tokens_sql_gold": 16,
-    "dificuldade": "easy"
+    "dificuldade": "easy",
+    "dificuldade_spider": {
+      "nivel": "extra",
+      "componentes": {
+        "comp1": 2,
+        "comp2": 0,
+        "outros": 2
+      }
+    }
   },
   {
     "id": "jun-05",
@@ -276,7 +420,15 @@
     "tipo_esperado": "pie_chart",
     "justificativa_tipo": "decisão do autor: o pedido solicita pizza explicitamente e o prompt do sistema manda respeitar o Tipo pedido; knaflic2015 p. 61 desaconselha pizza",
     "tokens_sql_gold": 34,
-    "dificuldade": "easy"
+    "dificuldade": "easy",
+    "dificuldade_spider": {
+      "nivel": "extra",
+      "componentes": {
+        "comp1": 5,
+        "comp2": 0,
+        "outros": 2
+      }
+    }
   },
   {
     "id": "jun-06",
@@ -291,7 +443,15 @@
     "tipo_esperado": "bar_chart",
     "justificativa_tipo": "knaflic2015 p. 50 (barras facilitam comparar qual categoria é a maior e a menor) e p. 57 (barra horizontal para dados categóricos)",
     "tokens_sql_gold": 63,
-    "dificuldade": "easy"
+    "dificuldade": "easy",
+    "dificuldade_spider": {
+      "nivel": "extra",
+      "componentes": {
+        "comp1": 9,
+        "comp2": 0,
+        "outros": 3
+      }
+    }
   },
   {
     "id": "jun-07",
@@ -306,7 +466,15 @@
     "tipo_esperado": "bar_chart",
     "justificativa_tipo": "knaflic2015 p. 50 (barras facilitam comparar qual categoria é a maior e a menor) e p. 57 (barra horizontal para dados categóricos)",
     "tokens_sql_gold": 59,
-    "dificuldade": "easy"
+    "dificuldade": "easy",
+    "dificuldade_spider": {
+      "nivel": "extra",
+      "componentes": {
+        "comp1": 6,
+        "comp2": 1,
+        "outros": 2
+      }
+    }
   },
   {
     "id": "lis-01",
@@ -324,7 +492,15 @@
     "tipo_esperado": "data_table",
     "justificativa_tipo": "knaflic2015 p. 40 (tabelas servem a um público misto que procura a linha de interesse)",
     "tokens_sql_gold": 46,
-    "dificuldade": "easy"
+    "dificuldade": "easy",
+    "dificuldade_spider": {
+      "nivel": "extra",
+      "componentes": {
+        "comp1": 5,
+        "comp2": 0,
+        "outros": 3
+      }
+    }
   },
   {
     "id": "lis-02",
@@ -340,7 +516,15 @@
     "tipo_esperado": "data_table",
     "justificativa_tipo": "knaflic2015 p. 40 (tabelas servem a um público misto que procura a linha de interesse)",
     "tokens_sql_gold": 22,
-    "dificuldade": "easy"
+    "dificuldade": "easy",
+    "dificuldade_spider": {
+      "nivel": "hard",
+      "componentes": {
+        "comp1": 3,
+        "comp2": 0,
+        "outros": 2
+      }
+    }
   },
   {
     "id": "lis-03",
@@ -357,7 +541,15 @@
     "tipo_esperado": "data_table",
     "justificativa_tipo": "knaflic2015 p. 40 (tabelas servem a um público misto que procura a linha de interesse)",
     "tokens_sql_gold": 35,
-    "dificuldade": "easy"
+    "dificuldade": "easy",
+    "dificuldade_spider": {
+      "nivel": "extra",
+      "componentes": {
+        "comp1": 4,
+        "comp2": 0,
+        "outros": 3
+      }
+    }
   },
   {
     "id": "lis-04",
@@ -373,7 +565,15 @@
     "tipo_esperado": "data_table",
     "justificativa_tipo": "knaflic2015 p. 40 (tabelas servem a um público misto que procura a linha de interesse)",
     "tokens_sql_gold": 38,
-    "dificuldade": "easy"
+    "dificuldade": "easy",
+    "dificuldade_spider": {
+      "nivel": "extra",
+      "componentes": {
+        "comp1": 4,
+        "comp2": 0,
+        "outros": 2
+      }
+    }
   },
   {
     "id": "lis-05",
@@ -390,7 +590,15 @@
     "tipo_esperado": "data_table",
     "justificativa_tipo": "knaflic2015 p. 40 (tabelas servem a um público misto que procura a linha de interesse)",
     "tokens_sql_gold": 50,
-    "dificuldade": "easy"
+    "dificuldade": "easy",
+    "dificuldade_spider": {
+      "nivel": "extra",
+      "componentes": {
+        "comp1": 5,
+        "comp2": 0,
+        "outros": 2
+      }
+    }
   },
   {
     "id": "lis-06",
@@ -407,7 +615,15 @@
     "tipo_esperado": "data_table",
     "justificativa_tipo": "knaflic2015 p. 40 (tabelas servem a um público misto que procura a linha de interesse)",
     "tokens_sql_gold": 142,
-    "dificuldade": "medium"
+    "dificuldade": "medium",
+    "dificuldade_spider": {
+      "nivel": "extra",
+      "componentes": {
+        "comp1": 3,
+        "comp2": 2,
+        "outros": 1
+      }
+    }
   },
   {
     "id": "lis-07",
@@ -425,6 +641,14 @@
     "tipo_esperado": "data_table",
     "justificativa_tipo": "knaflic2015 p. 40 (tabelas servem a um público misto que procura a linha de interesse)",
     "tokens_sql_gold": 53,
-    "dificuldade": "easy"
+    "dificuldade": "easy",
+    "dificuldade_spider": {
+      "nivel": "extra",
+      "componentes": {
+        "comp1": 6,
+        "comp2": 0,
+        "outros": 2
+      }
+    }
   }
 ]
