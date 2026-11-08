@@ -4,11 +4,13 @@
     "cenario": "kpi",
     "pedido": "Adicione ao dashboard: mostre o faturamento total, somando o preço de todos os itens vendidos.",
     "sql_gold": "SELECT SUM(price) AS faturamento_total FROM olist.order_items",
-    "colunas_essenciais": ["faturamento_total"],
+    "colunas_essenciais": [
+      "faturamento_total"
+    ],
     "ordenado": false,
     "tipo_esperado": "stat_card",
     "justificativa_tipo": "knaflic2015 p. 40 (\"When you have just a number or two that you want to communicate: use the numbers directly\")",
-    "tokens_sql_gold": 9,
+    "tokens_sql_gold": 6,
     "dificuldade": "easy"
   },
   {
@@ -16,11 +18,13 @@
     "cenario": "kpi",
     "pedido": "Adicione ao dashboard: mostre quantos pedidos foram feitos no total.",
     "sql_gold": "SELECT COUNT(*) AS total_pedidos FROM olist.orders",
-    "colunas_essenciais": ["total_pedidos"],
+    "colunas_essenciais": [
+      "total_pedidos"
+    ],
     "ordenado": false,
     "tipo_esperado": "stat_card",
     "justificativa_tipo": "knaflic2015 p. 40 (\"When you have just a number or two that you want to communicate: use the numbers directly\")",
-    "tokens_sql_gold": 9,
+    "tokens_sql_gold": 6,
     "dificuldade": "easy"
   },
   {
@@ -28,11 +32,13 @@
     "cenario": "kpi",
     "pedido": "Adicione ao dashboard: mostre o preço médio por item vendido, em reais.",
     "sql_gold": "SELECT ROUND(AVG(price), 2) AS preco_medio_item FROM olist.order_items",
-    "colunas_essenciais": ["preco_medio_item"],
+    "colunas_essenciais": [
+      "preco_medio_item"
+    ],
     "ordenado": false,
     "tipo_esperado": "stat_card",
     "justificativa_tipo": "knaflic2015 p. 40 (\"When you have just a number or two that you want to communicate: use the numbers directly\")",
-    "tokens_sql_gold": 14,
+    "tokens_sql_gold": 7,
     "dificuldade": "easy"
   },
   {
@@ -40,11 +46,13 @@
     "cenario": "kpi",
     "pedido": "Adicione ao dashboard: mostre quantos clientes únicos já fizeram compras.",
     "sql_gold": "SELECT COUNT(DISTINCT oc.customer_unique_id) AS clientes_unicos FROM olist.orders o JOIN olist.order_customers oc ON oc.customer_id = o.customer_id",
-    "colunas_essenciais": ["clientes_unicos"],
+    "colunas_essenciais": [
+      "clientes_unicos"
+    ],
     "ordenado": false,
     "tipo_esperado": "stat_card",
     "justificativa_tipo": "knaflic2015 p. 40 (\"When you have just a number or two that you want to communicate: use the numbers directly\")",
-    "tokens_sql_gold": 18,
+    "tokens_sql_gold": 15,
     "dificuldade": "easy"
   },
   {
@@ -52,11 +60,41 @@
     "cenario": "kpi",
     "pedido": "Adicione ao dashboard: mostre a nota média de todas as avaliações dos clientes.",
     "sql_gold": "SELECT ROUND(AVG(review_score), 2) AS nota_media FROM olist.reviews",
-    "colunas_essenciais": ["nota_media"],
+    "colunas_essenciais": [
+      "nota_media"
+    ],
     "ordenado": false,
     "tipo_esperado": "stat_card",
     "justificativa_tipo": "knaflic2015 p. 40 (\"When you have just a number or two that you want to communicate: use the numbers directly\")",
-    "tokens_sql_gold": 14,
+    "tokens_sql_gold": 7,
+    "dificuldade": "easy"
+  },
+  {
+    "id": "kpi-06",
+    "cenario": "kpi",
+    "pedido": "Adicione ao dashboard: mostre o ticket médio por pedido (valor médio do pedido, somando o preço dos itens de cada pedido) considerando só pedidos entregues (status delivered) em 2018.",
+    "sql_gold": "WITH valor_pedido AS (SELECT o.order_id, SUM(oi.price) AS valor FROM olist.orders o JOIN olist.order_items oi ON oi.order_id = o.order_id WHERE o.order_status = 'delivered' AND o.purchased_at >= '2018-01-01' AND o.purchased_at < '2019-01-01' GROUP BY o.order_id) SELECT ROUND(AVG(valor), 2) AS ticket_medio FROM valor_pedido",
+    "colunas_essenciais": [
+      "ticket_medio"
+    ],
+    "ordenado": false,
+    "tipo_esperado": "stat_card",
+    "justificativa_tipo": "knaflic2015 p. 40 (\"When you have just a number or two that you want to communicate: use the numbers directly\")",
+    "tokens_sql_gold": 40,
+    "dificuldade": "easy"
+  },
+  {
+    "id": "kpi-07",
+    "cenario": "kpi",
+    "pedido": "Adicione ao dashboard: mostre a nota média das avaliações dos pedidos entregues (status delivered) feitos por clientes do estado de SP.",
+    "sql_gold": "SELECT ROUND(AVG(r.review_score), 2) AS nota_media_sp FROM olist.orders o JOIN olist.order_customers oc ON oc.customer_id = o.customer_id JOIN olist.cities ci ON ci.city_id = oc.city_id JOIN olist.order_reviews orv ON orv.order_id = o.order_id JOIN olist.reviews r ON r.review_id = orv.review_id WHERE o.order_status = 'delivered' AND ci.state_code = 'SP'",
+    "colunas_essenciais": [
+      "nota_media_sp"
+    ],
+    "ordenado": false,
+    "tipo_esperado": "stat_card",
+    "justificativa_tipo": "knaflic2015 p. 40 (\"When you have just a number or two that you want to communicate: use the numbers directly\")",
+    "tokens_sql_gold": 44,
     "dificuldade": "easy"
   },
   {
@@ -64,11 +102,14 @@
     "cenario": "temporal",
     "pedido": "Adicione ao dashboard: mostre a evolução mensal do número de pedidos em 2017.",
     "sql_gold": "SELECT to_char(date_trunc('month', purchased_at), 'YYYY-MM') AS mes, COUNT(*) AS pedidos FROM olist.orders WHERE purchased_at >= '2017-01-01' AND purchased_at < '2018-01-01' GROUP BY 1 ORDER BY 1",
-    "colunas_essenciais": ["mes", "pedidos"],
+    "colunas_essenciais": [
+      "mes",
+      "pedidos"
+    ],
     "ordenado": true,
     "tipo_esperado": "line_chart",
     "justificativa_tipo": "knaflic2015 p. 45 (linhas para dados contínuos, frequentemente tempo: dias, meses, trimestres, anos)",
-    "tokens_sql_gold": 38,
+    "tokens_sql_gold": 25,
     "dificuldade": "easy"
   },
   {
@@ -76,11 +117,14 @@
     "cenario": "temporal",
     "pedido": "Adicione ao dashboard: mostre o faturamento mensal de 2017 (soma do preço dos itens, pela data da compra do pedido).",
     "sql_gold": "SELECT to_char(date_trunc('month', o.purchased_at), 'YYYY-MM') AS mes, SUM(oi.price) AS faturamento FROM olist.orders o JOIN olist.order_items oi ON oi.order_id = o.order_id WHERE o.purchased_at >= '2017-01-01' AND o.purchased_at < '2018-01-01' GROUP BY 1 ORDER BY 1",
-    "colunas_essenciais": ["mes", "faturamento"],
+    "colunas_essenciais": [
+      "mes",
+      "faturamento"
+    ],
     "ordenado": true,
     "tipo_esperado": "line_chart",
     "justificativa_tipo": "knaflic2015 p. 45 (linhas para dados contínuos, frequentemente tempo: dias, meses, trimestres, anos)",
-    "tokens_sql_gold": 46,
+    "tokens_sql_gold": 33,
     "dificuldade": "easy"
   },
   {
@@ -88,11 +132,14 @@
     "cenario": "temporal",
     "pedido": "Adicione ao dashboard: mostre a evolução mensal de pedidos entregues (status delivered) em 2018.",
     "sql_gold": "SELECT to_char(date_trunc('month', purchased_at), 'YYYY-MM') AS mes, COUNT(*) AS pedidos_entregues FROM olist.orders WHERE order_status = 'delivered' AND purchased_at >= '2018-01-01' AND purchased_at < '2019-01-01' GROUP BY 1 ORDER BY 1",
-    "colunas_essenciais": ["mes", "pedidos_entregues"],
+    "colunas_essenciais": [
+      "mes",
+      "pedidos_entregues"
+    ],
     "ordenado": true,
     "tipo_esperado": "line_chart",
     "justificativa_tipo": "knaflic2015 p. 45 (linhas para dados contínuos, frequentemente tempo: dias, meses, trimestres, anos)",
-    "tokens_sql_gold": 42,
+    "tokens_sql_gold": 29,
     "dificuldade": "easy"
   },
   {
@@ -100,11 +147,14 @@
     "cenario": "temporal",
     "pedido": "Adicione ao dashboard: mostre a nota média das avaliações por mês de criação da avaliação, em 2017.",
     "sql_gold": "SELECT to_char(date_trunc('month', created_at), 'YYYY-MM') AS mes, ROUND(AVG(review_score), 2) AS nota_media FROM olist.reviews WHERE created_at >= '2017-01-01' AND created_at < '2018-01-01' GROUP BY 1 ORDER BY 1",
-    "colunas_essenciais": ["mes", "nota_media"],
+    "colunas_essenciais": [
+      "mes",
+      "nota_media"
+    ],
     "ordenado": true,
     "tipo_esperado": "line_chart",
     "justificativa_tipo": "knaflic2015 p. 45 (linhas para dados contínuos, frequentemente tempo: dias, meses, trimestres, anos)",
-    "tokens_sql_gold": 43,
+    "tokens_sql_gold": 26,
     "dificuldade": "easy"
   },
   {
@@ -112,11 +162,45 @@
     "cenario": "temporal",
     "pedido": "Adicione ao dashboard: mostre o faturamento diário (soma do preço dos itens) em novembro de 2017.",
     "sql_gold": "SELECT o.purchased_at::date AS dia, SUM(oi.price) AS faturamento FROM olist.orders o JOIN olist.order_items oi ON oi.order_id = o.order_id WHERE o.purchased_at >= '2017-11-01' AND o.purchased_at < '2017-12-01' GROUP BY 1 ORDER BY 1",
-    "colunas_essenciais": ["dia", "faturamento"],
+    "colunas_essenciais": [
+      "dia",
+      "faturamento"
+    ],
     "ordenado": true,
     "tipo_esperado": "line_chart",
     "justificativa_tipo": "knaflic2015 p. 45 (linhas para dados contínuos, frequentemente tempo: dias, meses, trimestres, anos)",
-    "tokens_sql_gold": 39,
+    "tokens_sql_gold": 31,
+    "dificuldade": "easy"
+  },
+  {
+    "id": "tmp-06",
+    "cenario": "temporal",
+    "pedido": "Adicione ao dashboard: mostre a variação percentual do faturamento (soma do preço dos itens, pela data da compra) de cada mês de 2017 em relação ao mês anterior, de fevereiro a dezembro.",
+    "sql_gold": "WITH mensal AS (SELECT date_trunc('month', o.purchased_at) AS mes, SUM(oi.price) AS faturamento FROM olist.orders o JOIN olist.order_items oi ON oi.order_id = o.order_id WHERE o.purchased_at >= '2017-01-01' AND o.purchased_at < '2018-01-01' GROUP BY 1), variacao AS (SELECT mes, ROUND((faturamento - LAG(faturamento) OVER (ORDER BY mes)) / LAG(faturamento) OVER (ORDER BY mes) * 100, 2) AS variacao_percentual FROM mensal) SELECT to_char(mes, 'YYYY-MM') AS mes, variacao_percentual FROM variacao WHERE variacao_percentual IS NOT NULL ORDER BY mes",
+    "colunas_essenciais": [
+      "mes",
+      "variacao_percentual"
+    ],
+    "ordenado": true,
+    "tipo_esperado": "line_chart",
+    "justificativa_tipo": "knaflic2015 p. 45 (linhas para dados contínuos, frequentemente tempo: dias, meses, trimestres, anos)",
+    "tokens_sql_gold": 72,
+    "dificuldade": "easy"
+  },
+  {
+    "id": "tmp-07",
+    "cenario": "temporal",
+    "pedido": "Adicione ao dashboard: mostre, para cada mês de 2017 e 2018, o número de pedidos entregues (status delivered) e a média móvel dos últimos 3 meses (o mês e os dois anteriores) desse número.",
+    "sql_gold": "WITH mensal AS (SELECT date_trunc('month', purchased_at) AS mes, COUNT(*) AS pedidos FROM olist.orders WHERE order_status = 'delivered' AND purchased_at >= '2017-01-01' AND purchased_at < '2019-01-01' GROUP BY 1) SELECT to_char(mes, 'YYYY-MM') AS mes, pedidos, ROUND(AVG(pedidos) OVER (ORDER BY mes ROWS BETWEEN 2 PRECEDING AND CURRENT ROW), 2) AS media_movel_3m FROM mensal ORDER BY mes",
+    "colunas_essenciais": [
+      "mes",
+      "pedidos",
+      "media_movel_3m"
+    ],
+    "ordenado": true,
+    "tipo_esperado": "line_chart",
+    "justificativa_tipo": "knaflic2015 p. 45 (linhas para dados contínuos, frequentemente tempo: dias, meses, trimestres, anos)",
+    "tokens_sql_gold": 54,
     "dificuldade": "easy"
   },
   {
@@ -124,11 +208,14 @@
     "cenario": "juncoes",
     "pedido": "Adicione ao dashboard: mostre as 10 categorias de produto com maior faturamento (soma do preço dos itens), usando o nome da categoria em inglês.",
     "sql_gold": "SELECT c.category_name_english AS categoria, SUM(oi.price) AS faturamento FROM olist.order_items oi JOIN olist.products p ON p.product_id = oi.product_id JOIN olist.categories c ON c.category_name = p.category_name GROUP BY c.category_name_english ORDER BY faturamento DESC, categoria LIMIT 10",
-    "colunas_essenciais": ["categoria", "faturamento"],
+    "colunas_essenciais": [
+      "categoria",
+      "faturamento"
+    ],
     "ordenado": false,
     "tipo_esperado": "bar_chart",
     "justificativa_tipo": "knaflic2015 p. 50 (barras facilitam comparar qual categoria é a maior e a menor) e p. 57 (barra horizontal para dados categóricos)",
-    "tokens_sql_gold": 39,
+    "tokens_sql_gold": 34,
     "dificuldade": "easy"
   },
   {
@@ -136,11 +223,14 @@
     "cenario": "juncoes",
     "pedido": "Adicione ao dashboard: mostre o faturamento (soma do preço dos itens) por estado do vendedor.",
     "sql_gold": "SELECT ci.state_code AS estado, SUM(oi.price) AS faturamento FROM olist.order_items oi JOIN olist.sellers s ON s.seller_id = oi.seller_id JOIN olist.cities ci ON ci.city_id = s.city_id GROUP BY ci.state_code ORDER BY faturamento DESC",
-    "colunas_essenciais": ["estado", "faturamento"],
+    "colunas_essenciais": [
+      "estado",
+      "faturamento"
+    ],
     "ordenado": false,
     "tipo_esperado": "bar_chart",
     "justificativa_tipo": "knaflic2015 p. 50 (barras facilitam comparar qual categoria é a maior e a menor) e p. 57 (barra horizontal para dados categóricos)",
-    "tokens_sql_gold": 35,
+    "tokens_sql_gold": 31,
     "dificuldade": "easy"
   },
   {
@@ -148,11 +238,14 @@
     "cenario": "juncoes",
     "pedido": "Adicione ao dashboard: mostre o faturamento (soma do preço dos itens) por estado do cliente, considerando só os 10 estados com maior faturamento.",
     "sql_gold": "SELECT ci.state_code AS estado, SUM(oi.price) AS faturamento FROM olist.order_items oi JOIN olist.orders o ON o.order_id = oi.order_id JOIN olist.order_customers oc ON oc.customer_id = o.customer_id JOIN olist.cities ci ON ci.city_id = oc.city_id GROUP BY ci.state_code ORDER BY faturamento DESC, estado LIMIT 10",
-    "colunas_essenciais": ["estado", "faturamento"],
+    "colunas_essenciais": [
+      "estado",
+      "faturamento"
+    ],
     "ordenado": false,
     "tipo_esperado": "bar_chart",
     "justificativa_tipo": "knaflic2015 p. 50 (barras facilitam comparar qual categoria é a maior e a menor) e p. 57 (barra horizontal para dados categóricos)",
-    "tokens_sql_gold": 46,
+    "tokens_sql_gold": 41,
     "dificuldade": "easy"
   },
   {
@@ -160,11 +253,14 @@
     "cenario": "juncoes",
     "pedido": "Adicione ao dashboard: mostre em um gráfico de pizza a participação de cada tipo de pagamento no valor total pago.",
     "sql_gold": "SELECT payment_type AS tipo_pagamento, SUM(payment_value) AS valor_pago FROM olist.order_payments GROUP BY payment_type ORDER BY valor_pago DESC",
-    "colunas_essenciais": ["tipo_pagamento", "valor_pago"],
+    "colunas_essenciais": [
+      "tipo_pagamento",
+      "valor_pago"
+    ],
     "ordenado": false,
     "tipo_esperado": "pie_chart",
     "justificativa_tipo": "decisão do autor: o pedido solicita pizza explicitamente e o prompt do sistema manda respeitar o Tipo pedido; knaflic2015 p. 61 desaconselha pizza",
-    "tokens_sql_gold": 20,
+    "tokens_sql_gold": 16,
     "dificuldade": "easy"
   },
   {
@@ -172,11 +268,44 @@
     "cenario": "juncoes",
     "pedido": "Adicione ao dashboard: mostre o faturamento (soma do preço dos itens) por categoria de produto em inglês, apenas das 5 categorias com maior faturamento, em gráfico de pizza.",
     "sql_gold": "SELECT c.category_name_english AS categoria, SUM(oi.price) AS faturamento FROM olist.order_items oi JOIN olist.products p ON p.product_id = oi.product_id JOIN olist.categories c ON c.category_name = p.category_name GROUP BY c.category_name_english ORDER BY faturamento DESC, categoria LIMIT 5",
-    "colunas_essenciais": ["categoria", "faturamento"],
+    "colunas_essenciais": [
+      "categoria",
+      "faturamento"
+    ],
     "ordenado": false,
     "tipo_esperado": "pie_chart",
     "justificativa_tipo": "decisão do autor: o pedido solicita pizza explicitamente e o prompt do sistema manda respeitar o Tipo pedido; knaflic2015 p. 61 desaconselha pizza",
-    "tokens_sql_gold": 39,
+    "tokens_sql_gold": 34,
+    "dificuldade": "easy"
+  },
+  {
+    "id": "jun-06",
+    "cenario": "juncoes",
+    "pedido": "Adicione ao dashboard: mostre as 10 categorias de produto com maior faturamento (soma do preço dos itens), usando o nome em inglês, considerando só itens de pedidos entregues (status delivered) vendidos por vendedores do estado de SP.",
+    "sql_gold": "SELECT c.category_name_english AS categoria, SUM(oi.price) AS faturamento FROM olist.order_items oi JOIN olist.orders o ON o.order_id = oi.order_id JOIN olist.products p ON p.product_id = oi.product_id JOIN olist.categories c ON c.category_name = p.category_name JOIN olist.sellers s ON s.seller_id = oi.seller_id JOIN olist.cities ci ON ci.city_id = s.city_id WHERE o.order_status = 'delivered' AND ci.state_code = 'SP' GROUP BY c.category_name_english ORDER BY faturamento DESC, categoria LIMIT 10",
+    "colunas_essenciais": [
+      "categoria",
+      "faturamento"
+    ],
+    "ordenado": false,
+    "tipo_esperado": "bar_chart",
+    "justificativa_tipo": "knaflic2015 p. 50 (barras facilitam comparar qual categoria é a maior e a menor) e p. 57 (barra horizontal para dados categóricos)",
+    "tokens_sql_gold": 63,
+    "dificuldade": "easy"
+  },
+  {
+    "id": "jun-07",
+    "cenario": "juncoes",
+    "pedido": "Adicione ao dashboard: mostre as 10 categorias de produto com melhor nota média das avaliações (nome em inglês), considerando só categorias com pelo menos 500 avaliações de pedidos.",
+    "sql_gold": "SELECT c.category_name_english AS categoria, ROUND(AVG(r.review_score), 2) AS nota_media FROM (SELECT DISTINCT oi.order_id, p.category_name FROM olist.order_items oi JOIN olist.products p ON p.product_id = oi.product_id) pc JOIN olist.categories c ON c.category_name = pc.category_name JOIN olist.order_reviews orv ON orv.order_id = pc.order_id JOIN olist.reviews r ON r.review_id = orv.review_id GROUP BY c.category_name_english HAVING COUNT(*) >= 500 ORDER BY nota_media DESC, categoria LIMIT 10",
+    "colunas_essenciais": [
+      "categoria",
+      "nota_media"
+    ],
+    "ordenado": false,
+    "tipo_esperado": "bar_chart",
+    "justificativa_tipo": "knaflic2015 p. 50 (barras facilitam comparar qual categoria é a maior e a menor) e p. 57 (barra horizontal para dados categóricos)",
+    "tokens_sql_gold": 59,
     "dificuldade": "easy"
   },
   {
@@ -194,7 +323,7 @@
     "ordenado": true,
     "tipo_esperado": "data_table",
     "justificativa_tipo": "knaflic2015 p. 40 (tabelas servem a um público misto que procura a linha de interesse)",
-    "tokens_sql_gold": 59,
+    "tokens_sql_gold": 46,
     "dificuldade": "easy"
   },
   {
@@ -202,11 +331,15 @@
     "cenario": "lista",
     "pedido": "Adicione ao dashboard: liste os 100 produtos mais vendidos em quantidade de itens: id do produto, quantidade vendida e faturamento (soma do preço). Em caso de empate na quantidade, ordene pelo id do produto.",
     "sql_gold": "SELECT product_id AS produto_id, COUNT(*) AS quantidade, SUM(price) AS faturamento FROM olist.order_items GROUP BY product_id ORDER BY quantidade DESC, produto_id LIMIT 100",
-    "colunas_essenciais": ["produto_id", "quantidade", "faturamento"],
+    "colunas_essenciais": [
+      "produto_id",
+      "quantidade",
+      "faturamento"
+    ],
     "ordenado": true,
     "tipo_esperado": "data_table",
     "justificativa_tipo": "knaflic2015 p. 40 (tabelas servem a um público misto que procura a linha de interesse)",
-    "tokens_sql_gold": 31,
+    "tokens_sql_gold": 22,
     "dificuldade": "easy"
   },
   {
@@ -214,11 +347,16 @@
     "cenario": "lista",
     "pedido": "Adicione ao dashboard: liste os 30 pedidos de maior valor: id do pedido, data da compra, status e valor total dos itens (soma do preço). Em caso de empate, ordene pelo id do pedido.",
     "sql_gold": "SELECT o.order_id AS pedido_id, o.purchased_at::date AS data_compra, o.order_status AS status, SUM(oi.price) AS valor_total FROM olist.orders o JOIN olist.order_items oi ON oi.order_id = o.order_id GROUP BY o.order_id, o.purchased_at, o.order_status ORDER BY valor_total DESC, pedido_id LIMIT 30",
-    "colunas_essenciais": ["pedido_id", "data_compra", "status", "valor_total"],
+    "colunas_essenciais": [
+      "pedido_id",
+      "data_compra",
+      "status",
+      "valor_total"
+    ],
     "ordenado": true,
     "tipo_esperado": "data_table",
     "justificativa_tipo": "knaflic2015 p. 40 (tabelas servem a um público misto que procura a linha de interesse)",
-    "tokens_sql_gold": 47,
+    "tokens_sql_gold": 35,
     "dificuldade": "easy"
   },
   {
@@ -226,11 +364,15 @@
     "cenario": "lista",
     "pedido": "Adicione ao dashboard: liste todas as categorias de produto com o número de pedidos distintos e o faturamento (soma do preço dos itens), com o nome em inglês (ou o nome original quando não houver tradução), do maior para o menor faturamento.",
     "sql_gold": "SELECT COALESCE(c.category_name_english, c.category_name) AS categoria, COUNT(DISTINCT oi.order_id) AS pedidos, SUM(oi.price) AS faturamento FROM olist.order_items oi JOIN olist.products p ON p.product_id = oi.product_id JOIN olist.categories c ON c.category_name = p.category_name GROUP BY COALESCE(c.category_name_english, c.category_name) ORDER BY faturamento DESC, categoria",
-    "colunas_essenciais": ["categoria", "pedidos", "faturamento"],
+    "colunas_essenciais": [
+      "categoria",
+      "pedidos",
+      "faturamento"
+    ],
     "ordenado": true,
     "tipo_esperado": "data_table",
     "justificativa_tipo": "knaflic2015 p. 40 (tabelas servem a um público misto que procura a linha de interesse)",
-    "tokens_sql_gold": 55,
+    "tokens_sql_gold": 38,
     "dificuldade": "easy"
   },
   {
@@ -238,11 +380,51 @@
     "cenario": "lista",
     "pedido": "Adicione ao dashboard: liste os estados dos clientes com o número de pedidos, o faturamento (soma do preço dos itens) e o ticket médio por pedido (faturamento dividido pelo número de pedidos), do maior para o menor faturamento.",
     "sql_gold": "SELECT ci.state_code AS estado, COUNT(DISTINCT o.order_id) AS pedidos, SUM(oi.price) AS faturamento, ROUND(SUM(oi.price) / COUNT(DISTINCT o.order_id), 2) AS ticket_medio FROM olist.orders o JOIN olist.order_items oi ON oi.order_id = o.order_id JOIN olist.order_customers oc ON oc.customer_id = o.customer_id JOIN olist.cities ci ON ci.city_id = oc.city_id GROUP BY ci.state_code ORDER BY faturamento DESC, estado",
-    "colunas_essenciais": ["estado", "pedidos", "faturamento", "ticket_medio"],
+    "colunas_essenciais": [
+      "estado",
+      "pedidos",
+      "faturamento",
+      "ticket_medio"
+    ],
     "ordenado": true,
     "tipo_esperado": "data_table",
     "justificativa_tipo": "knaflic2015 p. 40 (tabelas servem a um público misto que procura a linha de interesse)",
-    "tokens_sql_gold": 70,
+    "tokens_sql_gold": 50,
+    "dificuldade": "easy"
+  },
+  {
+    "id": "lis-06",
+    "cenario": "lista",
+    "pedido": "Adicione ao dashboard: liste, para cada um dos 5 estados de clientes com maior faturamento (soma do preço dos itens), as 3 categorias de produto (nome em inglês) com maior faturamento no estado: estado, posição (1 a 3), categoria e faturamento, com os estados do maior para o menor faturamento.",
+    "sql_gold": "WITH fat_estado AS (SELECT ci.state_code AS estado, SUM(oi.price) AS faturamento FROM olist.order_items oi JOIN olist.orders o ON o.order_id = oi.order_id JOIN olist.order_customers oc ON oc.customer_id = o.customer_id JOIN olist.cities ci ON ci.city_id = oc.city_id GROUP BY ci.state_code ORDER BY faturamento DESC, estado LIMIT 5), por_categoria AS (SELECT ci.state_code AS estado, c.category_name_english AS categoria, SUM(oi.price) AS faturamento, ROW_NUMBER() OVER (PARTITION BY ci.state_code ORDER BY SUM(oi.price) DESC, c.category_name_english) AS posicao FROM olist.order_items oi JOIN olist.orders o ON o.order_id = oi.order_id JOIN olist.order_customers oc ON oc.customer_id = o.customer_id JOIN olist.cities ci ON ci.city_id = oc.city_id JOIN olist.products p ON p.product_id = oi.product_id JOIN olist.categories c ON c.category_name = p.category_name WHERE ci.state_code IN (SELECT estado FROM fat_estado) GROUP BY ci.state_code, c.category_name_english) SELECT pc.estado, pc.posicao, pc.categoria, pc.faturamento FROM por_categoria pc JOIN fat_estado fe ON fe.estado = pc.estado WHERE pc.posicao <= 3 ORDER BY fe.faturamento DESC, pc.estado, pc.posicao",
+    "colunas_essenciais": [
+      "estado",
+      "posicao",
+      "categoria",
+      "faturamento"
+    ],
+    "ordenado": true,
+    "tipo_esperado": "data_table",
+    "justificativa_tipo": "knaflic2015 p. 40 (tabelas servem a um público misto que procura a linha de interesse)",
+    "tokens_sql_gold": 142,
+    "dificuldade": "medium"
+  },
+  {
+    "id": "lis-07",
+    "cenario": "lista",
+    "pedido": "Adicione ao dashboard: liste os 50 clientes (id único do cliente) que fizeram 3 ou mais pedidos entregues (status delivered) e mais gastaram (soma do preço dos itens): id do cliente, número de pedidos, gasto total, data da primeira e da última compra. Em caso de empate no gasto, ordene pelo id do cliente.",
+    "sql_gold": "SELECT oc.customer_unique_id AS cliente_id, COUNT(DISTINCT o.order_id) AS pedidos, SUM(oi.price) AS gasto_total, MIN(o.purchased_at)::date AS primeira_compra, MAX(o.purchased_at)::date AS ultima_compra FROM olist.orders o JOIN olist.order_customers oc ON oc.customer_id = o.customer_id JOIN olist.order_items oi ON oi.order_id = o.order_id WHERE o.order_status = 'delivered' GROUP BY oc.customer_unique_id HAVING COUNT(DISTINCT o.order_id) >= 3 ORDER BY gasto_total DESC, cliente_id LIMIT 50",
+    "colunas_essenciais": [
+      "cliente_id",
+      "pedidos",
+      "gasto_total",
+      "primeira_compra",
+      "ultima_compra"
+    ],
+    "ordenado": true,
+    "tipo_esperado": "data_table",
+    "justificativa_tipo": "knaflic2015 p. 40 (tabelas servem a um público misto que procura a linha de interesse)",
+    "tokens_sql_gold": 53,
     "dificuldade": "easy"
   }
 ]
