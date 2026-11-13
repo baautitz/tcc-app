@@ -33,7 +33,7 @@ def pct(m):
 
 def quadro(nome, legenda, label, colspec, cab, linhas, nota=None, fonte="Elaborado pelo autor (2026)."):
     corpo = "\n".join("\t\t" + " & ".join(str(x) for x in l) + " \\\\\n\t\t\\hline" for l in linhas)
-    nota_tex = f"\n\t\\small {nota}" if nota else ""
+    nota_tex = f"\n\t\\par\\vspace{{2pt}}\n\t\\small {nota}\\par" if nota else ""
     (TAB / f"{nome}.tex").write_text(
         "% Gerado por tcc-backend/avaliacao/gerar_saidas.py (nao editar a mao)\n"
         "\\begin{quadro}[H]\n\t\\centering\n"
@@ -112,20 +112,21 @@ plt.rcParams.update({"font.family": "DejaVu Sans", "font.size": 10, "axes.spines
                      "axes.edgecolor": "#52514e", "axes.labelcolor": "#0b0b0b", "xtick.color": "#0b0b0b", "ytick.color": "#0b0b0b"})
 import numpy as np
 
-fig, ax = plt.subplots(figsize=(7.5, 4))
+fig, ax = plt.subplots(figsize=(8, 4.4))
 ks = ["kpi", "temporal", "juncoes", "lista"]
 x = np.arange(len(ks) + 1)
 w = 0.26
-rot = [NOMES[k] for k in ks] + ["Geral"]
+RÓTULO_QUEBRADO = {"kpi": "KPIs\nisolados", "temporal": "Agrupamentos\ntemporais", "juncoes": "Junções\nmúltiplas", "lista": "Listas\ntabulares"}
+rot = [RÓTULO_QUEBRADO[k] for k in ks] + ["Geral"]
 grupos = [c["por_cenario"][k] for k in ks] + [c["geral"]]
 for i, (campo, nome) in enumerate((("EX", "EX"), ("tipo", "Tipo correto"), ("C_sintatica", "$C_{sintática}$"))):
     vals = [g[campo]["media"] if g[campo] else 0 for g in grupos]
     erro = [g[campo]["dp"] if g[campo] else 0 for g in grupos]
     b = ax.bar(x + (i - 1) * w, vals, w - 0.03, yerr=erro, capsize=2, color=CORES[i], label=nome, error_kw={"lw": 1, "ecolor": "#52514e"})
-    for xi, v in zip(x + (i - 1) * w, vals):
-        ax.text(xi, v + 3, f"{v:.0f}", ha="center", fontsize=8, color="#0b0b0b")
+    for xi, v, e in zip(x + (i - 1) * w, vals, erro):
+        ax.text(xi, min(v + e, 100) + 2, f"{v:.0f}", ha="center", fontsize=8, color="#0b0b0b")
 ax.set_xticks(x, rot)
-ax.set_ylim(0, 118)
+ax.set_ylim(0, 125)
 ax.set_ylabel("%")
 ax.legend(frameon=False, ncol=3, loc="upper center", bbox_to_anchor=(0.5, 1.12))
 ax.yaxis.grid(True, color="#e3e2de", lw=0.6); ax.set_axisbelow(True)
@@ -149,7 +150,7 @@ fig.tight_layout(); fig.savefig(IMG / "grafico_ex_por_dificuldade.png", dpi=200)
 casos_csv = list(csv.DictReader(open(AQUI / "casos_por_repeticao.csv")))
 fig, ax = plt.subplots(figsize=(7, 3.8))
 dados = [[float(r["L_total_ms"]) / 1000 for r in casos_csv if r["cenario"] == k] for k in ks]
-bp = ax.boxplot(dados, tick_labels=[NOMES[k] for k in ks], patch_artist=True, medianprops={"color": "#0b0b0b"}, flierprops={"markersize": 3})
+bp = ax.boxplot(dados, tick_labels=[RÓTULO_QUEBRADO[k] for k in ks], patch_artist=True, medianprops={"color": "#0b0b0b"}, flierprops={"markersize": 3})
 for p in bp["boxes"]:
     p.set_facecolor("#9cc3f0"); p.set_edgecolor("#2a78d6")
 ax.set_ylabel("$L_{total}$ por pedido (s)")
