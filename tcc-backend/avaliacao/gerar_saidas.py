@@ -136,7 +136,7 @@ if indiv:
                    kb(st.mean(x["bytes_layout"] for x in indiv)), kb(st.mean(x["bytes_dados"] for x in indiv)),
                    pt(st.mean(x["R_payload_pct"] for x in indiv), 2)])
 quadro("quadro_resultados_dashboard", "Latência de carga do dashboard salvo ($L_{\\text{dashboard}}$) e redução de carga útil ($R_{\\text{payload}}$)",
-       "qua:res-dashboard", "|>{\\raggedright\\arraybackslash}p{4.6cm}|" + "|".join([C("1.35cm")] * 6) + "|",
+       "qua:res-dashboard", "|>{\\raggedright\\arraybackslash}p{4.4cm}|" + "|".join([C("1.5cm"), C("1.3cm"), C("1.3cm"), C("1.4cm"), C("1.3cm"), C("1.5cm")]) + "|",
        ["Dashboard", "Queries", "$L$ fria (ms)", "$L$ quente (ms)", "Layout (KiB)", "Dados (KiB)", "$R_{\\text{payload}}$ (\\%)"], linhas,
        "$L_{\\text{dashboard}}$: tempo até o último byte do layout e de todas as queries, medido por cliente HTTP (sem renderização do navegador); "
        "``quente'' é a média de 10 cargas consecutivas.", espaco="1.25")
