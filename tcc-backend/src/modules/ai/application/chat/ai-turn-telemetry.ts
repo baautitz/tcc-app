@@ -374,13 +374,14 @@ export class AiTurnTelemetry {
         const toolName = toolNameOf(tool, runName);
         turn.toolCalls += 1;
         if (toolCallId) turn.executedCalls.add(toolCallId);
-        if (toolName === "test_query") {
-          const sql = sqlFromToolInput(input);
-          if (sql) turn.sqls.push(sql);
-        }
+        const sql =
+          toolName === "test_query" ? sqlFromToolInput(input) : undefined;
+        if (sql) turn.sqls.push(sql);
         const span = turn.root.child(`ai.tool.${toolName}`, {
           toolName,
           toolCallId: toolCallId ?? null,
+          // SQL submetido ao teste, para saber se uma tentativa foi recusada ou executada.
+          ...(sql ? { sql } : {}),
         });
         turn.toolNames.set(span, toolName);
         turn.open.set(runId, span);
