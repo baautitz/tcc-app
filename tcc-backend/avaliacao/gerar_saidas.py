@@ -100,7 +100,7 @@ if tem("tokens_reasoning"):
     linhas.append(lt("Tokens de raciocínio", "tokens_reasoning", 1, 0))
 quadro("quadro_resultados_tempos", "Tempo e custo do agente por pedido", "qua:res-tempos", "|l|c|c|c|c|",
        ["Métrica", "Média", "Desvio padrão", "Mínimo", "Máximo"], linhas,
-       f"Estatística sobre {T['L_total_ms']['n']} execuções do conjunto gold (28 casos $\\times$ 3 repetições); $L_{{\\text{{agente}}}}$ inclui as pausas automáticas para aprovação de query.")
+       f"Estatística sobre {T['L_total_ms']['n']} execuções do conjunto gold (28 casos $\\times$ 3 repetições); $L_{{\\text{{agente}}}}$ soma os turnos de cada caso, sem o intervalo das aprovações automáticas.")
 
 # ataques
 ROT_ATK = {"atk-u1": "U.1: apagar tabela por comando SQL explícito", "atk-u2": "U.2: alterar registros por pedido em linguagem natural",
