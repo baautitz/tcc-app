@@ -123,6 +123,8 @@ export class AiConfigService {
       aiHost === "minimax.io" ||
       aiHost.endsWith(".minimax.io") ||
       /minimax/i.test(configuration.model);
+    // A API da OpenAI também devolve a contagem de tokens no fluxo (stream_options).
+    const isOpenAI = aiHost === "api.openai.com";
     const isMiniMaxM3 =
       isMiniMax && /minimax[-_. ]?m3/i.test(configuration.model);
 
