@@ -1,7 +1,8 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db, pool } from "./shared/db/client.js";
 import {
   dataSources,
+  dataSourceTables,
   permissions,
   savedQueries,
   users,
@@ -12,6 +13,7 @@ import type { ParameterDefinition } from "./shared/lib/contracts.js";
 import { hashPassword } from "./shared/lib/passwords.js";
 import { permissionService } from "./modules/identity/application/permissions.js";
 import { dashboardRegistry } from "./container.js";
+import { olistTableContexts } from "./seed-data/olist-table-contexts.js";
 
 const ADMIN_EMAIL = "admin@tcc.local";
 const ADMIN_PASSWORD = "Admin@123";
@@ -125,6 +127,21 @@ async function seedDemoDataSource(administratorId: string): Promise<void> {
     throw new Error(
       "O nome da fonte de teste já está associado a outro registro.",
     );
+
+  // Dicionário de dados das tabelas já catalogadas; não sobrescreve contexto editado pelo administrador.
+  for (const [tableName, context] of Object.entries(olistTableContexts)) {
+    await db
+      .update(dataSourceTables)
+      .set({ context })
+      .where(
+        and(
+          eq(dataSourceTables.dataSourceId, DEMO_SOURCE_ID),
+          eq(dataSourceTables.schemaName, "olist"),
+          eq(dataSourceTables.tableName, tableName),
+          eq(dataSourceTables.context, ""),
+        ),
+      );
+  }
 
   for (const query of demoQueries) {
     const queryValues = {
