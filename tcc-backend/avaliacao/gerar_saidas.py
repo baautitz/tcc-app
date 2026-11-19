@@ -126,7 +126,7 @@ def kb(b):
     return pt(b / 1024, 1)
 comp = [x for x in ld if x["cenario"].startswith("composto") or x["cenario"] == "volumosa"]
 linhas = [[ROT_ITEM.get(x["item"], x["item"].replace("_", "\\_")), x["queries"], x["L_dashboard_frio_ms"], x["L_dashboard_quente_media_ms"],
-           kb(x["bytes_layout"]), kb(x["bytes_dados"]), pt(x["R_payload_pct"], 2)] for x in comp]
+           kb(x["bytes_layout"]), kb(x["bytes_dados"]), ("$>$ 99,99" if 99.99 < x["R_payload_pct"] < 100 else pt(x["R_payload_pct"], 2))] for x in comp]
 indiv = [x for x in ld if not x["cenario"].startswith("composto") and x["cenario"] != "volumosa"]
 if indiv:
     import statistics as st
@@ -135,9 +135,9 @@ if indiv:
                    round(st.mean(x["L_dashboard_quente_media_ms"] for x in indiv)),
                    kb(st.mean(x["bytes_layout"] for x in indiv)), kb(st.mean(x["bytes_dados"] for x in indiv)),
                    pt(st.mean(x["R_payload_pct"] for x in indiv), 2)])
-quadro("quadro_resultados_dashboard", "Latência de carga do dashboard salvo ($L_{\\text{dashboard}}$) e redução de carga útil ($R_{\\text{payload}}$)",
-       "qua:res-dashboard", "|>{\\raggedright\\arraybackslash}p{4.4cm}|" + "|".join([C("1.5cm"), C("1.3cm"), C("1.3cm"), C("1.4cm"), C("1.3cm"), C("1.5cm")]) + "|",
-       ["Dashboard", "Queries", "$L$ fria (ms)", "$L$ quente (ms)", "Layout (KiB)", "Dados (KiB)", "$R_{\\text{payload}}$ (\\%)"], linhas,
+quadro("quadro_resultados_dashboard", "Latência de carga do \\textit{dashboard} salvo ($L_{\\text{dashboard}}$) e redução da carga inicial ($R_{\\text{payload}}$)",
+       "qua:res-dashboard", "|>{\\raggedright\\arraybackslash}p{4.0cm}|" + "|".join([C("1.9cm"), C("1.3cm"), C("1.3cm"), C("1.4cm"), C("1.3cm"), C("1.5cm")]) + "|",
+       ["Dashboard", "Consultas", "$L$ fria (ms)", "$L$ quente (ms)", "Layout (KiB)", "Dados (KiB)", "$R_{\\text{payload}}$ (\\%)"], linhas,
        "$L_{\\text{dashboard}}$: tempo até o último byte do layout e de todas as queries, medido por cliente HTTP (sem renderização do navegador); "
        "``quente'' é a média de 10 cargas consecutivas.", espaco="1.25")
 

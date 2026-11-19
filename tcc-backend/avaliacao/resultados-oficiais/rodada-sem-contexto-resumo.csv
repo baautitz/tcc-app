@@ -1,0 +1,85 @@
+id,cenario,repeticao,fim,ex,motivo_ex,tipo_esperado,tipo_gerado,tipo_correto,linhas_geradas,linhas_gold,turnos,perguntas_respondidas_automaticamente,turnos_com_telemetria,L_total_ms,TTFT_model_ms_primeiro_turno,T_thinking_ms,thinking_chars,llm_calls_count,tool_calls_count,test_query_failures,tokens_input,tokens_output,tokens_total,tokens_reasoning,tokens_cached,schema_valid_first_try,ferramentas_nao_executadas
+kpi-01,kpi,1,proposta,1,,stat_card,stat_card,1,1,1,2,0,2,18798,,0,0,7,7,0,75077,911,75988,494,59776,true,0
+kpi-02,kpi,1,proposta,1,,stat_card,stat_card,1,1,1,2,0,2,16866,,0,0,7,7,0,75218,674,75892,266,69632,true,0
+kpi-03,kpi,1,proposta,1,,stat_card,stat_card,1,1,1,2,0,2,14809,,0,0,7,7,0,74797,824,75621,343,69376,true,0
+kpi-04,kpi,1,proposta,1,,stat_card,stat_card,1,1,1,2,0,2,15572,,0,0,7,8,0,78311,943,79254,450,69760,true,0
+kpi-05,kpi,1,proposta,1,,stat_card,stat_card,1,1,1,2,0,2,12800,,0,0,6,6,0,62792,648,63440,288,58112,true,0
+kpi-06,kpi,1,proposta,0,nenhuma coluna gerada tem os valores de 'ticket_medio',stat_card,stat_card,1,1,1,2,0,2,12656,,0,0,5,8,0,54782,1026,55808,378,48384,true,0
+kpi-07,kpi,1,proposta,1,,stat_card,stat_card,1,1,1,2,0,2,21638,,0,0,9,14,0,109730,1446,111176,417,96768,true,0
+tmp-01,temporal,1,proposta,1,,line_chart,line_chart,1,12,12,2,0,2,18187,,0,0,8,8,0,91283,1131,92414,502,83200,true,0
+tmp-02,temporal,1,proposta,1,,line_chart,line_chart,1,12,12,2,0,2,16037,,0,0,7,8,0,76921,997,77918,348,70144,true,0
+tmp-03,temporal,1,proposta,0,"número de linhas diferente (gold 8, gerado 10)",line_chart,line_chart,1,10,8,2,0,2,17124,,0,0,7,8,0,78347,1045,79392,435,58240,true,0
+tmp-04,temporal,1,proposta,1,,line_chart,line_chart,1,12,12,2,0,2,22024,,0,0,8,10,1,102706,1483,104189,601,92928,true,1
+tmp-05,temporal,1,proposta,1,,line_chart,line_chart,1,30,30,2,0,2,15736,,0,0,7,8,0,78765,970,79735,392,70144,true,0
+tmp-06,temporal,1,proposta,0,nenhuma coluna gerada tem os valores de 'variacao_percentual',line_chart,line_chart,1,11,11,2,0,2,26480,,0,0,9,10,2,106413,2082,108495,580,96256,true,0
+tmp-07,temporal,1,sem_proposta,0,"número de linhas diferente (gold 20, gerado 48)",line_chart,,0,48,20,2,0,2,35781,,0,0,11,11,2,132293,2986,135279,1450,121472,,1
+jun-01,juncoes,1,proposta,1,,bar_chart,bar_chart,1,10,10,2,0,2,17299,,0,0,7,9,0,78584,1233,79817,491,70912,true,0
+jun-02,juncoes,1,proposta,1,,bar_chart,bar_chart,1,23,23,2,0,2,25726,,0,0,10,18,0,119055,1759,120814,520,107392,true,0
+jun-03,juncoes,1,proposta,1,,bar_chart,bar_chart,1,10,10,2,0,2,22218,,0,0,9,12,0,106933,1411,108344,486,96768,true,0
+jun-04,juncoes,1,proposta,1,,pie_chart,pie_chart,1,5,5,2,0,2,12425,,0,0,6,7,0,63193,697,63890,206,57984,true,0
+jun-05,juncoes,1,proposta,1,,pie_chart,pie_chart,1,5,5,2,0,2,30991,,0,0,11,12,1,133746,2654,136400,1157,121216,true,1
+jun-06,juncoes,1,proposta,1,,bar_chart,bar_chart,1,10,10,2,0,2,18476,,0,0,7,13,0,82926,1603,84529,503,72064,true,0
+jun-07,juncoes,1,proposta,0,nenhuma coluna gerada tem os valores de 'categoria',bar_chart,bar_chart,1,10,10,2,0,2,25793,,0,0,9,13,0,103973,1646,105619,663,94464,true,0
+lis-01,lista,1,proposta,1,,data_table,data_table,1,50,50,2,0,2,36212,,0,0,16,20,0,213973,2084,216057,701,197120,true,0
+lis-02,lista,1,proposta,1,,data_table,data_table,1,100,100,2,0,2,19181,,0,0,7,8,0,75503,1004,76507,408,68864,true,0
+lis-03,lista,1,proposta,1,,data_table,data_table,1,30,30,2,0,2,23754,,0,0,7,11,0,85196,1391,86587,500,75264,true,0
+lis-04,lista,1,proposta,1,,data_table,data_table,1,73,73,2,0,2,16601,,0,0,7,9,0,79070,1194,80264,499,71040,true,0
+lis-05,lista,1,proposta,0,nenhuma coluna gerada tem os valores de 'ticket_medio',data_table,data_table,1,27,27,2,0,2,37487,,0,0,13,17,0,182686,2765,185451,1131,167936,true,2
+lis-06,lista,1,sem_proposta,0,"número de linhas diferente (gold 15, gerado 1)",data_table,,0,1,15,2,0,2,53195,,0,0,16,23,5,229350,5207,234557,2336,212096,,5
+lis-07,lista,1,proposta,1,,data_table,data_table,1,50,50,2,0,2,20176,,0,0,6,9,0,67057,1739,68796,873,58752,true,0
+kpi-01,kpi,2,proposta,1,,stat_card,stat_card,1,1,1,2,0,2,11987,,0,0,6,7,0,64811,703,65514,278,59392,true,0
+kpi-02,kpi,2,proposta,1,,stat_card,stat_card,1,1,1,2,0,2,12221,,0,0,6,6,0,63450,621,64071,262,58368,true,0
+kpi-03,kpi,2,proposta,1,,stat_card,stat_card,1,1,1,2,0,2,19995,,0,0,6,7,0,64271,841,65112,396,58112,true,0
+kpi-04,kpi,2,proposta,1,,stat_card,stat_card,1,1,1,2,0,2,15384,,0,0,7,9,0,80471,994,81465,409,71040,true,0
+kpi-05,kpi,2,proposta,1,,stat_card,stat_card,1,1,1,2,0,2,15100,,0,0,7,7,0,74176,823,74999,384,68608,true,0
+kpi-06,kpi,2,proposta,0,nenhuma coluna gerada tem os valores de 'ticket_medio',stat_card,stat_card,1,1,1,2,0,2,15443,,0,0,6,7,0,65480,1121,66601,551,58624,true,0
+kpi-07,kpi,2,proposta,1,,stat_card,stat_card,1,1,1,2,0,2,23483,,0,0,9,15,0,117607,1587,119194,449,103808,true,0
+tmp-01,temporal,2,proposta,1,,line_chart,line_chart,1,12,12,2,0,2,17395,,0,0,7,7,0,75033,896,75929,343,69120,true,0
+tmp-02,temporal,2,proposta,1,,line_chart,line_chart,1,12,12,2,0,2,18330,,0,0,6,8,1,66583,1257,67840,341,59520,true,0
+tmp-03,temporal,2,proposta,0,"número de linhas diferente (gold 8, gerado 10)",line_chart,line_chart,1,10,8,2,0,2,16260,,0,0,7,8,0,76252,965,77217,344,69760,true,0
+tmp-04,temporal,2,proposta,0,nenhuma coluna gerada tem os valores de 'nota_media',line_chart,line_chart,1,12,12,2,0,2,30149,,0,0,9,10,2,104723,2075,106798,954,96000,true,2
+tmp-05,temporal,2,proposta,1,,line_chart,line_chart,1,30,30,2,0,2,28348,,0,0,9,12,2,124037,2097,126134,804,111744,true,2
+tmp-06,temporal,2,proposta,1,,line_chart,line_chart,1,11,11,2,0,2,19630,,0,0,8,9,0,91480,1256,92736,469,83328,true,0
+tmp-07,temporal,2,proposta,0,"número de linhas diferente (gold 20, gerado 48)",line_chart,line_chart,1,48,20,2,0,2,23021,,0,0,8,10,1,92695,1929,94624,750,82432,true,0
+jun-01,juncoes,2,proposta,0,nenhuma coluna gerada tem os valores de 'categoria',bar_chart,bar_chart,1,10,10,2,0,2,21254,,0,0,10,11,0,112135,1065,113200,320,104320,true,0
+jun-02,juncoes,2,proposta,1,,bar_chart,bar_chart,1,23,23,2,0,2,21172,,0,0,8,10,0,91296,1190,92486,417,82944,true,0
+jun-03,juncoes,2,sem_proposta,1,,bar_chart,,0,10,10,2,0,2,32139,,0,0,12,15,0,159037,1915,160952,677,146176,true,0
+jun-04,juncoes,2,proposta,1,,pie_chart,pie_chart,1,5,5,2,0,2,15365,,0,0,6,8,0,70510,869,71379,346,62592,true,0
+jun-05,juncoes,2,proposta,0,nenhuma coluna gerada tem os valores de 'categoria',pie_chart,pie_chart,1,5,5,2,0,2,28011,,0,0,11,12,1,129585,2135,131720,500,118656,true,0
+jun-06,juncoes,2,proposta,0,nenhuma coluna gerada tem os valores de 'categoria',bar_chart,bar_chart,1,10,10,2,0,2,48876,,0,0,17,22,0,230644,3561,234205,1310,212096,true,0
+jun-07,juncoes,2,proposta,0,nenhuma coluna gerada tem os valores de 'categoria',bar_chart,bar_chart,1,10,10,2,0,2,23706,,0,0,8,13,0,94792,1565,96357,578,84608,true,0
+lis-01,lista,2,proposta,1,,data_table,data_table,1,50,50,2,0,2,34777,,0,0,12,18,0,145890,1743,147633,441,134016,true,0
+lis-02,lista,2,proposta,1,,data_table,data_table,1,100,100,2,0,2,19788,,0,0,8,9,0,89830,914,90744,345,80768,true,0
+lis-03,lista,2,proposta,1,,data_table,data_table,1,30,30,2,0,2,24618,,0,0,7,9,0,83616,1217,84833,533,74368,true,0
+lis-04,lista,2,proposta,0,"número de linhas diferente (gold 73, gerado 74)",data_table,data_table,1,74,73,2,0,2,25669,,0,0,10,11,0,113151,1755,114906,862,104192,true,0
+lis-05,lista,2,proposta,0,nenhuma coluna gerada tem os valores de 'ticket_medio',data_table,data_table,1,27,27,2,0,2,22447,,0,0,8,12,0,94863,1685,96548,731,84736,true,0
+lis-06,lista,2,proposta,1,,data_table,data_table,1,15,15,2,0,2,25528,,0,0,9,15,0,115014,1937,116951,507,100480,true,0
+lis-07,lista,2,proposta,1,,data_table,data_table,1,50,50,2,0,2,22054,,0,0,8,10,1,93662,1757,95419,567,82816,true,0
+kpi-01,kpi,3,proposta,1,,stat_card,stat_card,1,1,1,2,0,2,16879,,0,0,7,7,0,75187,878,76065,467,69632,true,0
+kpi-02,kpi,3,proposta,1,,stat_card,stat_card,1,1,1,2,0,2,15772,,0,0,7,7,0,77047,769,77816,392,69376,true,0
+kpi-03,kpi,3,proposta,0,nenhuma coluna gerada tem os valores de 'preco_medio_item',stat_card,stat_card,1,1,1,2,0,2,15170,,0,0,7,7,0,74973,776,75749,351,69376,true,0
+kpi-04,kpi,3,proposta,1,,stat_card,stat_card,1,1,1,2,0,2,13555,,0,0,6,8,0,65695,924,66619,371,58496,true,0
+kpi-05,kpi,3,proposta,1,,stat_card,stat_card,1,1,1,2,0,2,20864,,0,0,9,10,0,114294,1076,115370,473,103680,true,1
+kpi-06,kpi,3,sem_proposta,0,sem resultado de consulta gerado,stat_card,,0,,1,2,1,2,24184,,0,0,9,9,2,102759,1808,104567,820,96384,,2
+kpi-07,kpi,3,erro,0,nenhuma coluna gerada tem os valores de 'nota_media_sp',stat_card,,0,1,1,2,0,2,28981,,0,0,10,19,0,135045,2246,137291,897,121600,true,0
+tmp-01,temporal,3,proposta,1,,line_chart,line_chart,1,12,12,2,0,2,14755,,0,0,7,7,0,75003,898,75901,379,69120,true,0
+tmp-02,temporal,3,proposta,1,,line_chart,line_chart,1,12,12,2,0,2,19155,,0,0,8,9,0,93606,1153,94759,505,84352,true,0
+tmp-03,temporal,3,proposta,0,"número de linhas diferente (gold 8, gerado 10)",line_chart,line_chart,1,10,8,2,0,2,18737,,0,0,8,8,0,89337,1108,90445,526,80896,true,0
+tmp-04,temporal,3,proposta,1,,line_chart,line_chart,1,12,12,2,0,2,18732,,0,0,8,9,0,87749,1226,88975,551,81024,true,0
+tmp-05,temporal,3,proposta,1,,line_chart,line_chart,1,30,30,2,0,2,18589,,0,0,7,10,0,79891,1364,81255,570,72576,true,0
+tmp-06,temporal,3,proposta,1,,line_chart,line_chart,1,11,11,2,0,2,17757,,0,0,7,8,0,79015,1322,80337,619,70272,true,0
+tmp-07,temporal,3,proposta,0,"número de linhas diferente (gold 20, gerado 24)",line_chart,data_table,0,24,20,2,0,2,25417,,0,0,9,10,2,105518,2257,107775,923,95744,true,1
+jun-01,juncoes,3,proposta,1,,bar_chart,bar_chart,1,10,10,2,0,2,25677,,0,0,11,12,0,132196,1799,133995,755,120448,true,0
+jun-02,juncoes,3,proposta,1,,bar_chart,bar_chart,1,23,23,2,0,2,30728,,0,0,14,18,0,173516,1751,175267,521,161664,true,0
+jun-03,juncoes,3,proposta,1,,bar_chart,bar_chart,1,10,10,2,0,2,19520,,0,0,8,12,0,93970,1398,95368,418,83584,true,0
+jun-04,juncoes,3,proposta,1,,pie_chart,pie_chart,1,5,5,2,0,2,14204,,0,0,7,7,0,76499,761,77260,342,69376,true,0
+jun-05,juncoes,3,proposta,0,nenhuma coluna gerada tem os valores de 'categoria',pie_chart,pie_chart,1,5,5,2,0,2,18972,,0,0,7,10,0,84385,1275,85660,597,75008,true,0
+jun-06,juncoes,3,proposta,1,,bar_chart,bar_chart,1,10,10,2,0,2,19185,,0,0,7,13,0,82728,1565,84293,476,71808,true,0
+jun-07,juncoes,3,proposta,0,nenhuma coluna gerada tem os valores de 'categoria',bar_chart,bar_chart,1,10,10,2,0,2,20632,,0,0,7,12,0,82581,1604,84185,671,73600,true,0
+lis-01,lista,3,proposta,1,,data_table,data_table,1,50,50,2,0,2,18413,,0,0,7,9,0,78906,1196,80102,423,70656,true,0
+lis-02,lista,3,proposta,1,,data_table,data_table,1,100,100,2,0,2,16238,,0,0,8,9,0,87932,957,88889,319,80768,true,0
+lis-03,lista,3,proposta,1,,data_table,data_table,1,30,30,2,0,2,11829,,0,0,5,8,0,54763,923,55686,257,48384,true,0
+lis-04,lista,3,proposta,1,,data_table,data_table,1,73,73,2,0,2,17956,,0,0,7,9,0,81167,1236,82403,549,71296,true,0
+lis-05,lista,3,proposta,1,,data_table,data_table,1,27,27,2,0,2,35439,,0,0,12,18,0,156807,2103,158910,823,141184,true,0
+lis-06,lista,3,proposta,1,,data_table,data_table,1,15,15,2,0,2,41315,,0,0,16,23,0,215832,2599,218431,666,198528,true,0
+lis-07,lista,3,proposta,1,,data_table,data_table,1,50,50,2,0,2,20087,,0,0,7,10,0,81638,1450,83088,573,72832,true,0
