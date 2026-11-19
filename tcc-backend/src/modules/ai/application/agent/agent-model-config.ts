@@ -12,6 +12,7 @@ type AiEnvironment = Pick<
   | "AI_MODEL"
   | "AI_REQUEST_TIMEOUT_MS"
   | "AI_REASONING_EFFORT"
+  | "AI_USE_RESPONSES_API"
 >;
 
 export const AI_REASONING_EFFORTS = ["minimal", "low", "medium", "high"] as const;
@@ -34,6 +35,7 @@ export type ResolvedAiConfiguration =
       model: string;
       requestTimeoutMs: number;
       reasoningEffort?: AiReasoningEffort;
+      useResponsesApi?: boolean;
     }
   | AiConfigurationIssue;
 
@@ -127,6 +129,9 @@ export class AiConfigService {
       ...(configuredEffort
         ? { reasoningEffort: configuredEffort as AiReasoningEffort }
         : {}),
+      ...(clean(values.AI_USE_RESPONSES_API)?.toLowerCase() === "true"
+        ? { useResponsesApi: true }
+        : {}),
     };
   }
 
@@ -170,6 +175,8 @@ export class AiConfigService {
       ...(configuration.reasoningEffort
         ? { reasoning: { effort: configuration.reasoningEffort } }
         : {}),
+      // Alguns modelos só aceitam ferramentas com raciocínio pela Responses API.
+      ...(configuration.useResponsesApi ? { useResponsesApi: true } : {}),
       configuration: { baseURL: configuration.baseURL },
       // Some OpenAI-compatible providers reject stream_options. A MiniMax aceita e
       // devolve a contagem de tokens (inclusive de raciocínio), usada na telemetria.

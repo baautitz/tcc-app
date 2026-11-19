@@ -20,6 +20,8 @@ const environmentSchema = z.object({
   AI_REQUEST_TIMEOUT_MS: z.string().optional(),
   // Esforço de raciocínio para modelos que o aceitam (minimal, low, medium, high).
   AI_REASONING_EFFORT: z.string().optional(),
+  // "true" usa a Responses API da OpenAI em vez de Chat Completions.
+  AI_USE_RESPONSES_API: z.string().optional(),
   // Telemetria de medição (tempo, tokens): sem TELEMETRY_FILE nada é gravado.
   TELEMETRY_FILE: z.string().optional(),
   // Identificador opaco da sessão de teste (ex.: P01); nunca nome nem e-mail.
