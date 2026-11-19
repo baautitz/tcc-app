@@ -31,7 +31,7 @@ def pct(m):
     return f"{pt(m['media'])} $\\pm$ {pt(m['dp'])}"
 
 
-def quadro(nome, legenda, label, colspec, cab, linhas, nota=None, fonte="Elaborado pelo autor (2026)."):
+def quadro(nome, legenda, label, colspec, cab, linhas, nota=None, fonte="Elaborado pelo autor (2026).", espaco=None):
     """Emite uma Tabela (dados numericos, IBGE/NBR 14724): booktabs, sem linhas verticais, Fonte antes de Nota."""
     colspec = colspec.replace("|", "")
     label = label.replace("qua:", "tab:")
@@ -43,11 +43,12 @@ def quadro(nome, legenda, label, colspec, cab, linhas, nota=None, fonte="Elabora
         linhas_tex.append("\t\t" + " & ".join(str(x) for x in l) + " \\\\")
     corpo = "\n".join(linhas_tex)
     nota_tex = f"\n\t\\par\\vspace{{2pt}}\n\t\\small Nota: {nota}\\par" if nota else ""
+    esp_tex = f"\t\\renewcommand{{\\arraystretch}}{{{espaco}}}\n" if espaco else ""
     (TAB / f"{nome}.tex").write_text(
         "% Gerado por tcc-backend/avaliacao/gerar_saidas.py (nao editar a mao)\n"
         "\\begin{table}[H]\n\t\\centering\n"
         f"\t\\caption{{{legenda}}}\n\t\\label{{{label}}}\n"
-        "\t\\small\n"
+        "\t\\small\n" + esp_tex +
         f"\t\\begin{{tabular}}{{{colspec}}}\n\t\t\\toprule\n\t\t" + " & ".join(f"\\textbf{{{x}}}" for x in cab)
         + " \\\\\n\t\t\\midrule\n" + corpo + "\n\t\t\\bottomrule\n\t\\end{tabular}"
         + f"\n\t\\fonte{{{fonte}}}" + nota_tex + "\n\\end{table}\n")
@@ -120,7 +121,7 @@ quadro("quadro_resultados_seguranca", "Bloqueio dos pedidos de ataque \\textit{P
        fonte="Adaptado de \\citeonline{pedro2024}.")
 
 # L_dashboard / R_payload
-ROT_ITEM = {"composto-kpi": "Composto: KPIs", "composto-temporal": "Composto: agrupamentos temporais", "composto-juncoes": "Composto: junções múltiplas", "composto-lista": "Composto: listas tabulares", "volumosa-order\\_items": "Volumosa:\\\\\\texttt{order\\_items}", "volumosa-orders": "Volumosa:\\\\\\texttt{orders}", "volumosa-order_items": "Volumosa:\\\\\\texttt{order\\_items}"}
+ROT_ITEM = {"composto-kpi": "Composto: KPIs", "composto-temporal": "Composto: agrupamentos temporais", "composto-juncoes": "Composto: junções múltiplas", "composto-lista": "Composto: listas tabulares", "volumosa-order\\_items": "Volumosa: \\texttt{order\\_items}", "volumosa-orders": "Volumosa: \\texttt{orders}", "volumosa-order_items": "Volumosa: \\texttt{order\\_items}"}
 def kb(b):
     return pt(b / 1024, 1)
 comp = [x for x in ld if x["cenario"].startswith("composto") or x["cenario"] == "volumosa"]
@@ -135,10 +136,10 @@ if indiv:
                    kb(st.mean(x["bytes_layout"] for x in indiv)), kb(st.mean(x["bytes_dados"] for x in indiv)),
                    pt(st.mean(x["R_payload_pct"] for x in indiv), 2)])
 quadro("quadro_resultados_dashboard", "Latência de carga do dashboard salvo ($L_{\\text{dashboard}}$) e redução de carga útil ($R_{\\text{payload}}$)",
-       "qua:res-dashboard", "|>{\\raggedright\\arraybackslash}p{3.0cm}|" + "|".join([C("1.5cm")] * 6) + "|",
+       "qua:res-dashboard", "|>{\\raggedright\\arraybackslash}p{4.6cm}|" + "|".join([C("1.35cm")] * 6) + "|",
        ["Dashboard", "Queries", "$L$ fria (ms)", "$L$ quente (ms)", "Layout (KiB)", "Dados (KiB)", "$R_{\\text{payload}}$ (\\%)"], linhas,
        "$L_{\\text{dashboard}}$: tempo até o último byte do layout e de todas as queries, medido por cliente HTTP (sem renderização do navegador); "
-       "``quente'' é a média de 10 cargas consecutivas.")
+       "``quente'' é a média de 10 cargas consecutivas.", espaco="1.25")
 
 # ---------------------------------------------------------------- gráficos
 plt.rcParams.update({"font.family": "DejaVu Sans", "font.size": 10, "axes.spines.top": False, "axes.spines.right": False,
