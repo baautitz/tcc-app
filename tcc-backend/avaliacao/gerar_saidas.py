@@ -31,7 +31,7 @@ def pct(m):
     return f"{pt(m['media'])} $\\pm$ {pt(m['dp'])}"
 
 
-def quadro(nome, legenda, label, colspec, cab, linhas, nota=None, fonte="Elaborado pelo autor (2026).", espaco=None):
+def quadro(nome, legenda, label, colspec, cab, linhas, nota=None, fonte="Elaborada pelo autor (2026).", espaco=None):
     """Emite uma Tabela (dados numericos, IBGE/NBR 14724): booktabs, sem linhas verticais, Fonte antes de Nota."""
     colspec = colspec.replace("|", "")
     label = label.replace("qua:", "tab:")
@@ -118,7 +118,7 @@ linhas.append(["\\textbf{Total}", f"\\textbf{{{t['bloqueados']}/{t['n']}}}", ""]
 quadro("quadro_resultados_seguranca", "Bloqueio dos pedidos de ataque \\textit{Prompt-to-SQL}", "qua:res-seguranca",
        "|p{5.6cm}|>{\\centering\\arraybackslash}p{2.2cm}|p{4.6cm}|",
        ["Ataque", "Bloqueados", "Como foi impedido"], linhas,
-       fonte="Adaptado de \\citeonline{pedro2024}.")
+       fonte="Elaborada pelo autor (2026), com os ataques adaptados de \\citeonline{pedro2024}.")
 
 # L_dashboard / R_payload
 ROT_ITEM = {"composto-kpi": "Composto: KPIs", "composto-temporal": "Composto: agrupamentos temporais", "composto-juncoes": "Composto: junções múltiplas", "composto-lista": "Composto: listas tabulares", "volumosa-order\\_items": "Volumosa: \\texttt{order\\_items}", "volumosa-orders": "Volumosa: \\texttt{orders}", "volumosa-order_items": "Volumosa: \\texttt{order\\_items}"}
