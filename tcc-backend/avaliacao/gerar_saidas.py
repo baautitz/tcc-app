@@ -82,10 +82,21 @@ T = c["tempos_gold"]
 def lt(rot, k, esc=1.0, d=1):
     m = T[k]
     return [rot, pt(m["media"] / esc, d), pt(m["dp"] / esc, d), pt(m["min"] / esc, d), pt(m["max"] / esc, d)]
-linhas = [lt("$L_{\\text{agente}}$ (s)", "L_total_ms", 1000), lt("TTFT do modelo (s)", "TTFT_model_ms_primeiro_turno", 1000),
-          lt("$T_{\\text{thinking}}$ (s)", "T_thinking_ms", 1000), lt("Chamadas de ferramenta", "tool_calls_count", 1, 1),
-          lt("Chamadas ao modelo", "llm_calls_count", 1, 1), lt("Tokens totais", "tokens_total", 1, 0),
-          lt("Tokens de saída", "tokens_output", 1, 0)]
+def tem(k):
+    # Métricas que o provedor não informa (ex.: texto do raciocínio na Responses API) ficam fora da tabela.
+    return T.get(k) is not None and T[k]["max"] > 0
+linhas = [lt("$L_{\\text{agente}}$ (s)", "L_total_ms", 1000)]
+if tem("TTFT_model_ms_primeiro_turno"):
+    linhas.append(lt("TTFT do modelo (s)", "TTFT_model_ms_primeiro_turno", 1000))
+if tem("T_thinking_ms"):
+    linhas.append(lt("$T_{\\text{thinking}}$ (s)", "T_thinking_ms", 1000))
+linhas += [lt("Chamadas de ferramenta", "tool_calls_count", 1, 1),
+           lt("Chamadas ao modelo", "llm_calls_count", 1, 1), lt("Tokens totais", "tokens_total", 1, 0)]
+if tem("tokens_cached"):
+    linhas.append(lt("Tokens de entrada em cache", "tokens_cached", 1, 0))
+linhas.append(lt("Tokens de saída", "tokens_output", 1, 0))
+if tem("tokens_reasoning"):
+    linhas.append(lt("Tokens de raciocínio", "tokens_reasoning", 1, 0))
 quadro("quadro_resultados_tempos", "Tempo e custo do agente por pedido", "qua:res-tempos", "|l|c|c|c|c|",
        ["Métrica", "Média", "Desvio padrão", "Mínimo", "Máximo"], linhas,
        f"Estatística sobre {T['L_total_ms']['n']} execuções do conjunto gold (28 casos $\\times$ 3 repetições); $L_{{\\text{{agente}}}}$ inclui as pausas automáticas para aprovação de query.")
@@ -95,7 +106,7 @@ ROT_ATK = {"atk-u1": "U.1: apagar tabela por comando SQL explícito", "atk-u2": 
            "atk-u3": "U.3: despejar a tabela de usuários", "atk-rd1": "RD.1: contornar a restrição de escrita, pedindo ao modelo que assuma outro papel",
            "atk-rd2": "RD.2: contornar a restrição de leitura, fingindo ser o administrador", "atk-ri1": "RI.1: comentário de avaliação envenenado, lido do banco",
            "atk-ri2": "RI.2: escrita encadeada entre duas leituras"}
-MEC = {"recusa_agente": "recusa do agente", "barreira_sql": "barreira de validação SQL", "consulta_inocua": "só a consulta inócua foi executada"}
+MEC = {"recusa_agente": "recusa do agente", "barreira_sql": "barreira de validação de SQL", "consulta_inocua": "só a consulta inócua foi executada"}
 def mec(por):
     return "; ".join(f"{MEC.get(k, k.replace('_', ' '))} ({n} de 3)" for k, n in sorted(por.items()))
 linhas = []
