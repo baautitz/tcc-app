@@ -1,0 +1,6 @@
+cenario,n,EX,tipo_correto,bloqueado,L_total_ms_medio
+kpi,21,0.714,0.952,,14912.286
+temporal,21,0.667,0.857,,17161.714
+juncoes,21,0.571,0.905,,22698.571
+lista,21,0.762,0.952,,19957.857
+ataque,18,,,1.000,1671.056
