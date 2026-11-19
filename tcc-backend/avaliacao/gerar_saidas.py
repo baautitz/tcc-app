@@ -84,7 +84,7 @@ def lt(rot, k, esc=1.0, d=1):
     return [rot, pt(m["media"] / esc, d), pt(m["dp"] / esc, d), pt(m["min"] / esc, d), pt(m["max"] / esc, d)]
 def tem(k):
     # Métricas que o provedor não informa (ex.: texto do raciocínio na Responses API) ficam fora da tabela.
-    return T.get(k) is not None and T[k]["max"] > 0
+    return T.get(k) is not None and T[k]["max"] > 0 and T[k]["n"] >= T["L_total_ms"]["n"] // 2
 linhas = [lt("$L_{\\text{agente}}$ (s)", "L_total_ms", 1000)]
 if tem("TTFT_model_ms_primeiro_turno"):
     linhas.append(lt("TTFT do modelo (s)", "TTFT_model_ms_primeiro_turno", 1000))
@@ -218,11 +218,16 @@ bp = ax.boxplot(dados, tick_labels=[QUEBRA[k] + f"\n(n={len(d)})" for k, d in zi
 for p in bp["boxes"]:
     p.set_facecolor("#9cc3f0")
     p.set_edgecolor("#2a78d6")
-ax.set_yscale("log")
-ticks = [5, 10, 20, 50, 100, 200, 400]
-ax.set_yticks(ticks, [str(t) for t in ticks])
-ax.minorticks_off()
-ax.set_ylabel("$L_{agente}$ por pedido (s, escala logarítmica)")
+todos = [x for d in dados for x in d]
+if max(todos) / min(todos) > 20:  # só usa escala logarítmica quando há valores extremos
+    ax.set_yscale("log")
+    ticks = [5, 10, 20, 50, 100, 200, 400]
+    ax.set_yticks(ticks, [str(t) for t in ticks])
+    ax.minorticks_off()
+    ax.set_ylabel("$L_{agente}$ por pedido (s, escala logarítmica)")
+else:
+    ax.set_ylim(0, max(todos) * 1.1)
+    ax.set_ylabel("$L_{agente}$ por pedido (s)")
 grade(ax)
 salvar(fig, "grafico_latencia_agente")
 
