@@ -88,6 +88,7 @@ interface TokenUsage {
   output: number;
   total: number;
   reasoning: number | null;
+  cached?: number | null;
 }
 
 function usageOf(result: LLMResult): TokenUsage | null {
@@ -99,6 +100,7 @@ function usageOf(result: LLMResult): TokenUsage | null {
             output_tokens?: number;
             total_tokens?: number;
             output_token_details?: { reasoning?: number };
+            input_token_details?: { cache_read?: number };
           };
         };
       }
@@ -112,6 +114,10 @@ function usageOf(result: LLMResult): TokenUsage | null {
       reasoning:
         typeof meta.output_token_details?.reasoning === "number"
           ? meta.output_token_details.reasoning
+          : null,
+      cached:
+        typeof meta.input_token_details?.cache_read === "number"
+          ? meta.input_token_details.cache_read
           : null,
     };
   const legacy = result.llmOutput?.tokenUsage as
@@ -211,6 +217,7 @@ export class AiTurnTelemetry {
             output_tokens?: number;
             total_tokens?: number;
             output_token_details?: { reasoning?: number };
+            input_token_details?: { cache_read?: number };
           };
         }
       | undefined;
@@ -224,6 +231,10 @@ export class AiTurnTelemetry {
         reasoning:
           typeof usage.output_token_details?.reasoning === "number"
             ? usage.output_token_details.reasoning
+            : null,
+        cached:
+          typeof usage.input_token_details?.cache_read === "number"
+            ? usage.input_token_details.cache_read
             : null,
       });
     if (message.type !== "tool" || !message.name) return;
@@ -270,6 +281,7 @@ export class AiTurnTelemetry {
       tokens_output: this.tokens?.output ?? null,
       tokens_total: this.tokens?.total ?? null,
       tokens_reasoning: this.tokens?.reasoning ?? null,
+      tokens_cached: this.tokens?.cached ?? null,
       schema_valid_first_try: this.firstTargetValid ?? null,
       generated_sql: this.sqls,
       result,
@@ -298,6 +310,10 @@ export class AiTurnTelemetry {
         usage.reasoning === null && (current?.reasoning ?? null) === null
           ? null
           : (current?.reasoning ?? 0) + (usage.reasoning ?? 0),
+      cached:
+        (usage.cached ?? null) === null && (current?.cached ?? null) === null
+          ? null
+          : (current?.cached ?? 0) + (usage.cached ?? 0),
     };
   }
 
@@ -334,6 +350,7 @@ export class AiTurnTelemetry {
           tokens_output: usage?.output ?? null,
           tokens_total: usage?.total ?? null,
           tokens_reasoning: usage?.reasoning ?? null,
+          tokens_cached: usage?.cached ?? null,
         });
         span?.end();
       }
