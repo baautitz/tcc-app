@@ -7,8 +7,15 @@ import {
 
 type AiEnvironment = Pick<
   Environment,
-  "AI_BASE_URL" | "AI_API_KEY" | "AI_MODEL" | "AI_REQUEST_TIMEOUT_MS"
+  | "AI_BASE_URL"
+  | "AI_API_KEY"
+  | "AI_MODEL"
+  | "AI_REQUEST_TIMEOUT_MS"
+  | "AI_REASONING_EFFORT"
 >;
+
+export const AI_REASONING_EFFORTS = ["minimal", "low", "medium", "high"] as const;
+export type AiReasoningEffort = (typeof AI_REASONING_EFFORTS)[number];
 
 export const DEFAULT_AI_REQUEST_TIMEOUT_MS = 180_000;
 export const MIN_AI_REQUEST_TIMEOUT_MS = 1_000;
@@ -26,6 +33,7 @@ export type ResolvedAiConfiguration =
       apiKey: string;
       model: string;
       requestTimeoutMs: number;
+      reasoningEffort?: AiReasoningEffort;
     }
   | AiConfigurationIssue;
 
@@ -98,12 +106,27 @@ export class AiConfigService {
       requestTimeoutMs = parsedTimeout;
     }
 
+    const configuredEffort = clean(values.AI_REASONING_EFFORT);
+    if (
+      configuredEffort !== undefined &&
+      !(AI_REASONING_EFFORTS as readonly string[]).includes(configuredEffort)
+    ) {
+      return {
+        enabled: false,
+        code: "AI_CONFIGURATION_INVALID",
+        message: `AI_REASONING_EFFORT deve ser um destes valores: ${AI_REASONING_EFFORTS.join(", ")}.`,
+      };
+    }
+
     return {
       enabled: true,
       baseURL: baseURL!,
       apiKey: apiKey!,
       model: model!,
       requestTimeoutMs,
+      ...(configuredEffort
+        ? { reasoningEffort: configuredEffort as AiReasoningEffort }
+        : {}),
     };
   }
 
@@ -144,10 +167,13 @@ export class AiConfigService {
             },
           }
         : {}),
+      ...(configuration.reasoningEffort
+        ? { reasoning: { effort: configuration.reasoningEffort } }
+        : {}),
       configuration: { baseURL: configuration.baseURL },
       // Some OpenAI-compatible providers reject stream_options. A MiniMax aceita e
       // devolve a contagem de tokens (inclusive de raciocínio), usada na telemetria.
-      streamUsage: isMiniMax,
+      streamUsage: isMiniMax || isOpenAI,
     });
   }
 }
